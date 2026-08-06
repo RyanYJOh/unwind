@@ -22,7 +22,17 @@ import '../../widgets/pull_cord.dart';
 /// 투두 기능 없음: 하드코딩 더미 5개, DB 없음, 입력 없음, 네비게이션 없음.
 /// 목적: "손끝에서 기분이 좋은가"의 검증. M0 승인 전 M1 시작 금지.
 class M0PrototypeScreen extends StatefulWidget {
-  const M0PrototypeScreen({super.key});
+  /// 온보딩(§6.6)에서 샘플 방으로 재사용한다.
+  final List<String>? itemTitles;
+  final VoidCallback? onSequenceComplete;
+  final bool showReset;
+
+  const M0PrototypeScreen({
+    super.key,
+    this.itemTitles,
+    this.onSequenceComplete,
+    this.showReset = true,
+  });
 
   @override
   State<M0PrototypeScreen> createState() => _M0PrototypeScreenState();
@@ -39,13 +49,11 @@ class _M0Item {
 
 class _M0PrototypeScreenState extends State<M0PrototypeScreen>
     with TickerProviderStateMixin {
-  // ── 더미 데이터 (M0: 하드코딩) ────────────────────────────────
-  final _items = [
-    _M0Item('치과 예약 전화하기'),
-    _M0Item('장보기'),
-    _M0Item('운동 30분'),
-    _M0Item('회의록 정리해서 보내기'),
-    _M0Item('화분에 물 주기'),
+  // ── 더미 데이터 (M0: 하드코딩 / 온보딩: 주입) ─────────────────
+  late final List<_M0Item> _items = [
+    for (final t in widget.itemTitles ??
+        const ['치과 예약 전화하기', '장보기', '운동 30분', '회의록 정리해서 보내기', '화분에 물 주기'])
+      _M0Item(t),
   ];
 
   final _engine = BrightnessEngine();
@@ -256,7 +264,9 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
     // 미룬 것이 있으면 담백한 버전 (§9.3) — M0 이후 사용자 승인 받고 구현.
 
     await Future.delayed(const Duration(seconds: 3));
-    if (mounted) setState(() => _showReset = true);
+    if (!mounted) return;
+    if (widget.showReset) setState(() => _showReset = true);
+    widget.onSequenceComplete?.call();
   }
 
   /// M0 테스트 전용 — 감각 반복 검증을 위한 리셋. 제품 기능 아님.

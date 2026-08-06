@@ -19,6 +19,7 @@ class DayRolloverService {
 
   Timer? _timer;
   String _todayKey;
+  bool _disposed = false;
 
   DayRolloverService({
     required this.db,
@@ -37,6 +38,7 @@ class DayRolloverService {
   }
 
   void _schedule() {
+    if (_disposed) return; // dispose 이후 start()의 잔여 비동기가 타이머를 걸지 않도록
     _timer?.cancel();
     final now = DateTime.now();
     final next = nextRolloverAt(now, dayStartHour: dayStartHour);
@@ -80,6 +82,7 @@ class DayRolloverService {
   }
 
   void dispose() {
+    _disposed = true;
     _timer?.cancel();
   }
 }

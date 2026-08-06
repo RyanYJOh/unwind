@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/tokens/typography.dart';
+import 'features/onboarding/onboarding_flow.dart';
+import 'features/settings/settings_controller.dart';
 import 'features/today/today_screen.dart';
 
 void main() {
@@ -11,11 +13,14 @@ void main() {
   runApp(const ProviderScope(child: UnwindApp()));
 }
 
-class UnwindApp extends StatelessWidget {
+class UnwindApp extends ConsumerWidget {
   const UnwindApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // §6.6 온보딩 — 완료 전에는 온보딩으로 (로딩 중에는 빈 화면 대신 홈 유지)
+    final onboarded = ref.watch(settingsControllerProvider
+        .select((s) => s.value?.onboardingCompleted));
     return MaterialApp(
       title: 'Unwind',
       debugShowCheckedModeBanner: false,
@@ -32,7 +37,9 @@ class UnwindApp extends StatelessWidget {
       },
       // M0 감각 프로토타입은 lib/features/today/m0_prototype_screen.dart에 유지
       // (실기기 감각 검증용 — §13 M0 승인 전까지 보존)
-      home: const TodayScreen(),
+      home: onboarded == false
+          ? const OnboardingFlow()
+          : const TodayScreen(),
     );
   }
 }

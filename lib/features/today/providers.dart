@@ -11,6 +11,7 @@ import '../../domain/services/brightness_engine.dart';
 import '../../domain/services/day_rollover_service.dart';
 import '../../domain/services/notification_service.dart';
 import '../../domain/services/recurrence_expander.dart';
+import '../settings/settings_controller.dart';
 
 /// DB — 앱 전역 단일 인스턴스 (§3.2 단일 진실 공급원)
 final databaseProvider = Provider<UnwindDatabase>((ref) {
@@ -29,17 +30,29 @@ final billRepositoryProvider = Provider<BillRepository>(
 final unreadBillsProvider = StreamProvider<List<WeeklyBill>>(
     (ref) => ref.watch(billRepositoryProvider).watchUnread());
 
-final hapticsProvider = Provider<UnwindHaptics>((ref) => UnwindHaptics());
+final hapticsProvider = Provider<UnwindHaptics>((ref) {
+  final h = UnwindHaptics();
+  // §6.7 햅틱 on/off 연동
+  ref.listen(settingsControllerProvider, (prev, next) {
+    h.enabled = next.value?.hapticsEnabled ?? true;
+  }, fireImmediately: true);
+  return h;
+});
 
 final soundPlayerProvider = Provider<SoundPlayer>((ref) {
   final p = SoundPlayer();
   p.init();
+  // §6.7 사운드 on/off 연동
+  ref.listen(settingsControllerProvider, (prev, next) {
+    p.enabled = next.value?.soundEnabled ?? true;
+  }, fireImmediately: true);
   ref.onDispose(p.dispose);
   return p;
 });
 
-/// §4.5 dayStartHour — M1은 기본값 6 고정, 설정 화면(M4)에서 연결
-final dayStartHourProvider = Provider<int>((ref) => 6);
+/// §4.5 dayStartHour — 설정 연동 (§6.7), 기본 6
+final dayStartHourProvider = Provider<int>((ref) =>
+    ref.watch(settingsControllerProvider).value?.dayStartHour ?? 6);
 
 final recurrenceExpanderProvider = Provider<RecurrenceExpander>(
     (ref) => RecurrenceExpander(ref.watch(databaseProvider)));
@@ -220,7 +233,21 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
     onTap: (payload) =>
         ref.read(notificationTapProvider.notifier).set(payload),
   );
-  service.init().then((_) => service.scheduleBillNotification());
+  service.init().then((_) {
+    final enabled = ref
+            .read(settingsControllerProvider)
+            .value
+            ?.billNotificationEnabled ??
+        true;
+    service.scheduleBillNotification(enabled: enabled);
+  });
+  // §6.7 청구서 알림 on/off 연동
+  ref.listen(settingsControllerProvider, (prev, next) {
+    final enabled = next.value?.billNotificationEnabled;
+    if (enabled != null && enabled != prev?.value?.billNotificationEnabled) {
+      service.scheduleBillNotification(enabled: enabled);
+    }
+  });
   return service;
 });
 
@@ -235,11 +262,13 @@ final nightReminderSchedulerProvider = Provider<void>((ref) {
   final pending =
       todos.where((t) => t.status == TodoStatus.pending).length;
   final pulled = day?.lightsOutAt != null;
+  final settings =
+      ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
 
-  // TODO(unwind): nightReminderEnabled·시각 설정 연동 — M4 설정 화면
-  if (pending > 0 && !pulled) {
-    service.scheduleNightReminder(hour: 22, minute: 0); // 기본 22:00 (§4.5)
+  if (settings.nightReminderEnabled && pending > 0 && !pulled) {
+    final (h, m) = settings.reminderHourMinute; // 기본 22:00 (§4.5)
+    service.scheduleNightReminder(hour: h, minute: m);
   } else {
-    service.cancelNightReminder(); // 할 일 없음 / 이미 당김 → 보내지 않는다
+    service.cancelNightReminder(); // 할 일 없음 / 이미 당김 / 꺼짐 → 보내지 않는다
   }
 });

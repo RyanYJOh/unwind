@@ -14,8 +14,10 @@ import 'package:unwind/widgets/lamp_row.dart';
 void main() {
   late UnwindDatabase db;
 
-  setUp(() {
+  setUp(() async {
     db = UnwindDatabase.withExecutor(NativeDatabase.memory());
+    // 온보딩 라우팅 우회 (§6.6) — 홈 화면 테스트
+    await db.settingsDao.setValue('onboardingCompleted', 'true');
   });
 
   Future<void> pumpApp(WidgetTester tester) async {

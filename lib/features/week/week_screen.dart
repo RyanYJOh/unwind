@@ -12,6 +12,7 @@ import '../../core/utils/dates.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
 import '../compose/compose_sheet.dart';
+import '../settings/settings_screen.dart';
 import '../today/providers.dart';
 
 /// §6.2 주간 뷰 — 책상 위 플래너.
@@ -92,10 +93,24 @@ class WeekScreen extends ConsumerWidget {
                             style: UnwindType.title.copyWith(
                                 color: colors.textPrimarySnap,
                                 decoration: TextDecoration.none)),
-                        Text('접기',
-                            style: UnwindType.label.copyWith(
-                                color: colors.textSecondary,
-                                decoration: TextDecoration.none)),
+                        Row(children: [
+                          GestureDetector(
+                            onTap: () => showSettingsScreen(context),
+                            behavior: HitTestBehavior.opaque,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                  right: UnwindSpacing.s16),
+                              child: Text('설정',
+                                  style: UnwindType.label.copyWith(
+                                      color: colors.textSecondary,
+                                      decoration: TextDecoration.none)),
+                            ),
+                          ),
+                          Text('접기',
+                              style: UnwindType.label.copyWith(
+                                  color: colors.textSecondary,
+                                  decoration: TextDecoration.none)),
+                        ]),
                       ],
                     ),
                   ),
