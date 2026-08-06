@@ -16,7 +16,12 @@ class DayDao extends DatabaseAccessor<UnwindDatabase> with _$DayDaoMixin {
   Stream<Day?> watchDay(String date) =>
       (select(days)..where((d) => d.date.equals(date))).watchSingleOrNull();
 
-  /// 주간 스트립용 — 범위 조회 (M2)
+  /// 주간 스트립용 — 범위 스트림 (§6.2)
+  Stream<List<Day>> watchRange(String from, String to) => (select(days)
+        ..where((d) => d.date.isBetweenValues(from, to))
+        ..orderBy([(d) => OrderingTerm.asc(d.date)]))
+      .watch();
+
   Future<List<Day>> getRange(String from, String to) => (select(days)
         ..where((d) => d.date.isBetweenValues(from, to))
         ..orderBy([(d) => OrderingTerm.asc(d.date)]))

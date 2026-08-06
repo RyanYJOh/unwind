@@ -10,6 +10,7 @@ import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../core/utils/dates.dart';
 import '../../data/db/database.dart';
+import '../../data/db/tables/tables.dart';
 import '../today/providers.dart';
 import 'date_bar.dart';
 
@@ -18,16 +19,18 @@ import 'date_bar.dart';
 /// - 연속 입력이 기본: 엔터 → 저장 + 입력창 비움 + 시트·키보드·날짜 유지
 /// - 시트를 닫았다 열면 날짜는 기본값(오늘, 취침 후엔 내일)으로 리셋
 /// - 편집 모드([existing] 전달 시): 저장 후 닫힘
-Future<void> showComposeSheet(BuildContext context, {Todo? existing}) {
+Future<void> showComposeSheet(BuildContext context,
+    {Todo? existing, String? initialDate}) {
   return Navigator.of(context, rootNavigator: true).push(
-    _ComposeSheetRoute(existing: existing),
+    _ComposeSheetRoute(existing: existing, initialDate: initialDate),
   );
 }
 
 /// 커스텀 모달 라우트 — Material 바텀시트 대신 §9.4 시트 모션(320ms, theme)
 class _ComposeSheetRoute extends PopupRoute<void> {
   final Todo? existing;
-  _ComposeSheetRoute({this.existing});
+  final String? initialDate;
+  _ComposeSheetRoute({this.existing, this.initialDate});
 
   @override
   Color? get barrierColor => const Color(0x66000000);
@@ -48,14 +51,15 @@ class _ComposeSheetRoute extends PopupRoute<void> {
     return SlideTransition(
       position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
           CurvedAnimation(parent: animation, curve: UnwindMotion.theme)),
-      child: ComposeSheet(existing: existing),
+      child: ComposeSheet(existing: existing, initialDate: initialDate),
     );
   }
 }
 
 class ComposeSheet extends ConsumerStatefulWidget {
   final Todo? existing;
-  const ComposeSheet({super.key, this.existing});
+  final String? initialDate;
+  const ComposeSheet({super.key, this.existing, this.initialDate});
 
   @override
   ConsumerState<ComposeSheet> createState() => _ComposeSheetState();
@@ -69,12 +73,17 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
   bool _memoOpen = false;
   bool _calendarOpen = false;
 
+  /// §6.3 반복 (접힌 상태). null = 반복 없음.
+  RecurrenceRule? _rule;
+  int _weekdayMask = 0;
+
   bool get _isEdit => widget.existing != null;
 
   @override
   void initState() {
     super.initState();
     _dateKey = widget.existing?.date ??
+        widget.initialDate ??
         ref.read(composeDefaultDateProvider); // 취침 후엔 내일 (§6.1)
     if (widget.existing != null) {
       _titleController.text = widget.existing!.title;
@@ -104,13 +113,36 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
       return;
     }
 
-    await repo.add(
-        title: title, memo: memo.isEmpty ? null : memo, date: _dateKey);
+    if (_rule != null) {
+      // 반복 규칙 생성 → 인스턴스는 전개 서비스가 materialize (§4.2)
+      final db = ref.read(databaseProvider);
+      final d = parseDayKey(_dateKey);
+      await db.recurrenceDao.create(
+        title: title,
+        memo: memo.isEmpty ? null : memo,
+        rule: _rule!,
+        weekdayMask: _rule == RecurrenceRule.weekly
+            ? (_weekdayMask != 0 ? _weekdayMask : 1 << (d.weekday - 1))
+            : null,
+        dayOfMonth: _rule == RecurrenceRule.monthly ? d.day : null,
+        startDate: _dateKey,
+      );
+      await ref
+          .read(recurrenceExpanderProvider)
+          .expand(ref.read(todayKeyProvider));
+    } else {
+      await repo.add(
+          title: title, memo: memo.isEmpty ? null : memo, date: _dateKey);
+    }
 
     // §6.3 함정 3: 연속 입력 — 입력창만 비우고 시트·키보드·날짜는 유지
     _titleController.clear();
     _memoController.clear();
-    setState(() => _memoOpen = false);
+    setState(() {
+      _memoOpen = false;
+      _rule = null;
+      _weekdayMask = 0;
+    });
     _titleFocus.requestFocus();
   }
 
@@ -222,7 +254,59 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
                                 decoration: TextDecoration.none)),
                       ),
                     ),
-                  // TODO(unwind): 반복 규칙 UI — M2 (§6.3 구조의 세 번째 접힘 영역)
+                  // 반복 (선택, 접힌 상태 — §6.3 구조). 편집 모드에서는 숨김.
+                  if (!_isEdit)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: UnwindSpacing.s24,
+                          vertical: UnwindSpacing.s4),
+                      child: Wrap(
+                        spacing: UnwindSpacing.s8,
+                        runSpacing: UnwindSpacing.s4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          for (final (label, rule) in const [
+                            ('반복 없음', null),
+                            ('매일', RecurrenceRule.daily),
+                            ('주중', RecurrenceRule.weekdays),
+                            ('매주', RecurrenceRule.weekly),
+                            ('매월', RecurrenceRule.monthly),
+                          ])
+                            _RuleChip(
+                              label: label,
+                              selected: _rule == rule,
+                              colors: colors,
+                              onTap: () => setState(() {
+                                _rule = rule;
+                                if (rule != RecurrenceRule.weekly) {
+                                  _weekdayMask = 0;
+                                }
+                              }),
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (!_isEdit && _rule == RecurrenceRule.weekly)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: UnwindSpacing.s24,
+                          vertical: UnwindSpacing.s4),
+                      child: Wrap(
+                        spacing: UnwindSpacing.s8,
+                        children: [
+                          for (var i = 0; i < 7; i++)
+                            _RuleChip(
+                              label: const [
+                                '월', '화', '수', '목', '금', '토', '일'
+                              ][i],
+                              selected: (_weekdayMask & (1 << i)) != 0,
+                              colors: colors,
+                              onTap: () => setState(
+                                  () => _weekdayMask ^= 1 << i),
+                            ),
+                        ],
+                      ),
+                    ),
                   if (_calendarOpen)
                     SizedBox(
                       height: 180,
@@ -312,6 +396,51 @@ class DateBarHost extends StatelessWidget {
           haptics: haptics,
         ),
       ],
+    );
+  }
+}
+
+/// 반복 선택 칩 — 액센트는 lamp 하나뿐 (§8.1)
+class _RuleChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final UnwindColors colors;
+  final VoidCallback onTap;
+
+  const _RuleChip({
+    required this.label,
+    required this.selected,
+    required this.colors,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: selected
+              ? colors.lamp.withValues(alpha: 0.22)
+              : colors.surfaceRaised,
+          borderRadius: BorderRadius.circular(UnwindRadius.pill),
+          border: Border.all(
+              color: selected ? colors.lamp : colors.border, width: 1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: UnwindSpacing.s12, vertical: UnwindSpacing.s4),
+          child: Text(
+            label,
+            style: UnwindType.caption.copyWith(
+                color: selected
+                    ? colors.textPrimarySnap
+                    : colors.textSecondary,
+                decoration: TextDecoration.none),
+          ),
+        ),
+      ),
     );
   }
 }

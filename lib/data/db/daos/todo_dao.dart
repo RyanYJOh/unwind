@@ -79,6 +79,27 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
     return (delete(todos)..where((t) => t.id.equals(id))).go();
   }
 
+  /// 반복 인스턴스 존재 여부 (§4.2 중복 방지)
+  Future<bool> existsInstance(String recurrenceId, String date) async {
+    final row = await (select(todos)
+          ..where((t) =>
+              t.recurrenceId.equals(recurrenceId) & t.date.equals(date))
+          ..limit(1))
+        .getSingleOrNull();
+    return row != null;
+  }
+
+  /// 날짜 범위의 할 일 스트림 (주간 뷰 §6.2)
+  Stream<List<Todo>> watchRange(String from, String to) {
+    return (select(todos)
+          ..where((t) => t.date.isBetweenValues(from, to))
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.date),
+            (t) => OrderingTerm.asc(t.sortIndex),
+          ]))
+        .watch();
+  }
+
   /// (doneCount, totalCount) — §5.1: totalCount = pending + done
   /// deferred는 조도 계산에서 제외 (v1에서는 발생하지 않음, §15)
   Future<(int, int)> countsForDate(String date) async {

@@ -19,6 +19,7 @@ import '../../widgets/lumi/lumi_view.dart';
 import '../../widgets/night_sky.dart';
 import '../../widgets/pull_cord.dart';
 import '../compose/compose_sheet.dart';
+import '../week/weekly_strip.dart';
 import 'providers.dart';
 
 /// §6.1 홈 — 오늘의 방. DB 스트림 구독 (§3.2), 조도는 brightnessProvider 단일값.
@@ -311,8 +312,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: UnwindSpacing.s16),
-                // TODO(unwind): 주간 스트립 (§6.2) — M2
+                const SizedBox(height: UnwindSpacing.s8),
+                // 주간 스트립 (§6.2) — 아래로 당기면 주간 뷰
+                AnimatedBuilder(
+                  animation: _theme,
+                  builder: (context, _) =>
+                      WeeklyStrip(currentT: _displayTStatic),
+                ),
+                const SizedBox(height: UnwindSpacing.s8),
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: UnwindSpacing.s24),

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
 import 'daos/day_dao.dart';
+import 'daos/recurrence_dao.dart';
 import 'daos/settings_dao.dart';
 import 'daos/todo_dao.dart';
 import 'tables/tables.dart';
@@ -11,7 +12,7 @@ part 'database.g.dart';
 /// §3.2 단일 진실 공급원 — 모든 쓰기는 로컬 DB에 반영되고 UI는 스트림 구독.
 @DriftDatabase(
   tables: [Todos, Recurrences, Days, WeeklyBills, Settings],
-  daos: [TodoDao, DayDao, SettingsDao],
+  daos: [TodoDao, DayDao, RecurrenceDao, SettingsDao],
 )
 class UnwindDatabase extends _$UnwindDatabase {
   UnwindDatabase()
