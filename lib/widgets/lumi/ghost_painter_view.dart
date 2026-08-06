@@ -10,8 +10,9 @@ import 'ghost_contract.dart' show GhostEvent;
 /// (Rive 에디터 없이 동일한 표현 — .riv가 생기면 GhostView가 자동으로 Rive 사용)
 ///
 /// 브리프 §4 블렌드(awake↔drowsy) + 타임라인 C~F 대응:
-///   - 눈꺼풀 Y (0 → 3/4 덮음, 과장), 흰자 흰색→분홍(#FFD8D8)
+///   - 눈꺼풀 Y (0 → 3/4 덮음, 과장)
 ///   - 다크서클 0→35%, 동공 100→70%, 하이라이트 100→0%, 머리 0→5도
+///   - 흰자는 항상 흰색 (분홍 블렌드는 사용자 결정으로 제외)
 ///   - 부유: 진폭 크고 주기 짧음 → 진폭 작고 주기 김
 ///   - yawn(1.5s) / checkBounce(0.5s 통통) / fallAsleep(zzz) / happyWake
 /// 확정 결정: 충혈선 없음. 물결은 Flutter라 진짜로 구현(졸릴수록 감쇠).
@@ -211,8 +212,8 @@ class _GhostPainterViewState extends State<GhostPainterView>
               sleepiness: t,
               asleepProgress: s,
               lidCover: lid.clamp(0.0, 1.0),
-              scleraColor: Color.lerp(const Color(0xFFFFFFFF),
-                  const Color(0xFFFFD8D8), t)!, // 분홍 (연분홍 금지)
+              // 흰자는 항상 흰색 — 분홍 블렌드는 사용자 결정으로 제거
+              scleraColor: const Color(0xFFFFFFFF),
               darkCircleOpacity: 0.35 * t * (1 - s * 0.5),
               pupilScale: _lerp(1.0, 0.7, t),
               highlightOpacity:
