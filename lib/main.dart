@@ -1,13 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/tokens/typography.dart';
-import 'features/today/m0_prototype_screen.dart';
+import 'features/today/today_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const UnwindApp());
+  runApp(const ProviderScope(child: UnwindApp()));
 }
 
 class UnwindApp extends StatelessWidget {
@@ -29,7 +30,9 @@ class UnwindApp extends StatelessWidget {
           child: child!,
         );
       },
-      home: const M0PrototypeScreen(),
+      // M0 감각 프로토타입은 lib/features/today/m0_prototype_screen.dart에 유지
+      // (실기기 감각 검증용 — §13 M0 승인 전까지 보존)
+      home: const TodayScreen(),
     );
   }
 }

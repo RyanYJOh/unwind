@@ -1,6 +1,6 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:unwind/main.dart';
+import 'package:flutter/material.dart';
+import 'package:unwind/features/today/m0_prototype_screen.dart';
 import 'package:unwind/widgets/lamp_row.dart';
 import 'package:unwind/widgets/pull_cord.dart';
 
@@ -9,7 +9,7 @@ import 'package:unwind/widgets/pull_cord.dart';
 void main() {
   testWidgets('M0: 더미 5개가 표시되고, 완료해도 리스트에서 사라지지 않는다',
       (tester) async {
-    await tester.pumpWidget(const UnwindApp());
+    await tester.pumpWidget(const MaterialApp(home: M0PrototypeScreen()));
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(LampRow), findsNWidgets(5));
@@ -29,7 +29,7 @@ void main() {
 
   testWidgets('M0: 전등 줄 임계 이상 당기면 소등 시퀀스가 돌고 리셋이 노출된다',
       (tester) async {
-    await tester.pumpWidget(const UnwindApp());
+    await tester.pumpWidget(const MaterialApp(home: M0PrototypeScreen()));
     await tester.pump(const Duration(milliseconds: 50));
 
     // 임계(56px) 이상 당기기 — 저항 곡선 고려해 크게 당긴다
@@ -53,7 +53,7 @@ void main() {
   });
 
   testWidgets('M0: 임계 미만으로 당기면 아무 일도 없다', (tester) async {
-    await tester.pumpWidget(const UnwindApp());
+    await tester.pumpWidget(const MaterialApp(home: M0PrototypeScreen()));
     await tester.pump(const Duration(milliseconds: 50));
 
     await tester.drag(find.byType(PullCord), const Offset(0, 20));

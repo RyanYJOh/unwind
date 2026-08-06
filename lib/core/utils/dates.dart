@@ -1,0 +1,36 @@
+/// 날짜 유틸 — DB의 DATE 컬럼은 `yyyy-MM-dd` 로컬 문자열로 저장한다.
+library;
+
+/// DateTime → 'yyyy-MM-dd' (로컬)
+String dayKey(DateTime dt) {
+  final y = dt.year.toString().padLeft(4, '0');
+  final m = dt.month.toString().padLeft(2, '0');
+  final d = dt.day.toString().padLeft(2, '0');
+  return '$y-$m-$d';
+}
+
+/// 'yyyy-MM-dd' → DateTime(로컬 자정)
+DateTime parseDayKey(String key) {
+  final p = key.split('-');
+  return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+}
+
+/// §4.5 dayStartHour(기본 6시) 기준의 "논리적 오늘".
+/// 새벽 2시는 아직 어제의 방이다.
+DateTime logicalToday(DateTime now, {int dayStartHour = 6}) {
+  final shifted = now.subtract(Duration(hours: dayStartHour));
+  return DateTime(shifted.year, shifted.month, shifted.day);
+}
+
+/// 논리적 오늘의 dayKey
+String logicalTodayKey(DateTime now, {int dayStartHour = 6}) =>
+    dayKey(logicalToday(now, dayStartHour: dayStartHour));
+
+/// 다음 논리적 날짜 경계 시각 (롤오버 타이머용)
+DateTime nextRolloverAt(DateTime now, {int dayStartHour = 6}) {
+  final today = logicalToday(now, dayStartHour: dayStartHour);
+  return DateTime(today.year, today.month, today.day + 1, dayStartHour);
+}
+
+DateTime addDays(DateTime day, int n) =>
+    DateTime(day.year, day.month, day.day + n);

@@ -15,6 +15,9 @@ class LampRow extends StatefulWidget {
   final bool isOn;
   final VoidCallback? onTap;
 
+  /// 롱프레스 → 편집/삭제 메뉴 (§6.1)
+  final VoidCallback? onLongPress;
+
   /// §5.5 호흡 — 켜진 등의 glow만 미세하게 오르내린다. null이면 정지.
   final Animation<double>? breath;
 
@@ -23,6 +26,7 @@ class LampRow extends StatefulWidget {
     required this.title,
     required this.isOn,
     this.onTap,
+    this.onLongPress,
     this.breath,
   });
 
@@ -101,6 +105,7 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
       button: true,
       child: GestureDetector(
         onTap: _handleTap,
+        onLongPress: widget.onLongPress,
         behavior: HitTestBehavior.opaque,
         child: ConstrainedBox(
           constraints:
