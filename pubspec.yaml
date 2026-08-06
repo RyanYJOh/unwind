@@ -25,6 +25,7 @@ dependencies:
   share_plus: ^12.0.1
   path_provider: ^2.1.5
   audioplayers: ^6.8.1
+  rive: ^0.14.11
 
 dev_dependencies:
   flutter_test:
@@ -40,6 +41,7 @@ flutter:
   assets:
     - assets/sound/
     - assets/textures/
+    - assets/rive/
 
   # §8.2 — 폰트는 앱에 번들, 네트워크 로드 금지
   fonts:

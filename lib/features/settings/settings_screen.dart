@@ -5,6 +5,7 @@ import '../../core/theme/unwind_theme.dart';
 import '../../core/tokens/color_ramp.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
+import 'ghost_demo_screen.dart';
 import 'settings_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 
@@ -143,6 +144,13 @@ class SettingsScreen extends ConsumerWidget {
                         colors: colors,
                         destructive: true,
                         onTap: () => _confirmFullReset(context, ctrl, l10n),
+                      ),
+                      // TODO(unwind): 배포 빌드에서 제거 — Rive 검증 데모 (브리프 §6.4)
+                      _PickerRow(
+                        label: 'Ghost demo (dev)',
+                        valueLabel: '',
+                        colors: colors,
+                        onTap: () => showGhostDemoScreen(context),
                       ),
                       const SizedBox(height: UnwindSpacing.s24),
                       Center(
