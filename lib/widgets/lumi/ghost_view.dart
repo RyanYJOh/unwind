@@ -6,6 +6,9 @@ import 'package:flutter/widgets.dart';
 import 'package:rive/rive.dart' as rive;
 
 import 'ghost_contract.dart';
+import 'ghost_painter_view.dart';
+
+export 'ghost_contract.dart' show GhostEvent;
 
 /// Rive 브리프 §0 — 캐릭터 캡슐화 위젯.
 /// 앱 본체는 이 인터페이스로만 캐릭터를 다루며 내부가 Rive인지 알지 못한다.
@@ -21,7 +24,8 @@ class GhostView extends StatefulWidget {
   final double size;
   final bool reduceMotion;
 
-  /// .riv 로드 실패 시 대신 그릴 위젯 (없으면 빈 공간)
+  /// .riv 로드 실패 시 대신 그릴 위젯.
+  /// 지정하지 않으면 [GhostPainterView] (브리프 사양의 Flutter 구현)를 쓴다.
   final WidgetBuilder? fallbackBuilder;
 
   const GhostView({
@@ -38,7 +42,6 @@ class GhostView extends StatefulWidget {
   State<GhostView> createState() => _GhostViewState();
 }
 
-enum GhostEvent { checkOff, allDone, wakeUpHappy }
 
 class _GhostViewState extends State<GhostView> {
   rive.FileLoader? _fileLoader;
@@ -134,15 +137,23 @@ class _GhostViewState extends State<GhostView> {
     super.dispose();
   }
 
+  Widget _painterFallback() => GhostPainterView(
+        sleepiness: widget.sleepiness,
+        event: widget.event,
+        eventTick: widget.eventTick,
+        size: widget.size,
+        reduceMotion: widget.reduceMotion,
+      );
+
   @override
   Widget build(BuildContext context) {
     final loader = _fileLoader;
     if (!_assetOk || loader == null) {
-      // 에셋 없음 / Rive 런타임 사용 불가 — 폴백 렌더러
+      // 에셋 없음 / Rive 런타임 사용 불가 — Flutter 고스트 렌더러
       return SizedBox(
         width: widget.size,
         height: widget.size,
-        child: widget.fallbackBuilder?.call(context) ?? const SizedBox.shrink(),
+        child: widget.fallbackBuilder?.call(context) ?? _painterFallback(),
       );
     }
     return SizedBox(
@@ -169,7 +180,7 @@ class _GhostViewState extends State<GhostView> {
               fit: rive.Fit.contain,
             ),
           rive.RiveFailed() =>
-            widget.fallbackBuilder?.call(context) ?? const SizedBox.shrink(),
+            widget.fallbackBuilder?.call(context) ?? _painterFallback(),
           rive.RiveLoading() => const SizedBox.shrink(),
         },
       ),

@@ -11,3 +11,6 @@ abstract final class GhostContract {
   static const vmAllDone = 'allDone'; // Boolean
   static const vmHappy = 'happy'; // Boolean
 }
+
+/// 브리프 §0 — 이산 이벤트
+enum GhostEvent { checkOff, allDone, wakeUpHappy }

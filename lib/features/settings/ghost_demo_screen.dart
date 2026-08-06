@@ -47,13 +47,6 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
                 event: _event,
                 eventTick: _tick,
                 size: 280,
-                fallbackBuilder: (context) => const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    '.riv 파일이 아직 없어요\n(assets/rive/ghost.riv)\n\nRive 에디터 + MCP로 캐릭터를 만들면\n이 자리에 나타납니다',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
               ),
             ),
           ),

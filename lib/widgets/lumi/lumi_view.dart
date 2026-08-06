@@ -77,14 +77,12 @@ class _LumiRiveAdapterState extends State<_LumiRiveAdapter> {
 
   @override
   Widget build(BuildContext context) {
+    // .riv가 있으면 Rive, 없으면 GhostPainterView(브리프 사양 Flutter 구현)
     return GhostView(
       sleepiness: widget.state.brightness,
       event: _event,
       eventTick: _tick,
       reduceMotion: widget.reduceMotion,
-      // .riv가 없거나 로드 실패 → 기존 더미로 자동 폴백
-      fallbackBuilder: (context) => LumiDummyView(
-          state: widget.state, reduceMotion: widget.reduceMotion),
     );
   }
 }
