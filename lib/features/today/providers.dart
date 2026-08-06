@@ -5,9 +5,11 @@ import '../../core/sound/sound_player.dart';
 import '../../core/utils/dates.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
+import '../../data/repositories/bill_repository.dart';
 import '../../data/repositories/todo_repository.dart';
 import '../../domain/services/brightness_engine.dart';
 import '../../domain/services/day_rollover_service.dart';
+import '../../domain/services/notification_service.dart';
 import '../../domain/services/recurrence_expander.dart';
 
 /// DB — 앱 전역 단일 인스턴스 (§3.2 단일 진실 공급원)
@@ -19,6 +21,13 @@ final databaseProvider = Provider<UnwindDatabase>((ref) {
 
 final todoRepositoryProvider = Provider<TodoRepository>(
     (ref) => TodoRepository(ref.watch(databaseProvider)));
+
+final billRepositoryProvider = Provider<BillRepository>(
+    (ref) => BillRepository(ref.watch(databaseProvider)));
+
+/// §6.5 미확인 청구서 — 홈 상단 배지
+final unreadBillsProvider = StreamProvider<List<WeeklyBill>>(
+    (ref) => ref.watch(billRepositoryProvider).watchUnread());
 
 final hapticsProvider = Provider<UnwindHaptics>((ref) => UnwindHaptics());
 
@@ -52,12 +61,18 @@ class TodayKeyNotifier extends Notifier<String> {
       onRollover: (newKey) {
         state = newKey;
         expander.expand(newKey); // §4.2 롤오버 시 전개
+        ref.read(billRepositoryProvider).ensureLastWeekBill(newKey); // §6.5
       },
     );
     _service?.dispose();
     _service = service;
-    // §4.2 앱 시작 시 전개
-    service.start().then((_) => expander.expand(service.todayKey));
+    // §4.2 앱 시작 시 전개 + §6.5 지난주 청구서 생성
+    service.start().then((_) async {
+      await expander.expand(service.todayKey);
+      await ref
+          .read(billRepositoryProvider)
+          .ensureLastWeekBill(service.todayKey);
+    });
     ref.onDispose(service.dispose);
     return service.todayKey;
   }
@@ -182,4 +197,49 @@ final weekWindowsProvider = Provider<List<WindowInfo>>((ref) {
         );
       }(),
   ];
+});
+
+
+// ── 알림 (§10) ──────────────────────────────────────────────
+
+/// 알림 탭 payload — 화면 레이어가 listen해서 라우팅한다 ('home' | 'bill')
+final notificationTapProvider =
+    NotifierProvider<NotificationTapNotifier, String?>(
+        NotificationTapNotifier.new);
+
+class NotificationTapNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String payload) => state = payload;
+  void clear() => state = null;
+}
+
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  final service = NotificationService(
+    onTap: (payload) =>
+        ref.read(notificationTapProvider.notifier).set(payload),
+  );
+  service.init().then((_) => service.scheduleBillNotification());
+  return service;
+});
+
+/// 밤 리마인더 갱신 (§10): 조건이 성립할 때만 오늘 22:00 예약.
+/// TodayScreen이 watch하는 것으로 활성화된다.
+final nightReminderSchedulerProvider = Provider<void>((ref) {
+  final service = ref.watch(notificationServiceProvider);
+  final todos = ref.watch(todayTodosProvider).value;
+  final day = ref.watch(todayDayProvider).value;
+  if (todos == null) return;
+
+  final pending =
+      todos.where((t) => t.status == TodoStatus.pending).length;
+  final pulled = day?.lightsOutAt != null;
+
+  // TODO(unwind): nightReminderEnabled·시각 설정 연동 — M4 설정 화면
+  if (pending > 0 && !pulled) {
+    service.scheduleNightReminder(hour: 22, minute: 0); // 기본 22:00 (§4.5)
+  } else {
+    service.cancelNightReminder(); // 할 일 없음 / 이미 당김 → 보내지 않는다
+  }
 });

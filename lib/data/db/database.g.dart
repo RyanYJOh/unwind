@@ -2247,6 +2247,7 @@ abstract class _$UnwindDatabase extends GeneratedDatabase {
   late final RecurrenceDao recurrenceDao = RecurrenceDao(
     this as UnwindDatabase,
   );
+  late final BillDao billDao = BillDao(this as UnwindDatabase);
   late final SettingsDao settingsDao = SettingsDao(this as UnwindDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>

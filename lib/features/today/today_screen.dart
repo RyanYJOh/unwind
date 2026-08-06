@@ -18,6 +18,7 @@ import '../../widgets/lamp_row.dart';
 import '../../widgets/lumi/lumi_view.dart';
 import '../../widgets/night_sky.dart';
 import '../../widgets/pull_cord.dart';
+import '../bill/bill_screen.dart';
 import '../compose/compose_sheet.dart';
 import '../week/weekly_strip.dart';
 import 'providers.dart';
@@ -262,6 +263,23 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       if (!_dominoRunning) _animateThemeTo(next);
     });
 
+    // §10 밤 리마인더 조건 갱신 활성화
+    ref.watch(nightReminderSchedulerProvider);
+
+    // §10 알림 탭 라우팅: 청구서 알림 → 청구서 화면
+    ref.listen<String?>(notificationTapProvider, (prev, next) async {
+      if (next == null) return;
+      ref.read(notificationTapProvider.notifier).clear();
+      if (next == 'bill') {
+        final bills =
+            await ref.read(billRepositoryProvider).watchUnread().first;
+        if (context.mounted && bills.isNotEmpty) {
+          showBillScreen(context, bills.first);
+        }
+      }
+      // 'home': 앱이 열리면 홈이 기본 화면
+    });
+
     return AnimatedBuilder(
       animation: Listenable.merge([_theme, _pulse]),
       builder: (context, child) {
@@ -323,9 +341,53 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: UnwindSpacing.s24),
-                  child: Builder(
-                    builder: (context) =>
-                        PrimaryText('오늘', style: UnwindType.title),
+                  child: Row(
+                    children: [
+                      Builder(
+                        builder: (context) =>
+                            PrimaryText('오늘', style: UnwindType.title),
+                      ),
+                      const Spacer(),
+                      // §6.5 미확인 청구서 배지
+                      if ((ref.watch(unreadBillsProvider).value ?? const [])
+                          .isNotEmpty)
+                        Builder(builder: (context) {
+                          final colors = UnwindTheme.of(context);
+                          final bill = ref
+                              .watch(unreadBillsProvider)
+                              .value!
+                              .first;
+                          return GestureDetector(
+                            onTap: () => showBillScreen(context, bill),
+                            behavior: HitTestBehavior.opaque,
+                            child: Semantics(
+                              label: '지난주 청구서가 도착했어요',
+                              button: true,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.all(UnwindSpacing.s8),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: colors.lamp),
+                                    ),
+                                    const SizedBox(width: UnwindSpacing.s4),
+                                    Text('청구서',
+                                        style: UnwindType.label.copyWith(
+                                            color: colors.textSecondary,
+                                            decoration:
+                                                TextDecoration.none)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                    ],
                   ),
                 ),
                 Expanded(
