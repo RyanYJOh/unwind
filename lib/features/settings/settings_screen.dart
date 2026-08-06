@@ -6,6 +6,7 @@ import '../../core/tokens/color_ramp.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import 'settings_controller.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// §6.7 설정 — 유틸리티 화면. 밝은 중립 테마 고정(조명 연출은 오늘 화면 독점).
 Future<void> showSettingsScreen(BuildContext context) {
@@ -23,6 +24,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = lerpRamp(0.0);
+    final l10n = AppLocalizations.of(context);
     final settings =
         ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
     final ctrl = ref.read(settingsControllerProvider.notifier);
@@ -43,14 +45,14 @@ class SettingsScreen extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('설정',
+                      Text(l10n.settingsTitle,
                           style: UnwindType.title.copyWith(
                               color: colors.textPrimarySnap,
                               decoration: TextDecoration.none)),
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
                         behavior: HitTestBehavior.opaque,
-                        child: Text('닫기',
+                        child: Text(l10n.close,
                             style: UnwindType.label.copyWith(
                                 color: colors.textSecondary,
                                 decoration: TextDecoration.none)),
@@ -63,17 +65,17 @@ class SettingsScreen extends ConsumerWidget {
                     padding:
                         const EdgeInsets.only(bottom: UnwindSpacing.s48),
                     children: [
-                      _SectionLabel('알림', colors),
+                      _SectionLabel(l10n.sectionNotifications, colors),
                       _ToggleRow(
-                        label: '밤 리마인더',
-                        caption: 'Lumi가 아직 못 자고 있을 때 알려드려요',
+                        label: l10n.nightReminder,
+                        caption: l10n.nightReminderCaption,
                         value: settings.nightReminderEnabled,
                         colors: colors,
                         onChanged: ctrl.setNightReminderEnabled,
                       ),
                       if (settings.nightReminderEnabled)
                         _PickerRow(
-                          label: '리마인더 시각',
+                          label: l10n.reminderTime,
                           valueLabel: settings.nightReminderTime,
                           colors: colors,
                           onTap: () => _pickTime(
@@ -85,42 +87,62 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ),
                       _ToggleRow(
-                        label: '청구서 도착',
-                        caption: '매주 월요일 아침에 지난주 청구서를 알려드려요',
+                        label: l10n.billNotification,
+                        caption: l10n.billNotificationCaption,
                         value: settings.billNotificationEnabled,
                         colors: colors,
                         onChanged: ctrl.setBillNotificationEnabled,
                       ),
-                      _SectionLabel('감각', colors),
+                      _SectionLabel(l10n.sectionFeel, colors),
                       _ToggleRow(
-                        label: '사운드',
+                        label: l10n.sound,
                         value: settings.soundEnabled,
                         colors: colors,
                         onChanged: ctrl.setSoundEnabled,
                       ),
                       _ToggleRow(
-                        label: '햅틱',
+                        label: l10n.haptics,
                         value: settings.hapticsEnabled,
                         colors: colors,
                         onChanged: ctrl.setHapticsEnabled,
                       ),
-                      _SectionLabel('하루', colors),
+                      _SectionLabel(l10n.sectionDay, colors),
                       _PickerRow(
-                        label: '하루 시작 시각',
-                        caption: '이 시각 전까지는 어제의 방이에요',
-                        valueLabel: '${settings.dayStartHour}시',
+                        label: l10n.dayStart,
+                        caption: l10n.dayStartCaption,
+                        valueLabel: l10n.hourLabel(settings.dayStartHour),
                         colors: colors,
                         onTap: () => _pickHour(
                             context, settings.dayStartHour, ctrl.setDayStartHour),
                       ),
-                      _SectionLabel('데이터', colors),
+                      // 언어 (§ 기본 영어, 설정에서 전환)
+                      _SectionLabel(l10n.sectionLanguage, colors),
                       _PickerRow(
-                        label: '데이터 초기화',
-                        caption: '모든 할 일과 기록을 지워요',
+                        label: l10n.language,
+                        valueLabel: settings.languageCode == 'ko'
+                            ? '한국어'
+                            : 'English',
+                        colors: colors,
+                        onTap: () => _pickLanguage(
+                            context, settings.languageCode, ctrl),
+                      ),
+                      _SectionLabel(l10n.sectionData, colors),
+                      _PickerRow(
+                        label: l10n.eraseData,
+                        caption: l10n.eraseDataCaption,
                         valueLabel: '',
                         colors: colors,
                         destructive: true,
-                        onTap: () => _confirmReset(context, ctrl),
+                        onTap: () => _confirmReset(context, ctrl, l10n),
+                      ),
+                      // TODO(unwind): 배포 빌드에서 제거 — 개발용 완전 초기화
+                      _PickerRow(
+                        label: l10n.fullResetDev,
+                        caption: l10n.fullResetDevCaption,
+                        valueLabel: '',
+                        colors: colors,
+                        destructive: true,
+                        onTap: () => _confirmFullReset(context, ctrl, l10n),
                       ),
                       const SizedBox(height: UnwindSpacing.s24),
                       Center(
@@ -163,7 +185,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             CupertinoButton(
-              child: const Text('저장'),
+              child: Text(AppLocalizations.of(context).save),
               onPressed: () {
                 onPicked(h, m);
                 Navigator.of(ctx).pop();
@@ -193,12 +215,15 @@ class SettingsScreen extends ConsumerWidget {
                     FixedExtentScrollController(initialItem: current),
                 onSelectedItemChanged: (i) => h = i,
                 children: [
-                  for (var i = 0; i <= 11; i++) Center(child: Text('$i시')),
+                  for (var i = 0; i <= 11; i++)
+                    Center(
+                        child: Text(
+                            AppLocalizations.of(context).hourLabel(i))),
                 ],
               ),
             ),
             CupertinoButton(
-              child: const Text('저장'),
+              child: Text(AppLocalizations.of(context).save),
               onPressed: () {
                 onPicked(h);
                 Navigator.of(ctx).pop();
@@ -210,16 +235,17 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmReset(BuildContext context, SettingsController ctrl) {
+  void _confirmReset(
+      BuildContext context, SettingsController ctrl, AppLocalizations l10n) {
     showCupertinoDialog<void>(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('데이터 초기화'),
-        content: const Text('모든 할 일과 기록이 지워져요. 되돌릴 수 없어요.'),
+        title: Text(l10n.eraseData),
+        content: Text(l10n.eraseDataDialogBody),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
+            child: Text(l10n.cancel),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
@@ -227,8 +253,57 @@ class SettingsScreen extends ConsumerWidget {
               ctrl.resetAllData();
               Navigator.of(ctx).pop();
             },
-            child: const Text('지우기'),
+            child: Text(l10n.erase),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// TODO(unwind): 배포 빌드에서 제거 — 개발용 완전 초기화.
+  /// 설정·온보딩 플래그까지 지우고 모든 화면을 닫아 첫 실행 상태(온보딩)로.
+  void _confirmFullReset(
+      BuildContext context, SettingsController ctrl, AppLocalizations l10n) {
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(l10n.fullResetDev),
+        content: Text(l10n.fullResetDevCaption),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.cancel),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              Navigator.of(context, rootNavigator: true)
+                  .popUntil((r) => r.isFirst);
+              await ctrl.fullResetForDev();
+            },
+            child: Text(l10n.erase),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _pickLanguage(
+      BuildContext context, String current, SettingsController ctrl) {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        actions: [
+          for (final (code, name) in const [('en', 'English'), ('ko', '한국어')])
+            CupertinoActionSheetAction(
+              onPressed: () {
+                ctrl.setLanguageCode(code);
+                Navigator.of(ctx).pop();
+              },
+              child: Text(name +
+                  (code == current ? '  ✓' : '')),
+            ),
         ],
       ),
     );

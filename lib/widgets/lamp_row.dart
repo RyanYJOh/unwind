@@ -4,6 +4,7 @@ import '../core/theme/unwind_theme.dart';
 import '../core/tokens/motion.dart';
 import '../core/tokens/spacing.dart';
 import '../core/tokens/typography.dart';
+import '../l10n/generated/app_localizations.dart';
 
 /// §6.1 등 하나 = 할 일 하나. §9.2 개별 체크 인터랙션.
 ///
@@ -99,9 +100,10 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final colors = UnwindTheme.of(context);
 
+    final l10n = AppLocalizations.of(context);
     return Semantics(
       label: widget.title,
-      value: widget.isOn ? '켜짐' : '꺼짐', // §12 VoiceOver 상태 라벨
+      value: widget.isOn ? l10n.lampOn : l10n.lampOff, // §12 VoiceOver 상태 라벨
       button: true,
       child: GestureDetector(
         onTap: _handleTap,

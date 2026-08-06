@@ -38,10 +38,10 @@ void main() {
     await pumpApp(tester);
 
     // 빈 상태 문구 (§6.1)
-    expect(find.text('오늘은 켜둘 불이 없어요'), findsNWidgets(2)); // 크로스페이드 2겹
+    expect(find.text('No lights to keep on today'), findsNWidgets(2)); // 크로스페이드 2겹
 
     // FAB 탭
-    await tester.tap(find.bySemanticsLabel('할 일 추가'));
+    await tester.tap(find.bySemanticsLabel('Add a task'));
     await tester.pump(const Duration(milliseconds: 400)); // 시트 320ms
 
     // 제목 입력 후 엔터

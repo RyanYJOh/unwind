@@ -13,6 +13,7 @@ import '../settings/settings_controller.dart';
 import '../today/m0_prototype_screen.dart';
 import '../today/providers.dart';
 import '../today/today_screen.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// §6.6 온보딩 — 계정 없음, 3화면 이내.
 /// 1. 컨셉 설명 (Lumi가 눈부셔하는 그림)
@@ -59,8 +60,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         return _ConceptPage(onNext: () => setState(() => _step = 1));
       case 1:
         // 샘플 방 체험 — 소등 시퀀스 완료 시 다음 단계로
+        final l10n = AppLocalizations.of(context);
         return M0PrototypeScreen(
-          itemTitles: const ['오늘 온 메일에 답장하기', '빌린 책 반납하기', '저녁 산책 20분'],
+          itemTitles: [
+            l10n.onboardSample1,
+            l10n.onboardSample2,
+            l10n.onboardSample3,
+          ],
           showReset: false,
           onSequenceComplete: () {
             if (mounted) setState(() => _step = 2);
@@ -79,6 +85,7 @@ class _ConceptPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final colors = lerpRamp(0.0); // 가장 밝은 정오 — 눈부신 방
     return UnwindTheme(
       colors: colors,
@@ -97,11 +104,11 @@ class _ConceptPage extends StatelessWidget {
                   const LumiView(
                       state: LumiState(brightness: 0.45)),
                   const Spacer(),
-                  PrimaryText('Lumi는 자고 싶어요',
+                  PrimaryText(l10n.onboardTitle,
                       style: UnwindType.display, textAlign: TextAlign.center),
                   const SizedBox(height: UnwindSpacing.s16),
                   Text(
-                    '할 일 하나가 등 하나예요.\n하나씩 끝내면 방이 조금씩 어두워져요.\n마지막 불이 꺼지면 Lumi가 잠들어요.',
+                    l10n.onboardBody,
                     textAlign: TextAlign.center,
                     style: UnwindType.body.copyWith(
                         color: colors.textSecondary,
@@ -121,7 +128,7 @@ class _ConceptPage extends StatelessWidget {
                             BorderRadius.circular(UnwindRadius.pill),
                         border: Border.all(color: colors.lamp),
                       ),
-                      child: Text('불 끄러 가기', // 버튼은 동사로 (§8.5)
+                      child: Text(l10n.onboardGo, // 버튼은 동사로 (§8.5)
                           style: UnwindType.bodyStrong.copyWith(
                               color: colors.textPrimarySnap,
                               decoration: TextDecoration.none)),
@@ -145,6 +152,7 @@ class _TransitionPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final colors = lerpRamp(1.0); // 체험 직후 — 아직 밤의 여운
     return UnwindTheme(
       colors: colors,
@@ -161,7 +169,7 @@ class _TransitionPage extends StatelessWidget {
                   const LumiView(
                       state: LumiState(brightness: 1.0, isAsleep: true)),
                   const Spacer(),
-                  PrimaryText('이제 진짜 오늘의 할 일을 적어볼까요',
+                  PrimaryText(l10n.onboardTransition,
                       style: UnwindType.title, textAlign: TextAlign.center),
                   const Spacer(flex: 2),
                   GestureDetector(
@@ -177,7 +185,7 @@ class _TransitionPage extends StatelessWidget {
                             BorderRadius.circular(UnwindRadius.pill),
                         border: Border.all(color: colors.lamp),
                       ),
-                      child: Text('적으러 가기',
+                      child: Text(l10n.onboardStart,
                           style: UnwindType.bodyStrong.copyWith(
                               color: colors.textPrimarySnap,
                               decoration: TextDecoration.none)),

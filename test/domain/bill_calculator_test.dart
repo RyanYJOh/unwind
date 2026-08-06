@@ -77,15 +77,15 @@ void main() {
   group('Lumi 수면 (§6.5)', () {
     test('취침 22:30 → 기상 다음날 06:00 = 450분', () {
       // calcDay를 직접 검증하려면 Day 행이 필요 — 통합 케이스에서 확인
-      expect(sleepGrade(450), '푹 잤어요'); // 7.5h
+      expect(sleepGrade(450), SleepGrade.deep); // 7.5h
     });
 
     test('서술 등급 경계', () {
-      expect(sleepGrade(7 * 60), '푹 잤어요');
-      expect(sleepGrade(5 * 60), '잘 잤어요');
-      expect(sleepGrade(3 * 60), '조금 뒤척였어요');
-      expect(sleepGrade(60), '겨우 눈을 붙였어요');
-      expect(sleepGrade(0), '밤새 깨어 있었어요');
+      expect(sleepGrade(7 * 60), SleepGrade.deep);
+      expect(sleepGrade(5 * 60), SleepGrade.well);
+      expect(sleepGrade(3 * 60), SleepGrade.tossed);
+      expect(sleepGrade(60), SleepGrade.barely);
+      expect(sleepGrade(0), SleepGrade.none);
     });
   });
 

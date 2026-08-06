@@ -1,0 +1,117 @@
+{
+  "@@locale": "en",
+
+  "today": "Today",
+  "emptyRoomTitle": "No lights to keep on today",
+  "emptyRoomSubtitle": "Write down a task, and a light turns on in this room",
+  "billBadge": "Bill",
+  "addTaskLabel": "Add a task",
+  "endDayLabel": "End the day",
+  "lampOn": "On",
+  "lampOff": "Off",
+  "thisWeek": "This week",
+  "thisWeekLabel": "This week",
+  "collapse": "Collapse",
+  "add": "Add",
+  "edit": "Edit",
+  "delete": "Delete",
+  "close": "Close",
+  "save": "Save",
+  "share": "Share",
+  "cancel": "Cancel",
+
+  "taskHint": "Task",
+  "memoHint": "Note",
+  "addMemo": "Add a note",
+  "lumiSleepingNotice": "Lumi is asleep. This will go in tomorrow's room",
+  "dateToday": "Today",
+  "dateTomorrow": "Tomorrow",
+  "dateDayAfter": "In 2 days",
+  "repeatNone": "No repeat",
+  "repeatDaily": "Every day",
+  "repeatWeekdays": "Weekdays",
+  "repeatWeekly": "Weekly",
+  "repeatMonthly": "Monthly",
+
+  "weekdaysShort": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+  "monthsShort": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
+  "monthDay": "{monthName} {day}",
+  "@monthDay": {
+    "placeholders": {
+      "monthName": {"type": "String"},
+      "month": {"type": "int"},
+      "day": {"type": "int"}
+    }
+  },
+
+  "billTitle": "Unwind Electric Bill",
+  "billTotalCaption": "Total {kwh} kWh · includes {fee} base fee",
+  "@billTotalCaption": {
+    "placeholders": {
+      "kwh": {"type": "String"},
+      "fee": {"type": "String"}
+    }
+  },
+  "wonAmount": "₩{amount}",
+  "@wonAmount": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "sleepDeep": "Lumi slept deeply",
+  "sleepWell": "Lumi slept well",
+  "sleepTossed": "Lumi tossed and turned a little",
+  "sleepBarely": "Lumi barely closed an eye",
+  "sleepNone": "Lumi stayed awake all night",
+  "nightsOut": "{count, plural, =1{You turned the lights out on 1 night this week} other{You turned the lights out on {count} nights this week}}",
+  "@nightsOut": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "allNightsLit": "The lights stayed on every night this week",
+  "diffLess": "{amount} less than last week",
+  "@diffLess": {"placeholders": {"amount": {"type": "String"}}},
+  "diffMore": "{amount} more than last week",
+  "@diffMore": {"placeholders": {"amount": {"type": "String"}}},
+  "diffSame": "Same as last week",
+
+  "notifNightReminder": "Lumi is still awake",
+  "notifBillArrived": "Last week's bill has arrived",
+
+  "settingsTitle": "Settings",
+  "sectionNotifications": "Notifications",
+  "nightReminder": "Night reminder",
+  "nightReminderCaption": "A gentle note when Lumi is still awake",
+  "reminderTime": "Reminder time",
+  "billNotification": "Bill arrival",
+  "billNotificationCaption": "Your last week's bill, every Monday morning",
+  "sectionFeel": "Feel",
+  "sound": "Sound",
+  "haptics": "Haptics",
+  "sectionDay": "Day",
+  "dayStart": "Day starts at",
+  "dayStartCaption": "Until then, it's still yesterday's room",
+  "hourLabel": "{hour}:00",
+  "@hourLabel": {"placeholders": {"hour": {"type": "int"}}},
+  "sectionLanguage": "Language",
+  "language": "Language",
+  "sectionData": "Data",
+  "eraseData": "Erase all data",
+  "eraseDataCaption": "Erases every task and record",
+  "eraseDataDialogBody": "Every task and record will be erased. This can't be undone.",
+  "erase": "Erase",
+  "fullResetDev": "Full reset (dev)",
+  "fullResetDevCaption": "Erases everything including settings, back to first run",
+
+  "onboardTitle": "Lumi wants to sleep",
+  "onboardBody": "Each task is a lamp.\nFinish one, and the room gets a little darker.\nWhen the last light goes out, Lumi falls asleep.",
+  "onboardGo": "Go turn off the lights",
+  "onboardTransition": "Now, let's write down today's real tasks",
+  "onboardStart": "Start writing",
+  "onboardSample1": "Reply to today's email",
+  "onboardSample2": "Return the borrowed book",
+  "onboardSample3": "A 20-minute evening walk",
+
+  "m0Reset": "Experience again from the start (M0 test)"
+}

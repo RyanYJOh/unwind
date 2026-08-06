@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/tokens/typography.dart';
+import 'l10n/generated/app_localizations.dart';
 import 'features/onboarding/onboarding_flow.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/today/today_screen.dart';
@@ -21,10 +22,17 @@ class UnwindApp extends ConsumerWidget {
     // §6.6 온보딩 — 완료 전에는 온보딩으로 (로딩 중에는 빈 화면 대신 홈 유지)
     final onboarded = ref.watch(settingsControllerProvider
         .select((s) => s.value?.onboardingCompleted));
+    // 기본 영어 — 설정에서 변경 (지원 언어는 l10n/*.arb 추가로 확장)
+    final languageCode = ref.watch(settingsControllerProvider
+            .select((s) => s.value?.languageCode)) ??
+        'en';
     return MaterialApp(
       title: 'Unwind',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(fontFamily: UnwindType.fontFamily),
+      locale: Locale(languageCode),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       // §8.2 Dynamic Type: 최대 1.3배까지, 그 이상은 클램프
       builder: (context, child) {
         final mq = MediaQuery.of(context);

@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:unwind/data/db/database.dart';
 import 'package:unwind/features/bill/bill_screen.dart';
 import 'package:unwind/features/today/providers.dart';
+import 'package:unwind/l10n/generated/app_localizations.dart';
 
 /// §6.5 청구서 화면 — 영수증 렌더링 + 문구 톤 스모크
 void main() {
@@ -35,15 +36,20 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: MaterialApp(home: BillScreen(bill: bill)),
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: BillScreen(bill: bill),
+      ),
     ));
     await tester.pump(const Duration(milliseconds: 100));
 
     // 주간 총액 (모노스페이스) + 일별 명세 + 서술형 문구
-    expect(find.text('1,180원'), findsOneWidget);
-    expect(find.text('이번 주엔 4일 밤 불을 껐어요'), findsOneWidget);
+    expect(find.text('₩1,180'), findsOneWidget);
+    expect(find.text('You turned the lights out on 4 nights this week'),
+        findsOneWidget);
     // 수면 평균 1800/7 ≈ 257분(4.3h) → '조금 뒤척였어요'
-    expect(find.text('Lumi는 조금 뒤척였어요'), findsOneWidget);
+    expect(find.text('Lumi tossed and turned a little'), findsOneWidget);
     // 퍼센트·점수·등급 문자열이 없어야 한다 (§1.3)
     expect(find.textContaining('%'), findsNothing);
 

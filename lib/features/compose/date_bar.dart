@@ -6,6 +6,7 @@ import '../../core/tokens/color_ramp.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../core/utils/dates.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// §6.3 플로팅 날짜 바 — 키보드 바로 위 고정.
 ///
@@ -33,22 +34,22 @@ class DateBar extends StatelessWidget {
     required this.haptics,
   });
 
-  static const _weekdays = ['월', '화', '수', '목', '금', '토', '일'];
-
   /// 라벨은 의미 우선 (§6.3): 오늘 / 내일 / 모레 → 그 이후는 '10월 27일 (월)'
-  String get _label {
+  String _label(AppLocalizations l10n) {
     final diff =
         parseDayKey(dateKey).difference(parseDayKey(todayKey)).inDays;
     switch (diff) {
       case 0:
-        return '오늘';
+        return l10n.dateToday;
       case 1:
-        return '내일';
+        return l10n.dateTomorrow;
       case 2:
-        return '모레';
+        return l10n.dateDayAfter;
       default:
         final d = parseDayKey(dateKey);
-        return '${d.month}월 ${d.day}일 (${_weekdays[d.weekday - 1]})';
+        final weekday = l10n.weekdaysShort.split(',')[d.weekday - 1];
+        final monthName = l10n.monthsShort.split(',')[d.month - 1];
+        return '${l10n.monthDay(monthName, d.month, d.day)} ($weekday)';
     }
   }
 
@@ -63,6 +64,7 @@ class DateBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = UnwindTheme.of(context);
+    final l10n = AppLocalizations.of(context);
     final isToday = dateKey == todayKey;
 
     // §6.3: 날짜가 오늘이 아닐 때는 바 전체 배경이 눈에 띄게 달라진다.
@@ -92,7 +94,7 @@ class DateBar extends StatelessWidget {
                     minWidth: 88, minHeight: UnwindTouch.minTarget),
                 child: Center(
                   child: Text(
-                    _label,
+                    _label(l10n),
                     style: UnwindType.bodyStrong.copyWith(
                         color: isToday
                             ? colors.textPrimarySnap

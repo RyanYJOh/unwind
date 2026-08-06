@@ -94,4 +94,5 @@ abstract final class SettingKeys {
   static const hapticsEnabled = 'hapticsEnabled'; // 기본 true
   static const onboardingCompleted = 'onboardingCompleted';
   static const dayStartHour = 'dayStartHour'; // 기본 6
+  static const languageCode = 'languageCode'; // 기본 'en'
 }

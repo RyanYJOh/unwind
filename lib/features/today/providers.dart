@@ -1,3 +1,5 @@
+import 'dart:ui' show Locale;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/haptics/haptics.dart';
@@ -11,6 +13,7 @@ import '../../domain/services/brightness_engine.dart';
 import '../../domain/services/day_rollover_service.dart';
 import '../../domain/services/notification_service.dart';
 import '../../domain/services/recurrence_expander.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../settings/settings_controller.dart';
 
 /// DB — 앱 전역 단일 인스턴스 (§3.2 단일 진실 공급원)
@@ -228,6 +231,10 @@ class NotificationTapNotifier extends Notifier<String?> {
   void clear() => state = null;
 }
 
+/// 예약 시점의 앱 언어로 알림 문구를 만든다 (§10)
+AppLocalizations _l10nFor(Ref ref) => lookupAppLocalizations(
+    Locale(ref.read(settingsControllerProvider).value?.languageCode ?? 'en'));
+
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   final service = NotificationService(
     onTap: (payload) =>
@@ -239,13 +246,17 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
             .value
             ?.billNotificationEnabled ??
         true;
-    service.scheduleBillNotification(enabled: enabled);
+    service.scheduleBillNotification(
+        enabled: enabled, body: _l10nFor(ref).notifBillArrived);
   });
-  // §6.7 청구서 알림 on/off 연동
+  // §6.7 청구서 알림 on/off·언어 변경 연동
   ref.listen(settingsControllerProvider, (prev, next) {
     final enabled = next.value?.billNotificationEnabled;
-    if (enabled != null && enabled != prev?.value?.billNotificationEnabled) {
-      service.scheduleBillNotification(enabled: enabled);
+    final changed = enabled != prev?.value?.billNotificationEnabled ||
+        next.value?.languageCode != prev?.value?.languageCode;
+    if (enabled != null && changed) {
+      service.scheduleBillNotification(
+          enabled: enabled, body: _l10nFor(ref).notifBillArrived);
     }
   });
   return service;
@@ -267,7 +278,8 @@ final nightReminderSchedulerProvider = Provider<void>((ref) {
 
   if (settings.nightReminderEnabled && pending > 0 && !pulled) {
     final (h, m) = settings.reminderHourMinute; // 기본 22:00 (§4.5)
-    service.scheduleNightReminder(hour: h, minute: m);
+    service.scheduleNightReminder(
+        hour: h, minute: m, body: _l10nFor(ref).notifNightReminder);
   } else {
     service.cancelNightReminder(); // 할 일 없음 / 이미 당김 / 꺼짐 → 보내지 않는다
   }

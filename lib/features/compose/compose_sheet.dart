@@ -13,6 +13,7 @@ import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
 import '../today/providers.dart';
 import 'date_bar.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// §6.3 입력 시트 — FAB 탭 시 하단에서 올라오고 키보드가 즉시 함께 올라온다.
 ///
@@ -150,6 +151,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
   Widget build(BuildContext context) {
     final t = ref.watch(brightnessProvider);
     final colors = lerpRamp(t);
+    final l10n = AppLocalizations.of(context);
     final todayKey = ref.watch(todayKeyProvider);
     final asleep = ref.watch(isAsleepProvider);
     final haptics = ref.watch(hapticsProvider);
@@ -189,7 +191,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
                           right: UnwindSpacing.s24,
                           top: UnwindSpacing.s16),
                       child: Text(
-                        'Lumi가 자고 있어요. 내일 방에 놓아둘게요',
+                        l10n.lumiSleepingNotice,
                         style: UnwindType.caption.copyWith(
                             color: colors.textSecondary,
                             decoration: TextDecoration.none),
@@ -207,7 +209,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
                           .copyWith(color: colors.textPrimarySnap),
                       cursorColor: colors.lamp,
                       decoration: InputDecoration(
-                        hintText: '할 일',
+                        hintText: l10n.taskHint,
                         hintStyle: UnwindType.body
                             .copyWith(color: colors.textMuted),
                         border: InputBorder.none,
@@ -232,7 +234,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
                             .copyWith(color: colors.textSecondary),
                         cursorColor: colors.lamp,
                         decoration: InputDecoration(
-                          hintText: '메모',
+                          hintText: l10n.memoHint,
                           hintStyle: UnwindType.label
                               .copyWith(color: colors.textMuted),
                           border: InputBorder.none,
@@ -248,7 +250,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: UnwindSpacing.s24,
                             vertical: UnwindSpacing.s8),
-                        child: Text('메모 추가',
+                        child: Text(l10n.addMemo,
                             style: UnwindType.caption.copyWith(
                                 color: colors.textMuted,
                                 decoration: TextDecoration.none)),
@@ -265,12 +267,12 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
                         runSpacing: UnwindSpacing.s4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          for (final (label, rule) in const [
-                            ('반복 없음', null),
-                            ('매일', RecurrenceRule.daily),
-                            ('주중', RecurrenceRule.weekdays),
-                            ('매주', RecurrenceRule.weekly),
-                            ('매월', RecurrenceRule.monthly),
+                          for (final (label, rule) in [
+                            (l10n.repeatNone, null),
+                            (l10n.repeatDaily, RecurrenceRule.daily),
+                            (l10n.repeatWeekdays, RecurrenceRule.weekdays),
+                            (l10n.repeatWeekly, RecurrenceRule.weekly),
+                            (l10n.repeatMonthly, RecurrenceRule.monthly),
                           ])
                             _RuleChip(
                               label: label,
@@ -296,9 +298,8 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
                         children: [
                           for (var i = 0; i < 7; i++)
                             _RuleChip(
-                              label: const [
-                                '월', '화', '수', '목', '금', '토', '일'
-                              ][i],
+                              label:
+                                  l10n.weekdaysShort.split(',')[i],
                               selected: (_weekdayMask & (1 << i)) != 0,
                               colors: colors,
                               onTap: () => setState(
@@ -380,7 +381,7 @@ class DateBarHost extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                   vertical: UnwindSpacing.s8),
               child: Center(
-                child: Text('저장', // 버튼은 동사로 (§8.5)
+                child: Text(AppLocalizations.of(context).save, // 버튼은 동사로 (§8.5)
                     style: UnwindType.bodyStrong.copyWith(
                         color: colors.lamp,
                         decoration: TextDecoration.none)),

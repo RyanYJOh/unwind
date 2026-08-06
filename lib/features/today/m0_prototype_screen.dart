@@ -17,6 +17,7 @@ import '../../widgets/lamp_row.dart';
 import '../../widgets/lumi/lumi_view.dart';
 import '../../widgets/night_sky.dart';
 import '../../widgets/pull_cord.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// §13 M0 — 감각 프로토타입.
 /// 투두 기능 없음: 하드코딩 더미 5개, DB 없음, 입력 없음, 네비게이션 없음.
@@ -350,7 +351,8 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
                   padding: const EdgeInsets.symmetric(
                       horizontal: UnwindSpacing.s24),
                   child: Builder(
-                    builder: (context) => PrimaryText('오늘',
+                    builder: (context) => PrimaryText(
+                        AppLocalizations.of(context).today,
                         style: UnwindType.title),
                   ),
                 ),
@@ -417,7 +419,7 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
                     padding: const EdgeInsets.all(UnwindSpacing.s12),
                     child: Builder(
                       builder: (context) => Text(
-                        '처음부터 다시 체험하기 (M0 테스트용)',
+                        AppLocalizations.of(context).m0Reset,
                         style: UnwindType.caption.copyWith(
                             color: UnwindTheme.of(context).textMuted),
                       ),

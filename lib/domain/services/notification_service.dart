@@ -72,9 +72,11 @@ class NotificationService {
 
   /// 밤 리마인더 (§10): 오늘 lightsOutAt이 없고 pending이 1개 이상일 때만.
   /// 조건은 호출자가 판단해 매일 갱신한다 — 조건이 깨지면 [cancelNightReminder].
+  /// [body]는 호출 시점의 앱 언어로 로컬라이즈해 전달한다.
   Future<void> scheduleNightReminder({
     required int hour,
     required int minute,
+    required String body,
   }) async {
     if (!_initialized) return;
     final now = tz.TZDateTime.now(tz.local);
@@ -85,7 +87,7 @@ class NotificationService {
     await _plugin.zonedSchedule(
       id: _nightReminderId,
       title: null,
-      body: 'Lumi가 아직 못 자고 있어요', // §10 문구 — 재촉·비난 없음
+      body: body, // §10 문구 — 재촉·비난 없음
       scheduledDate: at,
       notificationDetails: const NotificationDetails(
         iOS: DarwinNotificationDetails(presentSound: false),
@@ -101,7 +103,10 @@ class NotificationService {
   }
 
   /// 청구서 도착 (§10): 매주 월요일 09:00 반복
-  Future<void> scheduleBillNotification({bool enabled = true}) async {
+  Future<void> scheduleBillNotification({
+    bool enabled = true,
+    required String body,
+  }) async {
     if (!_initialized) return;
     await _plugin.cancel(id: _billId);
     if (!enabled) return;
@@ -115,7 +120,7 @@ class NotificationService {
     await _plugin.zonedSchedule(
       id: _billId,
       title: null,
-      body: '지난주 청구서가 도착했어요',
+      body: body,
       scheduledDate: at,
       notificationDetails: const NotificationDetails(
         iOS: DarwinNotificationDetails(presentSound: false),

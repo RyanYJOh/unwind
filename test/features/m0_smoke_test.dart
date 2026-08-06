@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:unwind/features/today/m0_prototype_screen.dart';
+import 'package:unwind/l10n/generated/app_localizations.dart';
 import 'package:unwind/widgets/lamp_row.dart';
 import 'package:unwind/widgets/pull_cord.dart';
 
@@ -9,7 +10,11 @@ import 'package:unwind/widgets/pull_cord.dart';
 void main() {
   testWidgets('M0: 더미 5개가 표시되고, 완료해도 리스트에서 사라지지 않는다',
       (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: M0PrototypeScreen()));
+    await tester.pumpWidget(const MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: M0PrototypeScreen(),
+    ));
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(LampRow), findsNWidgets(5));
@@ -29,7 +34,11 @@ void main() {
 
   testWidgets('M0: 전등 줄 임계 이상 당기면 소등 시퀀스가 돌고 리셋이 노출된다',
       (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: M0PrototypeScreen()));
+    await tester.pumpWidget(const MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: M0PrototypeScreen(),
+    ));
     await tester.pump(const Duration(milliseconds: 50));
 
     // 임계(56px) 이상 당기기 — 저항 곡선 고려해 크게 당긴다
@@ -42,10 +51,10 @@ void main() {
     // 리셋 노출 대기 (시퀀스 후 3초)
     await tester.pump(const Duration(milliseconds: 1500));
 
-    expect(find.text('처음부터 다시 체험하기 (M0 테스트용)'), findsOneWidget);
+    expect(find.text('Experience again from the start (M0 test)'), findsOneWidget);
 
     // 리셋하면 처음 상태로
-    await tester.tap(find.text('처음부터 다시 체험하기 (M0 테스트용)'));
+    await tester.tap(find.text('Experience again from the start (M0 test)'));
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.byType(LampRow), findsNWidgets(5));
 
@@ -53,14 +62,18 @@ void main() {
   });
 
   testWidgets('M0: 임계 미만으로 당기면 아무 일도 없다', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: M0PrototypeScreen()));
+    await tester.pumpWidget(const MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: M0PrototypeScreen(),
+    ));
     await tester.pump(const Duration(milliseconds: 50));
 
     await tester.drag(find.byType(PullCord), const Offset(0, 20));
     await tester.pump(const Duration(seconds: 2));
 
     // 시퀀스가 시작되지 않았으므로 리셋 버튼 없음
-    expect(find.text('처음부터 다시 체험하기 (M0 테스트용)'), findsNothing);
+    expect(find.text('Experience again from the start (M0 test)'), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
   });

@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import '../core/haptics/haptics.dart';
 import '../core/theme/unwind_theme.dart';
 import '../core/tokens/motion.dart';
+import '../l10n/generated/app_localizations.dart';
 
 /// §6.4 전등 줄 — 하루를 닫는 마무리 액션. 이 앱의 클라이맥스.
 ///
@@ -111,7 +112,7 @@ class _PullCordState extends State<PullCord>
     final height = widget.restLength + UnwindMotion.cordMaxDragPx + 28;
 
     return Semantics(
-      label: '하루 마치기', // §12 — 제스처 없이도 실행 가능해야 함
+      label: AppLocalizations.of(context).endDayLabel, // §12 — 제스처 없이도 실행 가능해야 함
       button: true,
       enabled: widget.enabled,
       onTap: widget.enabled ? widget.onPull : null,

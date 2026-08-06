@@ -22,6 +22,7 @@ import '../bill/bill_screen.dart';
 import '../compose/compose_sheet.dart';
 import '../week/weekly_strip.dart';
 import 'providers.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// §6.1 홈 — 오늘의 방. DB 스트림 구독 (§3.2), 조도는 brightnessProvider 단일값.
 class TodayScreen extends ConsumerStatefulWidget {
@@ -221,6 +222,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
 
   // ── 롱프레스 메뉴 (§6.1) ────────────────────────────────────
   void _showItemMenu(Todo todo) {
+    final l10n = AppLocalizations.of(context);
     showCupertinoModalPopup<void>(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
@@ -231,7 +233,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
               Navigator.of(ctx).pop();
               showComposeSheet(context, existing: todo);
             },
-            child: const Text('편집'),
+            child: Text(l10n.edit),
           ),
           CupertinoActionSheetAction(
             isDestructiveAction: true,
@@ -239,12 +241,12 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
               Navigator.of(ctx).pop();
               ref.read(todoRepositoryProvider).remove(todo);
             },
-            child: const Text('삭제'),
+            child: Text(l10n.delete),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('닫기'),
+          child: Text(l10n.close),
         ),
       ),
     );
@@ -252,6 +254,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final todos = ref.watch(todayTodosProvider).value ?? const <Todo>[];
     final asleep = ref.watch(isAsleepProvider);
     final cordEnabled = ref.watch(pullCordEnabledProvider);
@@ -345,7 +348,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                     children: [
                       Builder(
                         builder: (context) =>
-                            PrimaryText('오늘', style: UnwindType.title),
+                            PrimaryText(l10n.today, style: UnwindType.title),
                       ),
                       const Spacer(),
                       // §6.5 미확인 청구서 배지
@@ -361,7 +364,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                             onTap: () => showBillScreen(context, bill),
                             behavior: HitTestBehavior.opaque,
                             child: Semantics(
-                              label: '지난주 청구서가 도착했어요',
+                              label: l10n.notifBillArrived,
                               button: true,
                               child: Padding(
                                 padding:
@@ -376,7 +379,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                                           color: colors.lamp),
                                     ),
                                     const SizedBox(width: UnwindSpacing.s4),
-                                    Text('청구서',
+                                    Text(l10n.billBadge,
                                         style: UnwindType.label.copyWith(
                                             color: colors.textSecondary,
                                             decoration:
@@ -476,13 +479,14 @@ class _EmptyRoom extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = UnwindTheme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          PrimaryText('오늘은 켜둘 불이 없어요', style: UnwindType.bodyStrong),
+          PrimaryText(l10n.emptyRoomTitle, style: UnwindType.bodyStrong),
           const SizedBox(height: UnwindSpacing.s8),
-          Text('할 일을 적으면 이 방에 불이 켜져요',
+          Text(l10n.emptyRoomSubtitle,
               style: UnwindType.label.copyWith(
                   color: colors.textSecondary,
                   decoration: TextDecoration.none)),
@@ -506,7 +510,7 @@ class _Fab extends StatelessWidget {
     // 조도가 낮을수록 또렷해진다: glow 강도 t에 비례. 취침 후엔 조용한 상태.
     final glow = quiet ? 0.0 : (0.25 + 0.75 * t);
     return Semantics(
-      label: '할 일 추가',
+      label: AppLocalizations.of(context).addTaskLabel,
       button: true,
       child: GestureDetector(
         onTap: onTap,

@@ -149,13 +149,15 @@ class BillCalculator {
   }
 }
 
-/// §6.5 수면 서술 등급 — 숫자·알파벳 등급 금지. 하룻밤 기준 시간으로 서술.
+/// §6.5 수면 서술 등급 — 숫자·알파벳 등급 금지. 문구는 l10n에서 조회한다.
+enum SleepGrade { deep, well, tossed, barely, none }
+
 /// [minutes]는 하룻밤 수면(분). 주간 요약에는 평균을 넣는다.
-String sleepGrade(int minutes) {
+SleepGrade sleepGrade(int minutes) {
   final h = minutes / 60.0;
-  if (h >= 7) return '푹 잤어요';
-  if (h >= 5) return '잘 잤어요';
-  if (h >= 3) return '조금 뒤척였어요';
-  if (h > 0) return '겨우 눈을 붙였어요';
-  return '밤새 깨어 있었어요';
+  if (h >= 7) return SleepGrade.deep;
+  if (h >= 5) return SleepGrade.well;
+  if (h >= 3) return SleepGrade.tossed;
+  if (h > 0) return SleepGrade.barely;
+  return SleepGrade.none;
 }

@@ -7,6 +7,7 @@ import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../today/providers.dart';
 import 'week_screen.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// §6.2 주간 스트립 — 골목에서 이웃집 창을 보는 은유.
 /// 각 날은 작은 창문. 조도만으로 표현한다(퍼센트·개수·체크 금지).
@@ -24,8 +25,6 @@ class WeeklyStrip extends ConsumerStatefulWidget {
 class _WeeklyStripState extends ConsumerState<WeeklyStrip> {
   double _dragAccum = 0;
 
-  static const _weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
-
   void _openWeek() {
     _dragAccum = 0;
     showWeekScreen(context);
@@ -34,6 +33,8 @@ class _WeeklyStripState extends ConsumerState<WeeklyStrip> {
   @override
   Widget build(BuildContext context) {
     final colors = UnwindTheme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final weekdayLabels = l10n.weekdaysShort.split(',');
     final windows = ref.watch(weekWindowsProvider);
 
     return GestureDetector(
@@ -45,7 +46,7 @@ class _WeeklyStripState extends ConsumerState<WeeklyStrip> {
       },
       onVerticalDragEnd: (_) => _dragAccum = 0,
       child: Semantics(
-        label: '이번 주',
+        label: l10n.thisWeekLabel,
         button: true,
         child: Padding(
           padding: const EdgeInsets.symmetric(
@@ -58,8 +59,7 @@ class _WeeklyStripState extends ConsumerState<WeeklyStrip> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _weekdayLabels[
-                          parseWeekday(w.dateKey) - 1],
+                      weekdayLabels[parseWeekday(w.dateKey) - 1],
                       style: UnwindType.caption.copyWith(
                           color: w.isToday
                               ? colors.textSecondary

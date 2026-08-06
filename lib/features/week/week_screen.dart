@@ -14,6 +14,7 @@ import '../../data/db/tables/tables.dart';
 import '../compose/compose_sheet.dart';
 import '../settings/settings_screen.dart';
 import '../today/providers.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// §6.2 주간 뷰 — 책상 위 플래너.
 /// **조명 연출을 절대 넣지 않는다.** 밝은 중립 테마 고정(S0).
@@ -51,12 +52,13 @@ class _WeekRoute extends PopupRoute<void> {
 class WeekScreen extends ConsumerWidget {
   const WeekScreen({super.key});
 
-  static const _weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 밝은 중립 테마 고정 — 조도 연동 금지 (§6.2)
     final colors = lerpRamp(0.0);
+    final l10n = AppLocalizations.of(context);
+    final weekdayLabels = l10n.weekdaysShort.split(',');
+    final monthNames = l10n.monthsShort.split(',');
     final todayKey = ref.watch(todayKeyProvider);
     final todos = ref.watch(weekTodosProvider).value ?? const <Todo>[];
     final monday = parseDayKey(weekMondayKey(todayKey));
@@ -89,7 +91,7 @@ class WeekScreen extends ConsumerWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('이번 주',
+                        Text(l10n.thisWeek,
                             style: UnwindType.title.copyWith(
                                 color: colors.textPrimarySnap,
                                 decoration: TextDecoration.none)),
@@ -100,13 +102,13 @@ class WeekScreen extends ConsumerWidget {
                             child: Padding(
                               padding: const EdgeInsets.only(
                                   right: UnwindSpacing.s16),
-                              child: Text('설정',
+                              child: Text(l10n.settingsTitle,
                                   style: UnwindType.label.copyWith(
                                       color: colors.textSecondary,
                                       decoration: TextDecoration.none)),
                             ),
                           ),
-                          Text('접기',
+                          Text(l10n.collapse,
                               style: UnwindType.label.copyWith(
                                   color: colors.textSecondary,
                                   decoration: TextDecoration.none)),
@@ -128,7 +130,7 @@ class WeekScreen extends ConsumerWidget {
                       return _DaySection(
                         dateKey: key,
                         title:
-                            '${day.month}월 ${day.day}일 (${_weekdayLabels[day.weekday - 1]})',
+                            '${l10n.monthDay(monthNames[day.month - 1], day.month, day.day)} (${weekdayLabels[day.weekday - 1]})',
                         isToday: key == todayKey,
                         isPast: isPastDay,
                         todos: byDate[key] ?? const [],
@@ -161,6 +163,7 @@ class _DaySection extends ConsumerWidget {
   });
 
   void _showMenu(BuildContext context, WidgetRef ref, Todo todo) {
+    final l10n = AppLocalizations.of(context);
     showCupertinoModalPopup<void>(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
@@ -171,7 +174,7 @@ class _DaySection extends ConsumerWidget {
               Navigator.of(ctx).pop();
               showComposeSheet(context, existing: todo);
             },
-            child: const Text('편집'),
+            child: Text(l10n.edit),
           ),
           CupertinoActionSheetAction(
             isDestructiveAction: true,
@@ -179,12 +182,12 @@ class _DaySection extends ConsumerWidget {
               Navigator.of(ctx).pop();
               ref.read(todoRepositoryProvider).remove(todo);
             },
-            child: const Text('삭제'),
+            child: Text(l10n.delete),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('닫기'),
+          child: Text(l10n.close),
         ),
       ),
     );
@@ -228,7 +231,7 @@ class _DaySection extends ConsumerWidget {
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
                       padding: const EdgeInsets.all(UnwindSpacing.s4),
-                      child: Text('추가',
+                      child: Text(AppLocalizations.of(context).add,
                           style: UnwindType.label.copyWith(
                               color: colors.textMuted,
                               decoration: TextDecoration.none)),

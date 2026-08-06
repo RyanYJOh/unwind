@@ -77,14 +77,14 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       // 1단계: 컨셉 (크로스페이드 2겹)
-      expect(find.text('Lumi는 자고 싶어요'), findsNWidgets(2));
+      expect(find.text('Lumi wants to sleep'), findsNWidgets(2));
 
-      await tester.tap(find.text('불 끄러 가기'));
+      await tester.tap(find.text('Go turn off the lights'));
       await tester.pump(const Duration(milliseconds: 100));
 
       // 2단계: 샘플 3개가 놓인 방 (아하 모먼트)
       expect(find.byType(LampRow), findsNWidgets(3));
-      expect(find.text('빌린 책 반납하기'), findsNWidgets(2));
+      expect(find.text('Return the borrowed book'), findsNWidgets(2));
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
@@ -98,8 +98,8 @@ void main() {
       ));
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.text('Lumi는 자고 싶어요'), findsNothing);
-      expect(find.text('오늘'), findsWidgets); // 홈
+      expect(find.text('Lumi wants to sleep'), findsNothing);
+      expect(find.text('Today'), findsWidgets); // 홈
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
@@ -117,11 +117,11 @@ void main() {
       ));
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.bySemanticsLabel('하루 마치기'), findsOneWidget); // 전등 줄
-      expect(find.bySemanticsLabel('할 일 추가'), findsOneWidget); // FAB
+      expect(find.bySemanticsLabel('End the day'), findsOneWidget); // 전등 줄
+      expect(find.bySemanticsLabel('Add a task'), findsOneWidget); // FAB
       // 등 상태 라벨 (켜짐/꺼짐)
       final semantics = tester.getSemantics(find.byType(LampRow));
-      expect(semantics.value, '켜짐');
+      expect(semantics.value, 'On');
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));

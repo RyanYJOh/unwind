@@ -16,6 +16,7 @@ import '../../data/db/database.dart';
 import '../../data/repositories/bill_repository.dart';
 import '../../domain/services/bill_calculator.dart';
 import '../today/providers.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// §6.5 주간 청구서 — 영수증 형태. §9.4: 위에서 내려옴 600ms settle.
 Future<void> showBillScreen(BuildContext context, WeeklyBill bill) {
@@ -96,6 +97,7 @@ class _BillScreenState extends ConsumerState<BillScreen> {
   Widget build(BuildContext context) {
     // 청구서는 밝은 종이 — 중립 고정 (조명 연출은 오늘 화면의 독점 권한)
     final colors = lerpRamp(0.0);
+    final l10n = AppLocalizations.of(context);
     final bill = widget.bill;
     final days = decodeBillPayload(bill.payload);
     final monday = parseDayKey(bill.weekStart);
@@ -118,7 +120,7 @@ class _BillScreenState extends ConsumerState<BillScreen> {
                       days: days,
                       previous: _previous,
                       periodLabel:
-                          '${monday.month}월 ${monday.day}일 – ${sunday.month}월 ${sunday.day}일',
+                          '${l10n.monthDay(l10n.monthsShort.split(',')[monday.month - 1], monday.month, monday.day)} – ${l10n.monthDay(l10n.monthsShort.split(',')[sunday.month - 1], sunday.month, sunday.day)}',
                       colors: colors,
                     ),
                   ),
@@ -129,10 +131,14 @@ class _BillScreenState extends ConsumerState<BillScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _BottomButton(label: '공유', onTap: _share, colors: colors),
+                    _BottomButton(
+                        label: l10n.share,
+                        accent: true,
+                        onTap: _share,
+                        colors: colors),
                     const SizedBox(width: UnwindSpacing.s24),
                     _BottomButton(
-                        label: '닫기',
+                        label: l10n.close,
                         onTap: () => Navigator.of(context).pop(),
                         colors: colors),
                   ],
@@ -162,13 +168,13 @@ class _Receipt extends StatelessWidget {
     required this.colors,
   });
 
-  static const _weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
-
   TextStyle get _mono =>
       UnwindType.mono.copyWith(color: colors.textPrimarySnap);
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final weekdayLabels = l10n.weekdaysShort.split(',');
     final avgSleep = (bill.sleepMinutes / 7).round();
     final nights = days.where((d) => d.lightsOut).length;
     final diff = previous != null ? bill.amount - previous!.amount : null;
@@ -187,7 +193,7 @@ class _Receipt extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Unwind 전기요금 청구서',
+            Text(l10n.billTitle,
                 textAlign: TextAlign.center,
                 style: UnwindType.label.copyWith(
                     color: colors.textSecondary,
@@ -202,12 +208,14 @@ class _Receipt extends StatelessWidget {
             _dashedDivider(),
             const SizedBox(height: UnwindSpacing.s16),
             // 주간 총액 — 모노스페이스 (§6.5)
-            Text('${_formatWon(bill.amount)}원',
+            Text(l10n.wonAmount(_formatWon(bill.amount)),
                 textAlign: TextAlign.center,
                 style: _mono.copyWith(
                     fontSize: 34, fontWeight: FontWeight.w600)),
             const SizedBox(height: UnwindSpacing.s4),
-            Text('총 ${bill.kwh.toStringAsFixed(2)} kWh · 기본료 $kBaseFee원 포함',
+            Text(
+                l10n.billTotalCaption(bill.kwh.toStringAsFixed(2),
+                    l10n.wonAmount('$kBaseFee')),
                 textAlign: TextAlign.center,
                 style: UnwindType.caption.copyWith(
                     color: colors.textMuted,
@@ -222,7 +230,7 @@ class _Receipt extends StatelessWidget {
                     const EdgeInsets.symmetric(vertical: UnwindSpacing.s4),
                 child: Row(
                   children: [
-                    Text(_weekdayLabels[i],
+                    Text(weekdayLabels[i],
                         style: UnwindType.caption.copyWith(
                             color: colors.textSecondary,
                             decoration: TextDecoration.none)),
@@ -248,15 +256,15 @@ class _Receipt extends StatelessWidget {
             _dashedDivider(),
             const SizedBox(height: UnwindSpacing.s16),
             // Lumi 수면 요약 — 서술형만 (§6.5)
-            Text('Lumi는 ${sleepGrade(avgSleep)}',
+            Text(_sleepText(l10n, sleepGrade(avgSleep)),
                 style: UnwindType.bodyStrong.copyWith(
                     color: colors.textPrimarySnap,
                     decoration: TextDecoration.none)),
             const SizedBox(height: UnwindSpacing.s4),
             Text(
                 nights > 0
-                    ? '이번 주엔 $nights일 밤 불을 껐어요'
-                    : '이번 주의 밤은 모두 불이 켜져 있었어요',
+                    ? l10n.nightsOut(nights)
+                    : l10n.allNightsLit,
                 style: UnwindType.label.copyWith(
                     color: colors.textSecondary,
                     decoration: TextDecoration.none)),
@@ -264,10 +272,10 @@ class _Receipt extends StatelessWidget {
               const SizedBox(height: UnwindSpacing.s8),
               Text(
                   diff == 0
-                      ? '지난주와 같은 요금이에요'
+                      ? l10n.diffSame
                       : diff < 0
-                          ? '지난주보다 ${_formatWon(-diff)}원 적어요'
-                          : '지난주보다 ${_formatWon(diff)}원 많아요',
+                          ? l10n.diffLess(l10n.wonAmount(_formatWon(-diff)))
+                          : l10n.diffMore(l10n.wonAmount(_formatWon(diff))),
                   style: UnwindType.caption.copyWith(
                       color: colors.textMuted,
                       decoration: TextDecoration.none)),
@@ -277,6 +285,15 @@ class _Receipt extends StatelessWidget {
       ),
     );
   }
+
+  String _sleepText(AppLocalizations l10n, SleepGrade grade) =>
+      switch (grade) {
+        SleepGrade.deep => l10n.sleepDeep,
+        SleepGrade.well => l10n.sleepWell,
+        SleepGrade.tossed => l10n.sleepTossed,
+        SleepGrade.barely => l10n.sleepBarely,
+        SleepGrade.none => l10n.sleepNone,
+      };
 
   Widget _dashedDivider() => LayoutBuilder(
         builder: (context, constraints) {
@@ -306,9 +323,13 @@ class _BottomButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final UnwindColors colors;
+  final bool accent;
 
   const _BottomButton(
-      {required this.label, required this.onTap, required this.colors});
+      {required this.label,
+      required this.onTap,
+      required this.colors,
+      this.accent = false});
 
   @override
   Widget build(BuildContext context) {
@@ -320,9 +341,7 @@ class _BottomButton extends StatelessWidget {
             horizontal: UnwindSpacing.s16, vertical: UnwindSpacing.s8),
         child: Text(label,
             style: UnwindType.bodyStrong.copyWith(
-                color: label == '공유'
-                    ? colors.lamp
-                    : colors.textSecondary,
+                color: accent ? colors.lamp : colors.textSecondary,
                 decoration: TextDecoration.none)),
       ),
     );

@@ -13,6 +13,9 @@ class UnwindSettings {
   final int dayStartHour; // 기본 6
   final bool onboardingCompleted;
 
+  /// 앱 언어 — 기본 영어. 지원 언어는 l10n/*.arb 추가로 확장한다.
+  final String languageCode;
+
   const UnwindSettings({
     this.nightReminderEnabled = true,
     this.nightReminderTime = '22:00',
@@ -21,6 +24,7 @@ class UnwindSettings {
     this.hapticsEnabled = true,
     this.dayStartHour = 6,
     this.onboardingCompleted = false,
+    this.languageCode = 'en',
   });
 
   UnwindSettings copyWith({
@@ -31,6 +35,7 @@ class UnwindSettings {
     bool? hapticsEnabled,
     int? dayStartHour,
     bool? onboardingCompleted,
+    String? languageCode,
   }) =>
       UnwindSettings(
         nightReminderEnabled: nightReminderEnabled ?? this.nightReminderEnabled,
@@ -41,6 +46,7 @@ class UnwindSettings {
         hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
         dayStartHour: dayStartHour ?? this.dayStartHour,
         onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+        languageCode: languageCode ?? this.languageCode,
       );
 
   (int, int) get reminderHourMinute {
@@ -76,6 +82,8 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
           await dao.getInt(SettingKeys.dayStartHour, fallback: 6),
       onboardingCompleted: await dao
           .getBool(SettingKeys.onboardingCompleted, fallback: false),
+      languageCode:
+          await dao.getValue(SettingKeys.languageCode) ?? 'en',
     );
   }
 
@@ -116,6 +124,9 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
       'true',
       (s) => s.copyWith(onboardingCompleted: true));
 
+  Future<void> setLanguageCode(String code) => _set(
+      SettingKeys.languageCode, code, (s) => s.copyWith(languageCode: code));
+
   /// §6.7 데이터 초기화 — 할 일·기록·반복·청구서 전부 삭제 (설정은 유지)
   Future<void> resetAllData() async {
     final db = ref.read(databaseProvider);
@@ -125,5 +136,20 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
       await db.delete(db.recurrences).go();
       await db.delete(db.weeklyBills).go();
     });
+  }
+
+  /// 완전 초기화 (개발용) — 설정·온보딩 플래그까지 전부 삭제해 첫 실행
+  /// 상태로 되돌린다. TODO(unwind): 배포 빌드에서는 이 기능과 설정 화면의
+  /// 진입 버튼을 제거할 것.
+  Future<void> fullResetForDev() async {
+    final db = ref.read(databaseProvider);
+    await db.transaction(() async {
+      await db.delete(db.todos).go();
+      await db.delete(db.days).go();
+      await db.delete(db.recurrences).go();
+      await db.delete(db.weeklyBills).go();
+      await db.delete(db.settings).go();
+    });
+    ref.invalidateSelf();
   }
 }
