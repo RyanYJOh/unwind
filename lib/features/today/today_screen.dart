@@ -16,6 +16,7 @@ import '../../data/db/tables/tables.dart';
 import '../../domain/models/lumi_state.dart';
 import '../../core/tokens/design_variant.dart';
 import '../../widgets/ceiling_light.dart';
+import '../../widgets/corner_glow.dart';
 import '../../widgets/lamp_row.dart';
 import '../../widgets/lumi/lumi_view.dart';
 import '../../widgets/night_sky.dart';
@@ -311,7 +312,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     return AnimatedBuilder(
       animation: Listenable.merge([_theme, _pulse]),
       builder: (context, child) {
-        final colors = lerpRamp(_displayT);
+        // darkGlow (개편): 베이스는 항상 다크 — 빛은 CornerGlow가 담당
+        final colors = kRoomDesign == RoomDesign.darkGlow
+            ? lerpRamp(1.0)
+            : lerpRamp(_displayT);
         return UnwindTheme(
           colors: colors,
           child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -354,6 +358,20 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
               ),
             ),
           ),
+          // 코너 글로우 (개편 2026-08-07 최종): 다크 베이스 위 순수한 빛.
+          // 남은 할 일 = 남은 빛. 체크할수록 잦아들고, 전부 체크하면 완전한 다크.
+          if (kRoomDesign == RoomDesign.darkGlow)
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_theme, _pulse, _breath]),
+                builder: (context, _) => CornerGlow(
+                  light: 1 - _displayT,
+                  breath: reduce
+                      ? 0
+                      : BreathAnimation(_breath).value * (1 - _displayT),
+                ),
+              ),
+            ),
           // 천장 조명 (디자인 개편 2026-08-07) — 우측 상단, 전등 줄 위.
           // 남은 할 일 = 남은 빛. 스위치를 끌수록 어두워진다.
           if (kRoomDesign == RoomDesign.ceilingLight)

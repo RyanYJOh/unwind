@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/unwind_theme.dart';
+import '../../core/tokens/design_variant.dart';
 import '../../core/tokens/color_ramp.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
@@ -50,10 +51,11 @@ class _WeeklyStripState extends ConsumerState<WeeklyStrip> {
         label: l10n.thisWeekLabel,
         button: true,
         child: Padding(
-          // 우측은 천장 조명 자리 (디자인 개편 2026-08-07)
-          padding: const EdgeInsets.only(
+          // 천장 조명(그림) 버전에서만 우측 자리 확보
+          padding: EdgeInsets.only(
               left: UnwindSpacing.s24,
-              right: UnwindSpacing.s24 + 64,
+              right: UnwindSpacing.s24 +
+                  (kRoomDesign == RoomDesign.ceilingLight ? 64 : 0),
               top: UnwindSpacing.s8,
               bottom: UnwindSpacing.s8),
           child: Row(

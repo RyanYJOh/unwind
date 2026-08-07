@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/unwind_theme.dart';
 import '../../core/tokens/color_ramp.dart';
+import '../../core/tokens/design_variant.dart';
 import '../../core/tokens/motion.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
@@ -150,7 +151,9 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(brightnessProvider);
-    final colors = lerpRamp(t);
+    final colors = kRoomDesign == RoomDesign.darkGlow
+        ? lerpRamp(1.0)
+        : lerpRamp(t);
     final l10n = AppLocalizations.of(context);
     final todayKey = ref.watch(todayKeyProvider);
     final asleep = ref.watch(isAsleepProvider);

@@ -172,7 +172,9 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
     // 디자인 스위치 (개편 2026-08-07): 천장 조명 ↔ 형광등 패널.
     // 도미노 마이크로 바운스는 두 디자인 공통.
     final body = switch (kRoomDesign) {
-      RoomDesign.ceilingLight => _buildSwitchRow(context, colors, l10n),
+      RoomDesign.darkGlow ||
+      RoomDesign.ceilingLight =>
+        _buildSwitchRow(context, colors, l10n),
       RoomDesign.fluorescent => _buildFluorescent(context, colors, l10n),
     };
 

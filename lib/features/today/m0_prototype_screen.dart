@@ -15,6 +15,7 @@ import '../../domain/models/lumi_state.dart';
 import '../../domain/services/brightness_engine.dart';
 import '../../core/tokens/design_variant.dart';
 import '../../widgets/ceiling_light.dart';
+import '../../widgets/corner_glow.dart';
 import '../../widgets/lamp_row.dart';
 import '../../widgets/lumi/lumi_view.dart';
 import '../../widgets/night_sky.dart';
@@ -296,7 +297,9 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
     return AnimatedBuilder(
       animation: Listenable.merge([_theme, _pulse]),
       builder: (context, child) {
-        final colors = lerpRamp(_displayT);
+        final colors = kRoomDesign == RoomDesign.darkGlow
+            ? lerpRamp(1.0)
+            : lerpRamp(_displayT);
         return UnwindTheme(
           colors: colors,
           child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -343,6 +346,17 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
               ),
             ),
           ),
+          // 코너 글로우 (개편 최종)
+          if (kRoomDesign == RoomDesign.darkGlow)
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_theme, _pulse, _breath]),
+                builder: (context, _) => CornerGlow(
+                  light: 1 - _displayT,
+                  breath: BreathAnimation(_breath).value * (1 - _displayT),
+                ),
+              ),
+            ),
           // 천장 조명 (디자인 개편 2026-08-07)
           if (kRoomDesign == RoomDesign.ceilingLight)
             Positioned.fill(
