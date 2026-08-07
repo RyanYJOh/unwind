@@ -13,6 +13,8 @@ import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../domain/models/lumi_state.dart';
 import '../../domain/services/brightness_engine.dart';
+import '../../core/tokens/design_variant.dart';
+import '../../widgets/ceiling_light.dart';
 import '../../widgets/lamp_row.dart';
 import '../../widgets/lumi/lumi_view.dart';
 import '../../widgets/night_sky.dart';
@@ -341,6 +343,21 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
               ),
             ),
           ),
+          // 천장 조명 (디자인 개편 2026-08-07)
+          if (kRoomDesign == RoomDesign.ceilingLight)
+            Positioned.fill(
+              child: SafeArea(
+                bottom: false,
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([_theme, _pulse, _breath]),
+                  builder: (context, _) => CeilingLight(
+                    light: 1 - _displayT,
+                    breath:
+                        BreathAnimation(_breath).value * (1 - _displayT),
+                  ),
+                ),
+              ),
+            ),
           SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -387,6 +404,7 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
                       isOn: _items[i].visualOn,
                       breath: reduce ? null : BreathAnimation(_breath),
                       onToggle: _pulled ? null : () => _toggle(i),
+                      dominoBounce: _pulled, // 순차 통통 (개편)
                     ),
                   ),
                 ),

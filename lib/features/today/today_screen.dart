@@ -14,6 +14,8 @@ import '../../core/tokens/typography.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
 import '../../domain/models/lumi_state.dart';
+import '../../core/tokens/design_variant.dart';
+import '../../widgets/ceiling_light.dart';
 import '../../widgets/lamp_row.dart';
 import '../../widgets/lumi/lumi_view.dart';
 import '../../widgets/night_sky.dart';
@@ -352,6 +354,23 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
               ),
             ),
           ),
+          // 천장 조명 (디자인 개편 2026-08-07) — 우측 상단, 전등 줄 위.
+          // 남은 할 일 = 남은 빛. 스위치를 끌수록 어두워진다.
+          if (kRoomDesign == RoomDesign.ceilingLight)
+            Positioned.fill(
+              child: SafeArea(
+                bottom: false,
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([_theme, _pulse, _breath]),
+                  builder: (context, _) => CeilingLight(
+                    light: 1 - _displayT,
+                    breath: reduce
+                        ? 0
+                        : BreathAnimation(_breath).value * (1 - _displayT),
+                  ),
+                ),
+              ),
+            ),
           SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -463,6 +482,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                               onLongPress: _dominoRunning
                                   ? null
                                   : () => _showItemMenu(todo),
+                              dominoBounce: _dominoRunning, // 순차 통통 (개편)
                             );
                           },
                         ),

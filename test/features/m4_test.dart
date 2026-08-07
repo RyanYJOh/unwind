@@ -84,7 +84,7 @@ void main() {
 
       // 2단계: 샘플 3개가 놓인 방 (아하 모먼트)
       expect(find.byType(LampRow), findsNWidgets(3));
-      expect(find.text('Return the borrowed book'), findsOneWidget);
+      expect(find.text('Return the borrowed book'), findsNWidgets(2));
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));

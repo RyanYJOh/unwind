@@ -27,8 +27,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(LampRow), findsNWidgets(5));
-    // 켜진 패널의 텍스트는 단일 레이어 (개정 2026-08-07)
-    expect(find.text('장보기'), findsOneWidget);
+    // 스위치 행 텍스트는 크로스페이드 2겹 (디자인 개편 2026-08-07)
+    expect(find.text('장보기'), findsNWidgets(2));
 
     // 체크 — 개정: 우측 스위치로 토글
     await tester.tap(find.descendant(

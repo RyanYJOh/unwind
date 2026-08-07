@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../core/theme/unwind_theme.dart';
 import '../core/tokens/color_ramp.dart';
+import '../core/tokens/design_variant.dart';
 import '../core/tokens/motion.dart';
 import '../core/tokens/spacing.dart';
 import '../core/tokens/typography.dart';
@@ -30,6 +31,9 @@ class LampRow extends StatefulWidget {
   /// §5.5 호흡 — 켜진 등의 발광만 미세하게 오르내린다. null이면 정지.
   final Animation<double>? breath;
 
+  /// 일괄 소등 도미노 중이면 true — 꺼질 때 마이크로 바운스 (개편 2026-08-07)
+  final bool dominoBounce;
+
   const LampRow({
     super.key,
     required this.title,
@@ -38,6 +42,7 @@ class LampRow extends StatefulWidget {
     this.onTap,
     this.onLongPress,
     this.breath,
+    this.dominoBounce = false,
   });
 
   @override
@@ -54,6 +59,10 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
   /// 형광등 점화 플리커 (켜질 때만, 380ms)
   late final AnimationController _ignite;
   late final Animation<double> _igniteAnim;
+
+  /// 도미노 마이크로 바운스 (개편 2026-08-07) — 꺼지는 순간 통 하고 튄다
+  late final AnimationController _dominoBounceCtrl;
+  late final Animation<double> _dominoBounceAnim;
 
   static const _totalMs =
       UnwindMotion.afterglowDelayMs + UnwindMotion.afterglowMs; // 260
@@ -105,6 +114,23 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
           weight: 40),
     ]).animate(_ignite);
     if (widget.isOn) _ignite.value = 1.0;
+
+    _dominoBounceCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 240));
+    _dominoBounceAnim = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 1.0, end: 0.945)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 34),
+      TweenSequenceItem(
+          tween: Tween(begin: 0.945, end: 1.03)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 33),
+      TweenSequenceItem(
+          tween: Tween(begin: 1.03, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeIn)),
+          weight: 33),
+    ]).animate(_dominoBounceCtrl);
   }
 
   @override
@@ -116,6 +142,9 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
         _ignite.forward(from: 0); // 형광등 점화
       } else {
         _off.forward();
+        if (widget.dominoBounce) {
+          _dominoBounceCtrl.forward(from: 0); // 순차 소등의 통통 (개편)
+        }
       }
     }
   }
@@ -125,6 +154,7 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
     _off.dispose();
     _press.dispose();
     _ignite.dispose();
+    _dominoBounceCtrl.dispose();
     super.dispose();
   }
 
@@ -138,8 +168,13 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final colors = UnwindTheme.of(context);
     final l10n = AppLocalizations.of(context);
-    // 어두운 방일수록 켜진 형광등이 눈부시다 — 전역 조도 t에 비례한 발광 증폭
-    final darkBoost = 0.55 + 1.25 * colors.t;
+
+    // 디자인 스위치 (개편 2026-08-07): 천장 조명 ↔ 형광등 패널.
+    // 도미노 마이크로 바운스는 두 디자인 공통.
+    final body = switch (kRoomDesign) {
+      RoomDesign.ceilingLight => _buildSwitchRow(context, colors, l10n),
+      RoomDesign.fluorescent => _buildFluorescent(context, colors, l10n),
+    };
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -151,7 +186,78 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
         child: Semantics(
           label: widget.title,
           button: true,
-          child: AnimatedBuilder(
+          child: ScaleTransition(
+            scale: _dominoBounceAnim,
+            child: body,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 천장 조명 디자인 (개편 2026-08-07): 아이템 = 벽 스위치 행.
+  /// 발광은 천장 조명의 몫 — 행은 담백한 스위치 + 라벨.
+  Widget _buildSwitchRow(
+      BuildContext context, UnwindColors colors, AppLocalizations l10n) {
+    return AnimatedBuilder(
+      animation: _off,
+      builder: (context, _) {
+        final lit = 1 - _coreOff.value;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surface
+                .withValues(alpha: colors.surface.a * (0.35 + 0.4 * lit)),
+            borderRadius: BorderRadius.circular(UnwindRadius.md),
+            border: Border.all(
+                color:
+                    colors.border.withValues(alpha: 0.35 + 0.35 * lit),
+                width: 0.8),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+                minHeight: UnwindTouch.minTarget + 8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: UnwindSpacing.s16,
+                  vertical: UnwindSpacing.s8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Opacity(
+                      // §9.2: 꺼진 항목 텍스트 흐려짐 유지
+                      opacity: UnwindMotion.textFadedOpacity +
+                          (1 - UnwindMotion.textFadedOpacity) * lit,
+                      child: PrimaryText(widget.title,
+                          style: UnwindType.body),
+                    ),
+                  ),
+                  const SizedBox(width: UnwindSpacing.s12),
+                  LampSwitch(
+                    isOn: widget.isOn,
+                    lit: lit,
+                    press: _press,
+                    colors: colors,
+                    enabled: widget.onToggle != null,
+                    onTap: _handleToggle,
+                    semanticsOn: l10n.lampOn,
+                    semanticsOff: l10n.lampOff,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 형광등 패널 디자인 (롤백용 보존 — kRoomDesign.fluorescent)
+  Widget _buildFluorescent(
+      BuildContext context, UnwindColors colors, AppLocalizations l10n) {
+    // 어두운 방일수록 켜진 형광등이 눈부시다 — 전역 조도 t에 비례한 발광 증폭
+    final darkBoost = 0.55 + 1.25 * colors.t;
+
+    return AnimatedBuilder(
             animation: Listenable.merge(
                 [_off, _ignite, if (widget.breath != null) widget.breath!]),
             builder: (context, child) {
@@ -301,10 +407,7 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
                 ],
               );
             },
-          ),
-        ),
-      ),
-    );
+          );
   }
 }
 

@@ -50,8 +50,12 @@ class _WeeklyStripState extends ConsumerState<WeeklyStrip> {
         label: l10n.thisWeekLabel,
         button: true,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: UnwindSpacing.s24, vertical: UnwindSpacing.s8),
+          // 우측은 천장 조명 자리 (디자인 개편 2026-08-07)
+          padding: const EdgeInsets.only(
+              left: UnwindSpacing.s24,
+              right: UnwindSpacing.s24 + 64,
+              top: UnwindSpacing.s8,
+              bottom: UnwindSpacing.s8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
