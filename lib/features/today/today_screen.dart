@@ -136,9 +136,22 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     final repo = ref.read(todoRepositoryProvider);
     final haptics = ref.read(hapticsProvider);
     final sound = ref.read(soundPlayerProvider);
-    final done = todo.status != TodoStatus.done;
+    final todayKey = ref.read(todayKeyProvider);
+    final asleep = ref.read(isAsleepProvider);
 
     haptics.tadak(); // "타닥" — light→medium 연속 (개정 2026-08-07)
+
+    // 취침 후 스위치 ON = 유령 깨우기 (개정 2026-08-07, undo)
+    if (asleep) {
+      await repo.wake(todayKey);
+      if (todo.status == TodoStatus.done) {
+        await repo.setDone(todo, false); // 완료였던 항목은 되돌린다
+      }
+      // pending 항목은 상태 유지 — 깨어나면 등이 다시 켜진다
+      return;
+    }
+
+    final done = todo.status != TodoStatus.done;
     if (done) {
       sound.click();
       _pulse.forward(from: 0);
@@ -266,6 +279,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     // 조도 목표 변화 → 테마 애니메이션 (도미노 중에는 시퀀스가 직접 몬다)
     ref.listen<double>(brightnessProvider, (prev, next) {
       if (!_dominoRunning) _animateThemeTo(next);
+    });
+
+    // 깨어나면(undo) 소등 오버라이드 해제 + 별이 걷힌다 (개정 2026-08-07)
+    ref.listen<bool>(isAsleepProvider, (prev, next) {
+      if (prev == true && next == false) {
+        setState(() => _visualOffOverride.clear());
+        _stars.reverse();
+      }
     });
 
     // §10 밤 리마인더 조건 갱신 활성화
@@ -425,13 +446,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                             final isOn =
                                 todo.status == TodoStatus.pending &&
                                     !_visualOffOverride.contains(todo.id);
-                            // 개정 2026-08-07: 스위치=토글, 패널 탭=편집
+                            // 개정 2026-08-07: 스위치=토글, 패널 탭=편집.
+                            // 취침 중 스위치 = 깨우기(undo)
                             return LampRow(
                               title: todo.title,
                               isOn: isOn,
                               breath:
                                   reduce ? null : BreathAnimation(_breath),
-                              onToggle: asleep || _dominoRunning
+                              onToggle: _dominoRunning
                                   ? null
                                   : () => _toggle(todo),
                               onTap: asleep || _dominoRunning

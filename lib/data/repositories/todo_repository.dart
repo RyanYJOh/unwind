@@ -57,4 +57,12 @@ class TodoRepository {
   /// TODO(unwind): 미결정 — §15 미루기 처리. v1은 상태 변경 없음.
   Future<void> pullCord(String date, DateTime at) =>
       db.dayDao.markLightsOut(date, at);
+
+  /// 유령 깨우기 (개정 2026-08-07) — 취침 후 스위치 ON = undo.
+  /// 취침 기록(lightsOutAt·finalT) 삭제, 조도는 §5.2 되돌리기 규칙으로
+  /// 재계산(raw, 하강 허용). 전등 줄은 다시 활성화된다.
+  Future<void> wake(String date) async {
+    final raw = await _rawProgress(date);
+    await db.dayDao.clearLightsOut(date, raw);
+  }
 }

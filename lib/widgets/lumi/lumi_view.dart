@@ -65,7 +65,8 @@ class _LumiRiveAdapterState extends State<_LumiRiveAdapter> {
       _event = GhostEvent.allDone;
       _tick++;
     } else if (old.state.isAsleep && !s.isAsleep) {
-      _event = null; // GhostView가 allDone 해제
+      // 깨우기 (개정 2026-08-07): allDone 해제 + 기지개·미소 (wakeUpHappy)
+      _event = GhostEvent.wakeUpHappy;
       _tick++;
     } else if (s.eventTick != old.state.eventTick &&
         s.event == LumiEvent.react &&

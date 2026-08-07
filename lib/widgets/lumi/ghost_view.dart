@@ -51,6 +51,7 @@ class _GhostViewState extends State<GhostView> {
   /// (없는 에셋을 로드하면 비동기 예외가 테스트/콘솔로 샌다)
   bool _assetOk = false;
   Timer? _yawnTimer;
+  Timer? _happyResetTimer;
   DateTime _lastEventAt = DateTime.fromMillisecondsSinceEpoch(0);
   int _seenTick = -1;
   final _rng = math.Random();
@@ -109,7 +110,8 @@ class _GhostViewState extends State<GhostView> {
         final happy = _vmi?.boolean(GhostContract.vmHappy);
         happy?.value = true;
         // 재생 후 false 복귀 (브리프 §6.3)
-        Timer(const Duration(milliseconds: 1600), () {
+        _happyResetTimer?.cancel();
+        _happyResetTimer = Timer(const Duration(milliseconds: 1600), () {
           happy?.value = false;
         });
     }
@@ -132,6 +134,7 @@ class _GhostViewState extends State<GhostView> {
   @override
   void dispose() {
     _yawnTimer?.cancel();
+    _happyResetTimer?.cancel();
     _vmi?.dispose();
     _fileLoader?.dispose(); // 브리프 §6.1: fileLoader만 dispose
     super.dispose();

@@ -44,6 +44,17 @@ class DayDao extends DatabaseAccessor<UnwindDatabase> with _$DayDaoMixin {
     ));
   }
 
+  /// 유령 깨우기 (개정 2026-08-07): 취침 기록 삭제 + peak 재설정.
+  /// §5.3의 "당긴 후 t=1.0 고정"은 스위치 undo로 해제 가능하도록 개정됨.
+  Future<void> clearLightsOut(String date, double peakProgress) {
+    return into(days).insertOnConflictUpdate(DaysCompanion.insert(
+      date: date,
+      peakProgress: peakProgress,
+      lightsOutAt: const Value(null),
+      finalT: const Value(null),
+    ));
+  }
+
   /// 롤오버 시 하루 종료 조도 기록 (§4.3) — 이미 finalT가 있으면 유지
   Future<void> sealDay(String date, double finalT) async {
     final existing = await getDay(date);

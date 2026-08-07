@@ -60,6 +60,25 @@ void main() {
     expect(await peak(), closeTo(1 / 3, 1e-9));
   });
 
+  test('깨우기(개정 2026-08-07): 취침 기록 삭제 + §5.2 규칙으로 재계산', () async {
+    final todos = [
+      for (var i = 0; i < 2; i++) await repo.add(title: '할 일 \$i', date: d),
+    ];
+    await repo.setDone(todos[0], true); // peak = 1/2
+    await repo.pullCord(d, DateTime(2026, 8, 6, 22, 0));
+    expect((await db.dayDao.getDay(d))!.lightsOutAt, isNotNull);
+
+    await repo.wake(d);
+    final day = (await db.dayDao.getDay(d))!;
+    expect(day.lightsOutAt, isNull); // 취침 기록 삭제
+    expect(day.finalT, isNull);
+    expect(day.peakProgress, closeTo(0.5, 1e-9)); // raw로 재계산
+
+    // 깨운 뒤 완료 취소하면 §5.2대로 더 내려간다
+    await repo.setDone(todos[0], false);
+    expect((await db.dayDao.getDay(d))!.peakProgress, 0.0);
+  });
+
   test('수용 기준: 전등 줄 후 추가해도 lightsOutAt/peak=1.0 유지', () async {
     await repo.add(title: '할 일', date: d);
     await repo.pullCord(d, DateTime(2026, 8, 6, 23, 30));
