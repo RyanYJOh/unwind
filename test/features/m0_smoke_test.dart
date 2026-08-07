@@ -8,8 +8,17 @@ import 'package:unwind/widgets/pull_cord.dart';
 /// M0 스모크 테스트 — 감각 자체는 실기기에서만 검증 가능하지만(§13),
 /// 상호작용 흐름과 §14 일부 수용 기준은 여기서 자동 확인한다.
 void main() {
+  // 새 형광등 패널은 행이 높아 기본 테스트 뷰포트(800)에 5개가 안 들어간다
+  // → iPhone 실기기 크기로 설정
+  Future<void> setPhoneViewport(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+  }
+
   testWidgets('M0: 더미 5개가 표시되고, 완료해도 리스트에서 사라지지 않는다',
       (tester) async {
+    await setPhoneViewport(tester);
     await tester.pumpWidget(const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -18,14 +27,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(LampRow), findsNWidgets(5));
-    // PrimaryText는 크로스페이드용으로 텍스트를 2겹 그린다 (§8.1)
-    expect(find.text('장보기'), findsNWidgets(2));
+    // 켜진 패널의 텍스트는 단일 레이어 (개정 2026-08-07)
+    expect(find.text('장보기'), findsOneWidget);
 
-    // 체크
-    await tester.tap(find.text('장보기').first);
+    // 체크 — 개정: 우측 스위치로 토글
+    await tester.tap(find.descendant(
+        of: find.widgetWithText(LampRow, '장보기'),
+        matching: find.byType(LampSwitch)));
+    await tester.pump(); // 리빌드 프레임 (여기서 소등 애니메이션 시작)
     await tester.pump(const Duration(milliseconds: 600)); // 테마 이동 완료
 
     // §14: 완료한 항목이 리스트에서 사라지거나 순서가 바뀌지 않는다
+    // (꺼진 패널 텍스트는 크로스페이드 2겹)
     expect(find.byType(LampRow), findsNWidgets(5));
     expect(find.text('장보기'), findsNWidgets(2));
 
@@ -34,6 +47,7 @@ void main() {
 
   testWidgets('M0: 전등 줄 임계 이상 당기면 소등 시퀀스가 돌고 리셋이 노출된다',
       (tester) async {
+    await setPhoneViewport(tester);
     await tester.pumpWidget(const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

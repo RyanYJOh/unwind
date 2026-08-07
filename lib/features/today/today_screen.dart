@@ -20,6 +20,8 @@ import '../../widgets/night_sky.dart';
 import '../../widgets/pull_cord.dart';
 import '../bill/bill_screen.dart';
 import '../compose/compose_sheet.dart';
+import '../settings/settings_controller.dart';
+import '../week/week_screen.dart';
 import '../week/weekly_strip.dart';
 import 'providers.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -136,7 +138,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     final sound = ref.read(soundPlayerProvider);
     final done = todo.status != TodoStatus.done;
 
-    haptics.light();
+    haptics.tadak(); // "타닥" — light→medium 연속 (개정 2026-08-07)
     if (done) {
       sound.click();
       _pulse.forward(from: 0);
@@ -423,14 +425,19 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                             final isOn =
                                 todo.status == TodoStatus.pending &&
                                     !_visualOffOverride.contains(todo.id);
+                            // 개정 2026-08-07: 스위치=토글, 패널 탭=편집
                             return LampRow(
                               title: todo.title,
                               isOn: isOn,
                               breath:
                                   reduce ? null : BreathAnimation(_breath),
-                              onTap: asleep || _dominoRunning
+                              onToggle: asleep || _dominoRunning
                                   ? null
                                   : () => _toggle(todo),
+                              onTap: asleep || _dominoRunning
+                                  ? null
+                                  : () =>
+                                      showComposeSheet(context, existing: todo),
                               onLongPress: _dominoRunning
                                   ? null
                                   : () => _showItemMenu(todo),
@@ -467,6 +474,30 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                 ),
               ),
             ),
+          ),
+          // 주간 뷰 오버레이 (개정 2026-08-07): 토글 + 영속 (§6.2 개정).
+          // 위에서 펼쳐지는 380ms settle 전환 유지 (§9.4). 앱 재실행 시에도
+          // weekViewOpen 설정에 따라 열린 채 시작된다.
+          Positioned.fill(
+            child: Consumer(builder: (context, ref, _) {
+              final weekOpen = ref.watch(settingsControllerProvider
+                      .select((s) => s.value?.weekViewOpen)) ??
+                  false;
+              return IgnorePointer(
+                ignoring: !weekOpen,
+                child: AnimatedSlide(
+                  offset: weekOpen ? Offset.zero : const Offset(0, -1.1),
+                  duration: const Duration(
+                      milliseconds: UnwindMotion.weekExpandMs),
+                  curve: UnwindMotion.settle,
+                  child: WeekScreen(
+                    onCollapse: () => ref
+                        .read(settingsControllerProvider.notifier)
+                        .setWeekViewOpen(false),
+                  ),
+                ),
+              );
+            }),
           ),
         ],
       ),

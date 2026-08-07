@@ -84,7 +84,7 @@ void main() {
 
       // 2단계: 샘플 3개가 놓인 방 (아하 모먼트)
       expect(find.byType(LampRow), findsNWidgets(3));
-      expect(find.text('Return the borrowed book'), findsNWidgets(2));
+      expect(find.text('Return the borrowed book'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
@@ -119,8 +119,8 @@ void main() {
 
       expect(find.bySemanticsLabel('End the day'), findsOneWidget); // 전등 줄
       expect(find.bySemanticsLabel('Add a task'), findsOneWidget); // FAB
-      // 등 상태 라벨 (켜짐/꺼짐)
-      final semantics = tester.getSemantics(find.byType(LampRow));
+      // 등 상태 라벨 (켜짐/꺼짐) — 개정: 스위치가 상태를 보고
+      final semantics = tester.getSemantics(find.byType(LampSwitch));
       expect(semantics.value, 'On');
 
       await tester.pumpWidget(const SizedBox());

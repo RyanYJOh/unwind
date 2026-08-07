@@ -12,6 +12,19 @@ class UnwindHaptics {
     if (enabled) await HapticFeedback.lightImpact();
   }
 
+  /// 개별 체크 "타닥" — light → medium 연속 (개정 2026-08-07, §9.2)
+  Future<void> tadak() async {
+    if (!enabled) return;
+    await HapticFeedback.lightImpact();
+    await Future.delayed(const Duration(milliseconds: 45));
+    await HapticFeedback.mediumImpact();
+  }
+
+  /// 전등 줄 tension 틱 (개정 2026-08-07, §6.4) — 가장 가벼운 틱
+  Future<void> tensionTick() async {
+    if (enabled) await HapticFeedback.selectionClick();
+  }
+
   /// 전등 줄 임계점 통과(§6.4)
   Future<void> medium() async {
     if (enabled) await HapticFeedback.mediumImpact();

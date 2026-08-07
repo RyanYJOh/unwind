@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/unwind_theme.dart';
 import '../../core/tokens/color_ramp.dart';
-import '../../core/tokens/motion.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../core/utils/dates.dart';
@@ -19,38 +18,13 @@ import '../../l10n/generated/app_localizations.dart';
 /// §6.2 주간 뷰 — 책상 위 플래너.
 /// **조명 연출을 절대 넣지 않는다.** 밝은 중립 테마 고정(S0).
 /// 조도는 오늘 화면의 독점 권한이다.
-Future<void> showWeekScreen(BuildContext context) {
-  return Navigator.of(context, rootNavigator: true).push(_WeekRoute());
-}
-
-/// 위에서 펼쳐지는 전환 (§9.4: 380ms, settle)
-class _WeekRoute extends PopupRoute<void> {
-  @override
-  Color? get barrierColor => const Color(0x44000000);
-
-  @override
-  bool get barrierDismissible => true;
-
-  @override
-  String? get barrierLabel => '닫기';
-
-  @override
-  Duration get transitionDuration =>
-      const Duration(milliseconds: UnwindMotion.weekExpandMs);
-
-  @override
-  Widget buildPage(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation) {
-    return SlideTransition(
-      position: Tween(begin: const Offset(0, -1), end: Offset.zero).animate(
-          CurvedAnimation(parent: animation, curve: UnwindMotion.settle)),
-      child: const WeekScreen(),
-    );
-  }
-}
-
+/// 개정 2026-08-07: 라우트가 아닌 토글 오버레이 — 상태는 설정에 영속되어
+/// 앱을 껐다 켜도 유지된다.
 class WeekScreen extends ConsumerWidget {
-  const WeekScreen({super.key});
+  /// 접기 — 토글 해제 (개정: Navigator.pop 아님)
+  final VoidCallback? onCollapse;
+
+  const WeekScreen({super.key, this.onCollapse});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -82,9 +56,9 @@ class WeekScreen extends ConsumerWidget {
                 // 헤더 — 위로 밀어 접기
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: onCollapse,
                   onVerticalDragUpdate: (d) {
-                    if (d.delta.dy < -6) Navigator.of(context).pop();
+                    if (d.delta.dy < -6) onCollapse?.call();
                   },
                   child: Padding(
                     padding: const EdgeInsets.all(UnwindSpacing.s24),

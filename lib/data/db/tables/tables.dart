@@ -95,4 +95,5 @@ abstract final class SettingKeys {
   static const onboardingCompleted = 'onboardingCompleted';
   static const dayStartHour = 'dayStartHour'; // 기본 6
   static const languageCode = 'languageCode'; // 기본 'en'
+  static const weekViewOpen = 'weekViewOpen'; // 주간 뷰 토글 상태 (개정 2026-08-07)
 }

@@ -16,6 +16,9 @@ class UnwindSettings {
   /// 앱 언어 — 기본 영어. 지원 언어는 l10n/*.arb 추가로 확장한다.
   final String languageCode;
 
+  /// 주간 뷰 토글 상태 — 재실행 후에도 유지 (개정 2026-08-07, §6.2)
+  final bool weekViewOpen;
+
   const UnwindSettings({
     this.nightReminderEnabled = true,
     this.nightReminderTime = '22:00',
@@ -25,6 +28,7 @@ class UnwindSettings {
     this.dayStartHour = 6,
     this.onboardingCompleted = false,
     this.languageCode = 'en',
+    this.weekViewOpen = false,
   });
 
   UnwindSettings copyWith({
@@ -36,6 +40,7 @@ class UnwindSettings {
     int? dayStartHour,
     bool? onboardingCompleted,
     String? languageCode,
+    bool? weekViewOpen,
   }) =>
       UnwindSettings(
         nightReminderEnabled: nightReminderEnabled ?? this.nightReminderEnabled,
@@ -47,6 +52,7 @@ class UnwindSettings {
         dayStartHour: dayStartHour ?? this.dayStartHour,
         onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
         languageCode: languageCode ?? this.languageCode,
+        weekViewOpen: weekViewOpen ?? this.weekViewOpen,
       );
 
   (int, int) get reminderHourMinute {
@@ -84,6 +90,8 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
           .getBool(SettingKeys.onboardingCompleted, fallback: false),
       languageCode:
           await dao.getValue(SettingKeys.languageCode) ?? 'en',
+      weekViewOpen:
+          await dao.getBool(SettingKeys.weekViewOpen, fallback: false),
     );
   }
 
@@ -126,6 +134,9 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
 
   Future<void> setLanguageCode(String code) => _set(
       SettingKeys.languageCode, code, (s) => s.copyWith(languageCode: code));
+
+  Future<void> setWeekViewOpen(bool v) => _set(
+      SettingKeys.weekViewOpen, '$v', (s) => s.copyWith(weekViewOpen: v));
 
   /// §6.7 데이터 초기화 — 할 일·기록·반복·청구서 전부 삭제 (설정은 유지)
   Future<void> resetAllData() async {

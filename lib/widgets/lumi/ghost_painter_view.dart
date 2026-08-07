@@ -282,6 +282,9 @@ class _GhostPainter extends CustomPainter {
   static const _pupilColor = Color(0xFF2A2430);
   static const _glowColor = Color(0xFFF2C482);
 
+  /// Snap 마스코트 스타일 잉크 아웃라인 (개정 2026-08-07)
+  static const _inkColor = Color(0xFF201B29);
+
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 240; // 기준 크기 240 대비 배율
@@ -332,6 +335,14 @@ class _GhostPainter extends CustomPainter {
         Radius.circular(11 * u),
       );
       canvas.drawRRect(arm, Paint()..color = _bodyColor);
+      canvas.drawRRect(
+        arm,
+        Paint()
+          ..color = _inkColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4.0 * u
+          ..strokeJoin = StrokeJoin.round,
+      );
       canvas.restore();
     }
 
@@ -354,6 +365,16 @@ class _GhostPainter extends CustomPainter {
     }
     body.close();
     canvas.drawPath(body, Paint()..color = _bodyColor);
+    // Snap 스타일 굵은 잉크 아웃라인 (개정 2026-08-07)
+    canvas.drawPath(
+      body,
+      Paint()
+        ..color = _inkColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4.5 * u
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
+    );
 
     // ── 머리 그룹 (꾸벅 기울기 — 눈·다크서클·입이 함께 회전) ──
     final headCx = cx;
@@ -387,16 +408,16 @@ class _GhostPainter extends CustomPainter {
         continue;
       }
 
-      // 흰자 — 흰색→분홍 블렌드. 몸통 위에서 읽히도록 옅은 림.
+      // 흰자 — 잉크 아웃라인으로 만화 스타일 통일 (개정 2026-08-07)
       final scleraRect =
           Rect.fromCenter(center: ec, width: eyeRx * 2, height: eyeRy * 2);
       canvas.drawOval(scleraRect, Paint()..color = scleraColor);
       canvas.drawOval(
         scleraRect,
         Paint()
-          ..color = _pupilColor.withValues(alpha: 0.10)
+          ..color = _inkColor
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2 * u,
+          ..strokeWidth = 2.2 * u,
       );
 
       // 동공 + 하이라이트 (흰자에 클립)
@@ -451,11 +472,57 @@ class _GhostPainter extends CustomPainter {
             ..strokeCap = StrokeCap.round,
         );
       }
+
+      // 눈썹 (개정 2026-08-07) — 표정의 확장. 찡그림·화남 금지(§1.3):
+      //   말똥말똥: 높고 수평 / 졸림: 낮아지고 바깥쪽 처짐 /
+      //   잠듦: 편안한 아치 / happy: 위로 반짝
+      {
+        final drop = sleepiness * (1 - asleepProgress); // 졸림 처짐
+        final lift = smile * 3.0 * u; // happy 들어올림
+        final browY = ec.dy -
+            eyeRy -
+            (7.0 - 3.5 * drop) * u -
+            lift +
+            asleepProgress * 2.0 * u;
+        final inX = ec.dx - dir * eyeRx * 0.55; // 안쪽 끝
+        final outX = ec.dx + dir * eyeRx * 0.75; // 바깥쪽 끝
+        final outDrop =
+            (drop * 5.0 - asleepProgress * 1.5) * u; // 바깥 처짐
+        final arch =
+            (2.5 - drop * 1.5 + asleepProgress * 1.0 + smile * 1.5) * u;
+        final brow = Path()
+          ..moveTo(inX, browY)
+          ..quadraticBezierTo((inX + outX) / 2, browY - arch, outX,
+              browY + outDrop);
+        canvas.drawPath(
+          brow,
+          Paint()
+            ..color = _inkColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3.2 * u
+            ..strokeCap = StrokeCap.round,
+        );
+      }
     }
 
-    // ── 입 — 평상시 아주 작게 / 하품 세로 확대 / happy 미소 ──
+    // ── 입 — 평상시 아주 작게 / 하품 세로 확대 / happy·취침 미소 ──
     final mouthC = Offset(headCx, headCy + eyeRy * 1.9);
-    if (smile > 0.05 && mouthOpen < 0.1) {
+    if (asleepProgress > 0.6 && mouthOpen < 0.1) {
+      // 잠들었을 때 — 평온하고 만족스러운 미소 (개정 2026-08-07)
+      final sm = ((asleepProgress - 0.6) / 0.4).clamp(0.0, 1.0);
+      final p = Path()
+        ..moveTo(mouthC.dx - 8 * u, mouthC.dy - 1.5 * u)
+        ..quadraticBezierTo(mouthC.dx, mouthC.dy + 5.5 * u * sm,
+            mouthC.dx + 8 * u, mouthC.dy - 1.5 * u);
+      canvas.drawPath(
+        p,
+        Paint()
+          ..color = _inkColor.withValues(alpha: 0.85)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.6 * u
+          ..strokeCap = StrokeCap.round,
+      );
+    } else if (smile > 0.05 && mouthOpen < 0.1) {
       final p = Path()
         ..moveTo(mouthC.dx - 9 * u, mouthC.dy - 2 * u)
         ..quadraticBezierTo(

@@ -80,7 +80,9 @@ void main() {
     await pumpApp(tester);
     expect(find.byType(LampRow), findsOneWidget);
 
-    await tester.tap(find.byType(LampRow));
+    // 개정 2026-08-07: 토글은 우측 스위치로
+    await tester.tap(find.byType(LampSwitch));
+    await tester.pump(); // 리빌드 프레임
     await tester.pump(const Duration(milliseconds: 700));
 
     final rows = await db.todoDao.getByDate(todayKey);

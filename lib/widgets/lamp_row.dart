@@ -1,31 +1,40 @@
 import 'package:flutter/widgets.dart';
 
 import '../core/theme/unwind_theme.dart';
+import '../core/tokens/color_ramp.dart';
 import '../core/tokens/motion.dart';
 import '../core/tokens/spacing.dart';
 import '../core/tokens/typography.dart';
 import '../l10n/generated/app_localizations.dart';
 
-/// §6.1 등 하나 = 할 일 하나. §9.2 개별 체크 인터랙션.
+/// §6.1 등 하나 = 할 일 하나 — 형광등 패널 (개정 2026-08-07).
 ///
-/// - 텍스트 영역 어디를 눌러도 토글 (등 아이콘만이 아님)
-/// - 완료해도 리스트에서 사라지지 않는다 — 꺼진 등 + 흐려진 텍스트로 제자리
-/// - 잔광은 생략 불가: 필라멘트가 식듯이. 형광등처럼 딱 꺼지면 안 된다.
+/// - 켜진 아이템 = 웜 화이트로 발광하는 패널. 입체감의 출처는 빛(§8.4):
+///   발광·부드러운 그림자·옅은 아랫면 두께가 꺼지면 빛과 함께 사라진다.
+/// - 우측 스위치로 on/off (스위치만 단단한 물성 — §8.4 예외)
+/// - 패널 탭 = 편집, 롱프레스 = 메뉴 (개정: 기존 탭=토글에서 변경)
+/// - 소등 시 §9.2 유지: 필라멘트 감쇠 220ms + 잔광 60+200ms (생략 불가)
 class LampRow extends StatefulWidget {
   final String title;
   final bool isOn;
+
+  /// 우측 스위치 — on/off 토글
+  final VoidCallback? onToggle;
+
+  /// 패널 탭 — 편집 (개정 2026-08-07)
   final VoidCallback? onTap;
 
-  /// 롱프레스 → 편집/삭제 메뉴 (§6.1)
+  /// 롱프레스 — 메뉴 (§6.1)
   final VoidCallback? onLongPress;
 
-  /// §5.5 호흡 — 켜진 등의 glow만 미세하게 오르내린다. null이면 정지.
+  /// §5.5 호흡 — 켜진 등의 발광만 미세하게 오르내린다. null이면 정지.
   final Animation<double>? breath;
 
   const LampRow({
     super.key,
     required this.title,
     required this.isOn,
+    this.onToggle,
     this.onTap,
     this.onLongPress,
     this.breath,
@@ -39,13 +48,19 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
   /// 소등 진행: 0 = 켜짐, 1 = 완전히 꺼짐 (잔광까지 종료)
   late final AnimationController _off;
 
-  /// 아이콘 눌림 (scale 1.0 → 0.94 → 1.0, 140ms)
+  /// 스위치 눌림 (딸깍 물성, 140ms)
   late final AnimationController _press;
 
-  // §9.2 타임라인(총 260ms) 안에서의 구간
-  static const _totalMs = UnwindMotion.afterglowDelayMs + UnwindMotion.afterglowMs; // 260
+  static const _totalMs =
+      UnwindMotion.afterglowDelayMs + UnwindMotion.afterglowMs; // 260
   late final Animation<double> _coreOff; // 필라멘트 감쇠 (0~220ms, switchOff)
   late final Animation<double> _glowOff; // 잔광 (60~260ms)
+
+  // 형광등 패널 팔레트 — 웜 화이트 (①-c 절충: 차가운 흰색 아님)
+  static const _panelOn = Color(0xFFFFFCF1);
+  static const _panelGlow = Color(0xFFFFE9BE);
+  static const _panelEdgeOn = Color(0xFFE8D5B0); // 아랫면 두께 (빛의 일부)
+  static const _textOn = Color(0xFF4A3A26);
 
   @override
   void initState() {
@@ -90,78 +105,140 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _handleTap() {
-    if (widget.onTap == null) return;
-    _press.forward(from: 0); // §9.2 눌림
-    widget.onTap!();
+  void _handleToggle() {
+    if (widget.onToggle == null) return;
+    _press.forward(from: 0); // 스위치 딸깍 (§8.4 물성)
+    widget.onToggle!();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = UnwindTheme.of(context);
-
     final l10n = AppLocalizations.of(context);
-    return Semantics(
-      label: widget.title,
-      value: widget.isOn ? l10n.lampOn : l10n.lampOff, // §12 VoiceOver 상태 라벨
-      button: true,
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+          horizontal: UnwindSpacing.s24, vertical: UnwindSpacing.s8 - 2),
       child: GestureDetector(
-        onTap: _handleTap,
+        onTap: widget.onTap,
         onLongPress: widget.onLongPress,
         behavior: HitTestBehavior.opaque,
-        child: ConstrainedBox(
-          constraints:
-              const BoxConstraints(minHeight: UnwindTouch.minTarget),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: UnwindSpacing.s24, vertical: UnwindSpacing.s8),
-            child: Row(
-              children: [
-                // 등 아이콘 — 체크 인터랙션만은 확실한 물성 (§8.4 예외)
-                AnimatedBuilder(
-                  animation: _press,
-                  builder: (context, child) {
-                    // 1.0 → 0.94 → 1.0
-                    final p = _press.value;
-                    final scale = 1.0 -
-                        (UnwindMotion.iconPressScale > 0
-                            ? (1.0 - UnwindMotion.iconPressScale) *
-                                (p < 0.5 ? p * 2 : (1 - p) * 2)
-                            : 0.0);
-                    return Transform.scale(scale: scale, child: child);
-                  },
-                  child: SizedBox(
-                    width: UnwindTouch.minTarget,
-                    height: UnwindTouch.minTarget,
-                    child: AnimatedBuilder(
-                      animation: Listenable.merge(
-                          [_off, if (widget.breath != null) widget.breath!]),
-                      builder: (context, _) => CustomPaint(
-                        painter: _LampIconPainter(
-                          core: 1 - _coreOff.value,
-                          glow: 1 - _glowOff.value,
-                          breath: widget.breath?.value ?? 0.0,
-                          lampColor: colors.lamp,
-                          offColor: colors.border,
+        child: Semantics(
+          label: widget.title,
+          button: true,
+          child: AnimatedBuilder(
+            animation: Listenable.merge(
+                [_off, if (widget.breath != null) widget.breath!]),
+            builder: (context, child) {
+              final lit = 1 - _coreOff.value; // 필라멘트 밝기
+              final glow = 1 - _glowOff.value; // 잔광 (더 늦게 사라짐)
+              final breath = widget.breath?.value ?? 0.0;
+
+              // 패널: 켜짐 = 웜 화이트 발광, 꺼짐 = 테마 표면으로 가라앉음
+              final panelColor =
+                  Color.lerp(colors.surface, _panelOn, lit)!;
+              final edgeColor = Color.lerp(
+                  colors.border.withValues(alpha: 0.4), _panelEdgeOn, lit)!;
+
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // 발광 — 패널 주변 웜 글로우 (잔광 담당, RadialGradient §11)
+                  if (glow > 0.01)
+                    Positioned.fill(
+                      top: -14,
+                      bottom: -14,
+                      left: -10,
+                      right: -10,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius:
+                                BorderRadius.circular(UnwindRadius.lg),
+                            gradient: RadialGradient(
+                              radius: 1.1,
+                              colors: [
+                                _panelGlow.withValues(
+                                    alpha: (0.38 + breath * 2.2) * glow),
+                                _panelGlow.withValues(alpha: 0.0),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // 패널 본체 — 빛 기반 입체감: 아랫면 두께가 빛과 함께 사라진다
+                  Container(
+                    decoration: BoxDecoration(
+                      color: panelColor,
+                      borderRadius: BorderRadius.circular(UnwindRadius.md),
+                      border: Border(
+                        left: BorderSide(color: edgeColor, width: 0.8),
+                        top: BorderSide(color: edgeColor, width: 0.8),
+                        right: BorderSide(color: edgeColor, width: 0.8),
+                        bottom: BorderSide(
+                            color: edgeColor, width: 0.8 + 2.4 * lit),
+                      ),
+                      boxShadow: lit > 0.05
+                          ? [
+                              BoxShadow(
+                                color: colors.shadow
+                                    .withValues(alpha: colors.shadow.a * lit),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                          minHeight: UnwindTouch.minTarget + 8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: UnwindSpacing.s16,
+                            vertical: UnwindSpacing.s8),
+                        child: Row(
+                          children: [
+                            // 제목 — 켜짐: 밝은 패널 위 고정 다크브라운
+                            Expanded(
+                              child: lit > 0.5
+                                  ? Text(
+                                      widget.title,
+                                      style: UnwindType.body.copyWith(
+                                          color: Color.lerp(
+                                              colors.textMuted, _textOn,
+                                              (lit - 0.5) * 2),
+                                          decoration: TextDecoration.none),
+                                    )
+                                  : Opacity(
+                                      opacity: UnwindMotion.textFadedOpacity +
+                                          (1 - UnwindMotion.textFadedOpacity) *
+                                              lit *
+                                              2,
+                                      child: PrimaryText(widget.title,
+                                          style: UnwindType.body),
+                                    ),
+                            ),
+                            const SizedBox(width: UnwindSpacing.s12),
+                            // 우측 스위치 (§8.4 예외 — 단단한 물성)
+                            LampSwitch(
+                              isOn: widget.isOn,
+                              lit: lit,
+                              press: _press,
+                              colors: colors,
+                              enabled: widget.onToggle != null,
+                              onTap: _handleToggle,
+                              semanticsOn: l10n.lampOn,
+                              semanticsOff: l10n.lampOff,
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: UnwindSpacing.s12),
-                // 제목 — 완료 시 흐려짐 (opacity 1.0 → 0.4, 180ms)
-                Expanded(
-                  child: AnimatedOpacity(
-                    duration:
-                        const Duration(milliseconds: UnwindMotion.textFadeMs),
-                    opacity: widget.isOn
-                        ? 1.0
-                        : UnwindMotion.textFadedOpacity,
-                    child: PrimaryText(widget.title, style: UnwindType.body),
-                  ),
-                ),
-              ],
-            ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -169,71 +246,90 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
   }
 }
 
-/// 등 아이콘: 켜짐 = 채워진 전구 + RadialGradient 발광(블러 금지, §11).
-/// core: 필라멘트 밝기 0~1, glow: 잔광 0~1 (core보다 늦게 사라짐 = 잔광).
-class _LampIconPainter extends CustomPainter {
-  final double core;
-  final double glow;
-  final double breath;
-  final Color lampColor;
-  final Color offColor;
+/// 아이템 우측 on/off 스위치 — 여기만 확실한 물성 (§8.4 예외)
+class LampSwitch extends StatelessWidget {
+  final bool isOn;
+  final double lit;
+  final Animation<double> press;
+  final UnwindColors colors;
+  final bool enabled;
+  final VoidCallback onTap;
+  final String semanticsOn;
+  final String semanticsOff;
 
-  const _LampIconPainter({
-    required this.core,
-    required this.glow,
-    required this.breath,
-    required this.lampColor,
-    required this.offColor,
+  const LampSwitch({
+    super.key,
+    required this.isOn,
+    required this.lit,
+    required this.press,
+    required this.colors,
+    required this.enabled,
+    required this.onTap,
+    required this.semanticsOn,
+    required this.semanticsOff,
   });
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final c = Offset(size.width / 2, size.height / 2);
-    final r = size.width * 0.16;
-
-    // 잔광 (등 주변 발광) — 호흡이 여기 실린다
-    if (glow > 0.01) {
-      final glowR = size.width * (0.44 + breath * 2.5);
-      canvas.drawCircle(
-        c,
-        glowR,
-        Paint()
-          ..shader = RadialGradient(colors: [
-            lampColor.withValues(alpha: 0.45 * glow),
-            lampColor.withValues(alpha: 0.0),
-          ]).createShader(Rect.fromCircle(center: c, radius: glowR)),
-      );
-    }
-
-    if (core > 0.01) {
-      // 켜진 필라멘트 — 식어가는 색 (밝음 → offColor로 감쇠)
-      final coreColor = Color.lerp(offColor, lampColor, core)!;
-      canvas.drawCircle(c, r, Paint()..color = coreColor);
-      // 중심 하이라이트
-      canvas.drawCircle(
-        c.translate(-r * 0.25, -r * 0.25),
-        r * 0.35,
-        Paint()
-          ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.55 * core),
-      );
-    } else {
-      // 꺼진 등 — 테두리만 남은 원
-      canvas.drawCircle(
-        c,
-        r * 0.92,
-        Paint()
-          ..color = offColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6,
-      );
-    }
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: semanticsOn,
+      value: isOn ? semanticsOn : semanticsOff,
+      toggled: isOn,
+      button: true,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        behavior: HitTestBehavior.opaque,
+        // 터치 타깃 44 확보 (§8.3)
+        child: SizedBox(
+          width: UnwindTouch.minTarget,
+          height: UnwindTouch.minTarget,
+          child: Center(
+            child: AnimatedBuilder(
+              animation: press,
+              builder: (context, _) {
+                final p = press.value;
+                final squash =
+                    1.0 - 0.10 * (p < 0.5 ? p * 2 : (1 - p) * 2);
+                return Transform.scale(
+                  scale: squash,
+                  child: AnimatedContainer(
+                    duration: const Duration(
+                        milliseconds: UnwindMotion.iconPressMs),
+                    curve: Curves.easeOut,
+                    width: 38,
+                    height: 22,
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      color: isOn
+                          ? Color.lerp(
+                              colors.border, colors.lamp, lit)
+                          : colors.border.withValues(alpha: 0.8),
+                      borderRadius:
+                          BorderRadius.circular(UnwindRadius.pill),
+                    ),
+                    child: AnimatedAlign(
+                      duration: const Duration(
+                          milliseconds: UnwindMotion.iconPressMs),
+                      curve: Curves.easeOutBack,
+                      alignment: isOn
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      child: Container(
+                        width: 17,
+                        height: 17,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFFFFFFFF),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(_LampIconPainter old) =>
-      old.core != core ||
-      old.glow != glow ||
-      old.breath != breath ||
-      old.lampColor != lampColor ||
-      old.offColor != offColor;
 }

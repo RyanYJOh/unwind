@@ -170,14 +170,14 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
     });
 
     if (item.done) {
-      _haptics.light(); // 0ms: lightImpact
+      _haptics.tadak(); // "타닥" (개정 2026-08-07)
       _sound.click(); // 0ms: 짧은 딸깍
       _engine.onItemCompleted(
           doneCount: _doneCount, totalCount: _items.length);
       _pulse.forward(from: 0); // 체크 펄스
       _reactTick++; // Lumi 반응 (§7.3)
     } else {
-      _haptics.light();
+      _haptics.tadak();
       _engine.onItemUncompleted(
           doneCount: _doneCount, totalCount: _items.length);
     }
@@ -386,7 +386,7 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
                       title: _items[i].title,
                       isOn: _items[i].visualOn,
                       breath: reduce ? null : BreathAnimation(_breath),
-                      onTap: _pulled ? null : () => _toggle(i),
+                      onToggle: _pulled ? null : () => _toggle(i),
                     ),
                   ),
                 ),

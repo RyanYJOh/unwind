@@ -5,8 +5,8 @@ import '../../core/theme/unwind_theme.dart';
 import '../../core/tokens/color_ramp.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
+import '../settings/settings_controller.dart';
 import '../today/providers.dart';
-import 'week_screen.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// §6.2 주간 스트립 — 골목에서 이웃집 창을 보는 은유.
@@ -27,7 +27,8 @@ class _WeeklyStripState extends ConsumerState<WeeklyStrip> {
 
   void _openWeek() {
     _dragAccum = 0;
-    showWeekScreen(context);
+    // 개정 2026-08-07 (§6.2): 라우트가 아니라 토글 — 상태는 DB에 영속
+    ref.read(settingsControllerProvider.notifier).setWeekViewOpen(true);
   }
 
   @override

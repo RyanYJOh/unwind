@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/physics.dart';
@@ -43,6 +44,29 @@ class _PullCordState extends State<PullCord>
   bool _pastThreshold = false;
   bool _dragging = false;
 
+  /// tension 연속 햅틱 (개정 2026-08-07): 당길수록 틱 간격이 좁아진다.
+  /// 팽팽함을 손끝의 "다다다다"로 표현 — 멈춰 있어도 tension만큼 계속 뛴다.
+  Timer? _tensionTimer;
+
+  static const _tensionMinExt = 8.0; // 이 이하로는 틱 없음
+  static const _tensionSlowMs = 150; // 살짝 당김 — 느긋한 틱
+  static const _tensionFastMs = 38; // 끝까지 당김 — 다다다다
+
+  void _scheduleTension() {
+    _tensionTimer?.cancel();
+    if (!_dragging || _extension < _tensionMinExt) return;
+    final f = ((_extension - _tensionMinExt) /
+            (UnwindMotion.cordMaxDragPx - _tensionMinExt))
+        .clamp(0.0, 1.0);
+    final interval =
+        (_tensionSlowMs + (_tensionFastMs - _tensionSlowMs) * f).round();
+    _tensionTimer = Timer(Duration(milliseconds: interval), () {
+      if (!mounted || !_dragging) return;
+      widget.haptics.tensionTick();
+      _scheduleTension(); // 현재 tension 기준으로 다음 틱 재예약
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +78,7 @@ class _PullCordState extends State<PullCord>
 
   @override
   void dispose() {
+    _tensionTimer?.cancel();
     _spring.dispose();
     super.dispose();
   }
@@ -67,6 +92,7 @@ class _PullCordState extends State<PullCord>
     _spring.stop();
     _dragging = true;
     _rawDrag = 0.0;
+    _scheduleTension();
   }
 
   void _onDragUpdate(DragUpdateDetails d) {
@@ -81,11 +107,16 @@ class _PullCordState extends State<PullCord>
       _extension = ext;
       _pastThreshold = past;
     });
+    // 당기는 동안 tension이 커지면 다음 틱이 더 빨리 온다
+    if (_tensionTimer == null || !_tensionTimer!.isActive) {
+      _scheduleTension();
+    }
   }
 
   void _onDragEnd(DragEndDetails d) {
     if (!widget.enabled || !_dragging) return;
     _dragging = false;
+    _tensionTimer?.cancel();
     final fired = _extension >= UnwindMotion.cordThresholdPx;
     // 스프링으로 튕겨 올라감 (§9.1 spring)
     _spring.animateWith(SpringSimulation(
@@ -101,6 +132,7 @@ class _PullCordState extends State<PullCord>
   void _cancelDrag() {
     if (!_dragging) return;
     _dragging = false;
+    _tensionTimer?.cancel();
     _pastThreshold = false;
     _spring.animateWith(
         SpringSimulation(UnwindMotion.spring, _extension, 0.0, -200));
