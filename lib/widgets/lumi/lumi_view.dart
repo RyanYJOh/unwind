@@ -17,7 +17,14 @@ class LumiView extends StatelessWidget {
   final LumiState state;
   final bool reduceMotion;
 
-  const LumiView({super.key, required this.state, this.reduceMotion = false});
+  /// 렌더 크기 (정사각). 홈에서는 화면 점유를 줄이기 위해 축소해 쓴다.
+  final double size;
+
+  const LumiView(
+      {super.key,
+      required this.state,
+      this.reduceMotion = false,
+      this.size = 240});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +32,7 @@ class LumiView extends StatelessWidget {
       LumiRenderer.dummy =>
         LumiDummyView(state: state, reduceMotion: reduceMotion),
       LumiRenderer.rive =>
-        _LumiRiveAdapter(state: state, reduceMotion: reduceMotion),
+        _LumiRiveAdapter(state: state, reduceMotion: reduceMotion, size: size),
     };
   }
 }
@@ -37,8 +44,10 @@ class LumiView extends StatelessWidget {
 class _LumiRiveAdapter extends StatefulWidget {
   final LumiState state;
   final bool reduceMotion;
+  final double size;
 
-  const _LumiRiveAdapter({required this.state, required this.reduceMotion});
+  const _LumiRiveAdapter(
+      {required this.state, required this.reduceMotion, this.size = 240});
 
   @override
   State<_LumiRiveAdapter> createState() => _LumiRiveAdapterState();
@@ -83,7 +92,12 @@ class _LumiRiveAdapterState extends State<_LumiRiveAdapter> {
       sleepiness: widget.state.brightness,
       event: _event,
       eventTick: _tick,
+      size: widget.size,
       reduceMotion: widget.reduceMotion,
+      // 생활 모드 (개편 2026-08-08) — null이면 이전 방식 그대로
+      mode: widget.state.mode,
+      activity: widget.state.activity,
+      dazzle: widget.state.dazzle,
     );
   }
 }

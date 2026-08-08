@@ -77,6 +77,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Lumi is asleep. This will go in tomorrow\'s room';
 
   @override
+  String get toastTaskAdded => 'A new light is on';
+
+  @override
   String get dateToday => 'Today';
 
   @override

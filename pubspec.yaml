@@ -2,7 +2,7 @@ name: unwind
 description: "하루를 끝내는 앱. 할 일을 지울 때마다 집의 불이 꺼지고, 마지막 불이 꺼지면 Lumi가 잠든다."
 publish_to: 'none'
 
-version: 0.1.0+5
+version: 0.1.0+6
 
 environment:
   sdk: ^3.12.2
@@ -42,6 +42,7 @@ flutter:
     - assets/sound/
     - assets/textures/
     - assets/rive/
+    - assets/images/
 
   # §8.2 — 폰트는 앱에 번들, 네트워크 로드 금지
   fonts:

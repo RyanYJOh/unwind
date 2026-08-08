@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart'
     show CupertinoActionSheet, CupertinoActionSheetAction, showCupertinoModalPopup;
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,7 +12,6 @@ import '../../core/utils/dates.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
 import '../compose/compose_sheet.dart';
-import '../settings/settings_screen.dart';
 import '../today/providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 
@@ -44,7 +44,10 @@ class WeekScreen extends ConsumerWidget {
 
     return UnwindTheme(
       colors: colors,
-      child: DefaultTextStyle(
+      // 밝은 배경 위 상태바는 어두운 아이콘 — 오늘 화면(다크)의 설정을 덮어쓴다
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: DefaultTextStyle(
         style: UnwindType.body.copyWith(decoration: TextDecoration.none),
         child: ColoredBox(
           color: colors.bg,
@@ -69,24 +72,11 @@ class WeekScreen extends ConsumerWidget {
                             style: UnwindType.title.copyWith(
                                 color: colors.textPrimarySnap,
                                 decoration: TextDecoration.none)),
-                        Row(children: [
-                          GestureDetector(
-                            onTap: () => showSettingsScreen(context),
-                            behavior: HitTestBehavior.opaque,
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                  right: UnwindSpacing.s16),
-                              child: Text(l10n.settingsTitle,
-                                  style: UnwindType.label.copyWith(
-                                      color: colors.textSecondary,
-                                      decoration: TextDecoration.none)),
-                            ),
-                          ),
-                          Text(l10n.collapse,
-                              style: UnwindType.label.copyWith(
-                                  color: colors.textSecondary,
-                                  decoration: TextDecoration.none)),
-                        ]),
+                        // 설정 진입은 홈 좌측 상단 아이콘으로 이동 (개편 2026-08-08)
+                        Text(l10n.collapse,
+                            style: UnwindType.label.copyWith(
+                                color: colors.textSecondary,
+                                decoration: TextDecoration.none)),
                       ],
                     ),
                   ),
@@ -115,6 +105,7 @@ class WeekScreen extends ConsumerWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

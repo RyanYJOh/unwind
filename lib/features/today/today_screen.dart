@@ -1,7 +1,9 @@
+import 'dart:convert' show jsonEncode;
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart'
     show CupertinoActionSheet, CupertinoActionSheetAction, showCupertinoModalPopup;
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,9 +23,12 @@ import '../../widgets/lamp_row.dart';
 import '../../widgets/lumi/lumi_view.dart';
 import '../../widgets/night_sky.dart';
 import '../../widgets/pull_cord.dart';
+import '../../core/utils/dates.dart';
+import '../../domain/services/bill_calculator.dart';
 import '../bill/bill_screen.dart';
 import '../compose/compose_sheet.dart';
 import '../settings/settings_controller.dart';
+import '../settings/settings_screen.dart';
 import '../week/week_screen.dart';
 import '../week/weekly_strip.dart';
 import 'providers.dart';
@@ -139,14 +144,15 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     final repo = ref.read(todoRepositoryProvider);
     final haptics = ref.read(hapticsProvider);
     final sound = ref.read(soundPlayerProvider);
-    final todayKey = ref.read(todayKeyProvider);
+    // 열람 중인 날짜 기준 (개편 2026-08-09) — 과거 날짜 편집도 그 날에 적용
+    final viewedKey = ref.read(viewedDayKeyProvider);
     final asleep = ref.read(isAsleepProvider);
 
     haptics.tadak(); // "타닥" — light→medium 연속 (개정 2026-08-07)
 
     // 취침 후 스위치 ON = 유령 깨우기 (개정 2026-08-07, undo)
     if (asleep) {
-      await repo.wake(todayKey);
+      await repo.wake(viewedKey);
       if (todo.status == TodoStatus.done) {
         await repo.setDone(todo, false); // 완료였던 항목은 되돌린다
       }
@@ -163,14 +169,50 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     await repo.setDone(todo, done); // 동기 쓰기 → 스트림이 UI 갱신 (§3.2)
   }
 
+  // ── 더미 청구서 미리보기 (개발용, 2026-08-08) ────────────────
+  // 실데이터 없이 청구서 화면을 확인하기 위한 가짜 지난주 청구서.
+  void _openDummyBill() {
+    final todayKey = ref.read(todayKeyProvider);
+    final lastMonday =
+        dayKey(addDays(parseDayKey(weekMondayKey(todayKey)), -7));
+    const kwhByDay = [0.42, 0.30, 0.55, 0.18, 0.36, 0.24, 0.12];
+    const lightsOutByDay = [true, true, false, true, true, false, true];
+    final days = [
+      for (var i = 0; i < 7; i++)
+        DayBill(
+          date: dayKey(addDays(parseDayKey(lastMonday), i)),
+          kwh: kwhByDay[i],
+          lightsOut: lightsOutByDay[i],
+          sleepMinutes: lightsOutByDay[i] ? 420 + i * 10 : 0,
+        ),
+    ];
+    final totalKwh =
+        days.fold<double>(0, (sum, d) => sum + d.kwh);
+    final sleepTotal =
+        days.fold<int>(0, (sum, d) => sum + d.sleepMinutes);
+    showBillScreen(
+      context,
+      WeeklyBill(
+        weekStart: lastMonday,
+        kwh: totalKwh,
+        amount: round10(totalKwh * kUnitPrice + kBaseFee),
+        sleepMinutes: sleepTotal,
+        generatedAt: DateTime.now(),
+        isRead: true,
+        payload: jsonEncode([for (final d in days) d.toJson()]),
+      ),
+    );
+  }
+
   // ── 소등 시퀀스 (§9.3) ──────────────────────────────────────
   Future<void> _runLightsOut() async {
     if (_dominoRunning) return;
-    final todos = ref.read(todayTodosProvider).value ?? const <Todo>[];
+    // 전등 줄은 오늘을 볼 때만 활성 — viewed == today가 보장된다
+    final todos = ref.read(viewedTodosProvider).value ?? const <Todo>[];
     final repo = ref.read(todoRepositoryProvider);
     final haptics = ref.read(hapticsProvider);
     final sound = ref.read(soundPlayerProvider);
-    final todayKey = ref.read(todayKeyProvider);
+    final todayKey = ref.read(viewedDayKeyProvider);
     final reduce = MediaQuery.disableAnimationsOf(context);
 
     setState(() => _dominoRunning = true);
@@ -273,8 +315,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final todos = ref.watch(todayTodosProvider).value ?? const <Todo>[];
+    // 열람 날짜의 방 (개편 2026-08-09) — 기본은 오늘
+    final todos = ref.watch(viewedTodosProvider).value ?? const <Todo>[];
     final asleep = ref.watch(isAsleepProvider);
+    // Lumi 생활 모드 (개편 2026-08-08): 시각·체크 상태가 결정
+    final lumiMode = ref.watch(lumiModeProvider);
     final cordEnabled = ref.watch(pullCordEnabledProvider);
     final haptics = ref.watch(hapticsProvider);
     final reduce = MediaQuery.disableAnimationsOf(context);
@@ -394,22 +439,51 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: UnwindSpacing.s8),
-                // 주간 스트립 (§6.2) — 아래로 당기면 주간 뷰
-                AnimatedBuilder(
-                  animation: _theme,
-                  builder: (context, _) =>
-                      WeeklyStrip(currentT: _displayTStatic),
-                ),
-                const SizedBox(height: UnwindSpacing.s8),
+                // 상단 행 — 설정(좌) + 날짜 타이틀 + 배지(우)
+                // (개정 2026-08-09: 타이틀을 설정 아이콘 우측으로)
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: UnwindSpacing.s24),
+                      horizontal: UnwindSpacing.s16),
                   child: Row(
                     children: [
-                      Builder(
-                        builder: (context) =>
-                            PrimaryText(l10n.today, style: UnwindType.title),
-                      ),
+                      Builder(builder: (context) {
+                        final colors = UnwindTheme.of(context);
+                        return GestureDetector(
+                          onTap: () => showSettingsScreen(context),
+                          behavior: HitTestBehavior.opaque,
+                          child: Semantics(
+                            label: l10n.settingsTitle,
+                            button: true,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.all(UnwindSpacing.s8),
+                              child: Icon(Icons.settings_outlined,
+                                  size: 24, color: colors.textSecondary),
+                            ),
+                          ),
+                        );
+                      }),
+                      const SizedBox(width: UnwindSpacing.s8),
+                      // 과거 날짜 열람 중엔 그 날짜를 타이틀로 (개편 2026-08-09)
+                      Builder(builder: (context) {
+                        final viewedKey =
+                            ref.watch(viewedDayKeyProvider);
+                        final isPast = viewedKey !=
+                            ref.watch(todayKeyProvider);
+                        final String title;
+                        if (isPast) {
+                          final d = parseDayKey(viewedKey);
+                          title = l10n.monthDay(
+                              l10n.monthsShort
+                                  .split(',')[d.month - 1],
+                              d.month,
+                              d.day);
+                        } else {
+                          title = l10n.today;
+                        }
+                        return PrimaryText(title,
+                            style: UnwindType.title);
+                      }),
                       const Spacer(),
                       // §6.5 미확인 청구서 배지
                       if ((ref.watch(unreadBillsProvider).value ?? const [])
@@ -453,30 +527,39 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                     ],
                   ),
                 ),
-                Expanded(
-                  flex: 4,
+                // 유령 영역 — 고정 높이로 체크리스트와의 간격 축소
+                // (개정 2026-08-09)
+                SizedBox(
+                  height: 136,
                   child: Center(
                     child: AnimatedBuilder(
                       animation: _theme,
                       builder: (context, _) => LumiView(
                         state: LumiState(
                           brightness: _displayTStatic,
-                          isAsleep: asleep,
+                          // 시간 무관: 전부 체크 시 잠들고, 밤의 빈 방도 잠든다
+                          isAsleep:
+                              lumiMode.mode == LumiMode.asleep,
+                          mode: lumiMode.mode,
+                          activity: lumiMode.activity,
+                          dazzle: lumiMode.dazzle,
                           event: LumiEvent.react,
                           eventTick: _reactTick,
                         ),
                         reduceMotion: reduce,
+                        // 축소 2단계 (개편 2026-08-08): 240 → 168 → 118
+                        size: 118,
                       ),
                     ),
                   ),
                 ),
                 Expanded(
-                  flex: 6,
                   child: todos.isEmpty
                       ? _EmptyRoom()
                       : ListView.builder(
                           padding: const EdgeInsets.only(
-                              bottom: UnwindSpacing.s48 * 2),
+                              bottom: UnwindSpacing.s48 * 2 +
+                                  UnwindSpacing.s24),
                           itemCount: todos.length,
                           itemBuilder: (context, i) {
                             final todo = todos[i];
@@ -488,6 +571,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                             return LampRow(
                               title: todo.title,
                               isOn: isOn,
+                              isDone: todo.status == TodoStatus.done,
                               breath:
                                   reduce ? null : BreathAnimation(_breath),
                               onToggle: _dominoRunning
@@ -505,6 +589,41 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                           },
                         ),
                 ),
+                // 최근 7일 + Bill (개편 2026-08-09) — 좌: 스크롤 날짜 선택,
+                // 우: 청구서 버튼. 날짜 탭 = 그 날짜의 방으로 전환.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(UnwindSpacing.s16,
+                      0, UnwindSpacing.s16, UnwindSpacing.s8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: AnimatedBuilder(
+                          animation: _theme,
+                          builder: (context, _) =>
+                              WeeklyStrip(currentT: _displayTStatic),
+                        ),
+                      ),
+                      const SizedBox(width: UnwindSpacing.s12),
+                      // Bill — 이미지 그대로, 감싸는 컨테이너·패딩 없음
+                      // (개정 2026-08-09)
+                      GestureDetector(
+                        onTap: _openDummyBill,
+                        behavior: HitTestBehavior.opaque,
+                        child: Semantics(
+                          label: l10n.billBadge,
+                          button: true,
+                          child: Image.asset(
+                            'assets/images/bill.png',
+                            width: 65,
+                            height: 65,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -520,17 +639,24 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
               ),
             ),
           ),
-          // FAB (§6.1) — 우측 하단, 조도가 낮을수록 더 또렷해진다
+          // FAB (§6.1) — 우측 하단, 조도가 낮을수록 더 또렷해진다.
+          // 최근 7일 행 바로 위 (개편 2026-08-09: 간격 축소)
           Positioned(
             right: UnwindSpacing.s24,
-            bottom: UnwindSpacing.s32,
+            bottom: UnwindSpacing.s8 + 70,
             child: SafeArea(
               child: AnimatedBuilder(
                 animation: _theme,
                 builder: (context, _) => _Fab(
                   t: _displayTStatic,
                   quiet: asleep, // 취침 후: 발광 제거, 불투명도 0.6
-                  onTap: () => showComposeSheet(context),
+                  onTap: () {
+                    // 과거 날짜 열람 중엔 그 날짜로 추가 (개편 2026-08-09)
+                    final viewed = ref.read(viewedDayKeyProvider);
+                    final today = ref.read(todayKeyProvider);
+                    showComposeSheet(context,
+                        initialDate: viewed != today ? viewed : null);
+                  },
                 ),
               ),
             ),
@@ -609,13 +735,15 @@ class _Fab extends StatelessWidget {
         child: Opacity(
           opacity: quiet ? 0.6 : 1.0,
           child: SizedBox(
-            width: 56,
-            height: 56,
+            width: 68, // 확대 (개편 2026-08-08)
+            height: 68,
             child: CustomPaint(
               painter: _FabPainter(
                 glow: glow,
-                bodyColor: colors.surfaceRaised,
-                iconColor: colors.textSecondary,
+                // 주황 계열로 강조 (개편 2026-08-08) — 다크 베이스에서
+                // 확실히 눈에 띄는 따뜻한 주황 + 어두운 아이콘
+                bodyColor: const Color(0xFFE8913D),
+                iconColor: const Color(0xFF2B1D0E),
                 glowColor: colors.lamp,
                 shadowColor: colors.shadow,
               ),
@@ -645,7 +773,7 @@ class _FabPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
-    const r = 24.0;
+    const r = 30.0; // 확대 (개편 2026-08-08)
 
     if (glow > 0.01) {
       final glowR = r * (1.6 + 0.5 * glow);
@@ -666,10 +794,10 @@ class _FabPainter extends CustomPainter {
 
     final p = Paint()
       ..color = iconColor
-      ..strokeWidth = 2.0
+      ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(c.translate(-8, 0), c.translate(8, 0), p);
-    canvas.drawLine(c.translate(0, -8), c.translate(0, 8), p);
+    canvas.drawLine(c.translate(-10, 0), c.translate(10, 0), p);
+    canvas.drawLine(c.translate(0, -10), c.translate(0, 10), p);
   }
 
   @override

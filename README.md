@@ -4,7 +4,9 @@
 마지막 불이 꺼지면 유령 Lumi가 잠든다.
 
 - 스택: Flutter + Riverpod + Drift (로컬 온리, 서버 없음)
-- 문서: `unwind-prd-v1.md` (구현 계약서), `GHOST_RIVE_BRIEF.md` (캐릭터)
+- **LLM/에이전트 컨텍스트: `AGENTS.md` (정본 — Cursor·Claude Code 공용)**
+- 개정 이력: `docs/prd-amendments.md`
+  (PRD 원문 `unwind-prd-v1.md`·Rive 브리프는 저장소 밖 — 코드의 §번호가 그 조항)
 
 ## 다른 PC에서 시작하기
 

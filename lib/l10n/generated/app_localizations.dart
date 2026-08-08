@@ -230,6 +230,12 @@ abstract class AppLocalizations {
   /// **'Lumi is asleep. This will go in tomorrow\'s room'**
   String get lumiSleepingNotice;
 
+  /// No description provided for @toastTaskAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'A new light is on'**
+  String get toastTaskAdded;
+
   /// No description provided for @dateToday.
   ///
   /// In en, this message translates to:

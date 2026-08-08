@@ -76,14 +76,15 @@ class _CornerGlowPainter extends CustomPainter {
       );
     }
 
+    // 강화 2026-08-08: 광원이 확실히 "빛나는" 인상을 주도록 전 겹 증폭
     // 1. 워시 — 방 전체로 스미는 온기 (좌하단은 어둠에 남는다)
-    glow(w * (0.95 + 1.25 * ease), _wash, 0.24 * ease);
+    glow(w * (1.05 + 1.35 * ease), _wash, 0.36 * ease);
     // 2. 미드 — 상부를 채우는 빛
-    glow(w * (0.60 + 0.85 * ease), _mid, 0.44 * ease);
+    glow(w * (0.70 + 0.95 * ease), _mid, 0.62 * ease);
     // 3. 코어 — 코너의 빛덩어리
-    glow(w * (0.30 + 0.50 * ease), _core, 0.72 * ease, focus: 0.08);
-    // 4. 핫스팟 — 광원의 눈부심 (매우 밝게)
-    glow(w * (0.16 + 0.26 * ease), _hot, 0.96 * ease, focus: 0.18);
+    glow(w * (0.36 + 0.56 * ease), _core, 0.92 * ease, focus: 0.10);
+    // 4. 핫스팟 — 광원의 눈부심 (최대 밝기)
+    glow(w * (0.20 + 0.32 * ease), _hot, 1.0 * ease, focus: 0.22);
   }
 
   @override

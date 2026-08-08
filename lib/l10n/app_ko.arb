@@ -24,6 +24,7 @@
   "memoHint": "메모",
   "addMemo": "메모 추가",
   "lumiSleepingNotice": "Lumi가 자고 있어요. 내일 방에 놓아둘게요",
+  "toastTaskAdded": "새 불이 켜졌어요",
   "dateToday": "오늘",
   "dateTomorrow": "내일",
   "dateDayAfter": "모레",

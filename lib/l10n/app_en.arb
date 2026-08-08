@@ -24,6 +24,7 @@
   "memoHint": "Note",
   "addMemo": "Add a note",
   "lumiSleepingNotice": "Lumi is asleep. This will go in tomorrow's room",
+  "toastTaskAdded": "A new light is on",
   "dateToday": "Today",
   "dateTomorrow": "Tomorrow",
   "dateDayAfter": "In 2 days",

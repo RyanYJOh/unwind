@@ -5,6 +5,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/widgets.dart';
 import 'package:rive/rive.dart' as rive;
 
+import '../../domain/models/lumi_state.dart'
+    show LumiMode, LumiDayActivity;
 import 'ghost_contract.dart';
 import 'ghost_painter_view.dart';
 
@@ -24,6 +26,12 @@ class GhostView extends StatefulWidget {
   final double size;
   final bool reduceMotion;
 
+  /// 생활 모드 (개편 2026-08-08) — null이면 기존 sleepiness 매핑.
+  /// Rive 에셋이 생기면 뷰모델 입력으로 연결한다. 현재는 painter 전용.
+  final LumiMode? mode;
+  final LumiDayActivity? activity;
+  final double dazzle;
+
   /// .riv 로드 실패 시 대신 그릴 위젯.
   /// 지정하지 않으면 [GhostPainterView] (브리프 사양의 Flutter 구현)를 쓴다.
   final WidgetBuilder? fallbackBuilder;
@@ -35,6 +43,9 @@ class GhostView extends StatefulWidget {
     this.eventTick = 0,
     this.size = 240,
     this.reduceMotion = false,
+    this.mode,
+    this.activity,
+    this.dazzle = 0.0,
     this.fallbackBuilder,
   });
 
@@ -146,6 +157,9 @@ class _GhostViewState extends State<GhostView> {
         eventTick: widget.eventTick,
         size: widget.size,
         reduceMotion: widget.reduceMotion,
+        mode: widget.mode,
+        activity: widget.activity,
+        dazzle: widget.dazzle,
       );
 
   @override

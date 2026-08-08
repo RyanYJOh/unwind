@@ -2,12 +2,34 @@
 /// 유지한다. LumiView는 이 상태만 받아 렌더링한다.
 enum LumiEvent { blink, yawn, react, fallAsleep }
 
+/// Lumi의 하루 (개편 2026-08-08) — 시각·체크리스트 상태로 결정되는 생활 모드.
+/// - [day]: 낮(기본 06~19시). 행복한 펫 — 2시간마다 일과가 바뀐다.
+/// - [nightAwake]: 밤인데 아직 불(할 일)이 남아 못 자는 상태.
+///   남은 불이 많을수록 눈이 부시고, 어두워질수록 꾸벅꾸벅 존다.
+/// - [asleep]: 모든 체크 완료(시간 무관) / 소등 / 밤의 빈 방 — 만족스러운 잠.
+enum LumiMode { day, nightAwake, asleep }
+
+/// 낮 일과 — enum 순서가 곧 2시간 슬롯 순서다 (06시부터).
+/// stretch(06) → coffee(08) → read(10) → walk(12) → hum(14) →
+/// snack(16) → rest(18)
+enum LumiDayActivity { stretch, coffee, read, walk, hum, snack, rest }
+
 class LumiState {
   /// 0.0 ~ 1.0, 조도 엔진에서 주입
   final double brightness;
 
-  /// 전등 줄을 당긴 후 true
+  /// 잠든 상태 (소등·전체 완료·밤의 빈 방)
   final bool isAsleep;
+
+  /// 생활 모드. null이면 이전 방식(brightness→졸림 매핑)으로 동작한다
+  /// — 온보딩 등 모드 개념이 없는 화면의 하위 호환.
+  final LumiMode? mode;
+
+  /// [LumiMode.day]일 때의 현재 일과
+  final LumiDayActivity? activity;
+
+  /// [LumiMode.nightAwake]일 때 눈부심 정도 (= 방에 남은 빛, 1 - t)
+  final double dazzle;
 
   /// 외부에서 주입하는 이벤트 (react 등). 같은 이벤트를 연속 발생시키기 위해
   /// [eventTick]이 바뀔 때마다 재생한다.
@@ -17,6 +39,9 @@ class LumiState {
   const LumiState({
     required this.brightness,
     this.isAsleep = false,
+    this.mode,
+    this.activity,
+    this.dazzle = 0.0,
     this.event,
     this.eventTick = 0,
   });

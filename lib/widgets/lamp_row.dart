@@ -24,6 +24,10 @@ import '../l10n/generated/app_localizations.dart';
 class LampRow extends StatefulWidget {
   final String title;
   final bool isOn;
+
+  /// 실제로 완료 처리된 항목인가 — 삭선의 근거 (개편 2026-08-08).
+  /// 일괄 소등 중 시각적으로만 꺼진 항목과 구분해야 하므로 [isOn]과 별개다.
+  final bool isDone;
   final VoidCallback? onToggle;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -38,6 +42,7 @@ class LampRow extends StatefulWidget {
     super.key,
     required this.title,
     required this.isOn,
+    this.isDone = false,
     this.onToggle,
     this.onTap,
     this.onLongPress,
@@ -229,8 +234,20 @@ class _LampRowState extends State<LampRow> with TickerProviderStateMixin {
                       // §9.2: 꺼진 항목 텍스트 흐려짐 유지
                       opacity: UnwindMotion.textFadedOpacity +
                           (1 - UnwindMotion.textFadedOpacity) * lit,
-                      child: PrimaryText(widget.title,
-                          style: UnwindType.body),
+                      // 완료 항목엔 삭선 — 켜짐/꺼짐이 한눈에 구분되도록
+                      // (개편 2026-08-08)
+                      child: widget.isDone
+                          ? Text(
+                              widget.title,
+                              style: UnwindType.body.copyWith(
+                                color: colors.textSecondary,
+                                decoration: TextDecoration.lineThrough,
+                                decorationColor: colors.textMuted,
+                                decorationThickness: 2.0,
+                              ),
+                            )
+                          : PrimaryText(widget.title,
+                              style: UnwindType.body),
                     ),
                   ),
                   const SizedBox(width: UnwindSpacing.s12),
@@ -509,32 +526,49 @@ class LampSwitch extends StatelessWidget {
                                       : [_rockerHi, _rockerLo],
                                 ),
                               ),
-                              // ON 인디케이터 — 로커 아래쪽 호박색 불빛
+                              // ON 인디케이터 — 로커 아래쪽 호박색 불빛.
+                              // 개편 2026-08-08: 켜짐이 한눈에 읽히도록
+                              // 실제 발광체처럼 3겹(코어·블룸·확산)으로 그린다.
                               child: Align(
-                                alignment: const Alignment(0, 0.62),
+                                alignment: const Alignment(0, 0.60),
                                 child: AnimatedContainer(
                                   duration:
                                       const Duration(milliseconds: 180),
-                                  width: 7,
-                                  height: 3.4,
+                                  width: isOn ? 9 : 7,
+                                  height: isOn ? 4.4 : 3.4,
                                   decoration: BoxDecoration(
                                     borderRadius:
-                                        BorderRadius.circular(2),
+                                        BorderRadius.circular(2.4),
                                     color: isOn
                                         ? Color.lerp(
-                                            const Color(0xFFB9A88A),
-                                            const Color(0xFFFFB84D),
-                                            math.max(lit, 0.3))
+                                            const Color(0xFFFF9A1F),
+                                            const Color(0xFFFFD98A),
+                                            math.max(lit, 0.35))
                                         : const Color(0xFFB9A88A)
-                                            .withValues(alpha: 0.5),
-                                    boxShadow: isOn && lit > 0.2
+                                            .withValues(alpha: 0.45),
+                                    boxShadow: isOn
                                         ? [
+                                            // 코어 — 램프 자체의 눈부심
                                             BoxShadow(
-                                              color: const Color(0xFFFFB84D)
+                                              color: const Color(0xFFFFC65C)
                                                   .withValues(
-                                                      alpha: 0.55 * lit),
+                                                      alpha: 0.95),
                                               blurRadius: 4,
-                                              spreadRadius: 0.5,
+                                              spreadRadius: 0.6,
+                                            ),
+                                            // 블룸 — 스위치 면에 번지는 빛
+                                            BoxShadow(
+                                              color: const Color(0xFFFF9A1F)
+                                                  .withValues(alpha: 0.70),
+                                              blurRadius: 10,
+                                              spreadRadius: 1.4,
+                                            ),
+                                            // 확산 — 주변으로 넓게
+                                            BoxShadow(
+                                              color: const Color(0xFFFF8A00)
+                                                  .withValues(alpha: 0.38),
+                                              blurRadius: 20,
+                                              spreadRadius: 3.0,
                                             ),
                                           ]
                                         : null,

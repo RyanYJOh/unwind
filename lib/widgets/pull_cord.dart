@@ -153,7 +153,9 @@ class _PullCordState extends State<PullCord>
         onVerticalDragUpdate: _onDragUpdate,
         onVerticalDragEnd: _onDragEnd,
         onVerticalDragCancel: _cancelDrag,
-        behavior: HitTestBehavior.opaque,
+        // deferToChild + painter.hitTest — 줄 아래의 빈 공간이 뒤에 있는
+        // 체크리스트의 탭을 삼키지 않게 한다 (개정 2026-08-08)
+        behavior: HitTestBehavior.deferToChild,
         child: Opacity(
           opacity: widget.enabled ? 1.0 : 0.35,
           child: CustomPaint(
@@ -206,25 +208,62 @@ class _CordPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // 손잡이 (나무 구슬) — 임계점 통과 시 미세하게 밝아진다 (§6.4)
-    final handleC = Offset(x, endY + 9);
+    // 손잡이 (나무 구슬) — 임계점 통과 시 미세하게 밝아진다 (§6.4).
+    // 개정 2026-08-08: 밝아진 코너 글로우 위에서도 확실히 읽히도록
+    // 크기를 키우고 잉크 아웃라인 + 상단 하이라이트를 넣는다.
+    final handleC = Offset(x, endY + 11);
+    const handleR = 10.0;
     if (glowing) {
-      final glowR = 22.0;
+      const glowR = 26.0;
       canvas.drawCircle(
         handleC,
         glowR,
         Paint()
           ..shader = RadialGradient(colors: [
-            handleColor.withValues(alpha: 0.35),
+            handleColor.withValues(alpha: 0.45),
             handleColor.withValues(alpha: 0.0),
           ]).createShader(Rect.fromCircle(center: handleC, radius: glowR)),
       );
     }
+    // 구슬 본체 — 위가 밝고 아래가 어두운 나무 결
     canvas.drawCircle(
       handleC,
-      7.5,
-      Paint()..color = Color.lerp(cordColor, handleColor, glowing ? 0.65 : 0.25)!,
+      handleR,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: glowing
+              ? const [Color(0xFFFFE0A8), Color(0xFFD79B45)]
+              : const [Color(0xFFE8D6B4), Color(0xFFB08E62)],
+        ).createShader(
+            Rect.fromCircle(center: handleC, radius: handleR)),
     );
+    // 잉크 아웃라인 — 밝은 배경에서도 실루엣이 유지된다
+    canvas.drawCircle(
+      handleC,
+      handleR,
+      Paint()
+        ..color = const Color(0xFF2A2233)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8,
+    );
+    // 하이라이트 — 구형 볼륨감
+    canvas.drawCircle(
+      handleC.translate(-handleR * 0.32, -handleR * 0.36),
+      handleR * 0.26,
+      Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.55),
+    );
+  }
+
+  /// 줄과 손잡이가 실제로 있는 곳만 터치를 받는다. 캔버스는 드래그 여유분
+  /// 때문에 세로로 길지만, 그 빈 아래쪽까지 탭을 삼키면 뒤에 있는 체크리스트를
+  /// 가린다 (개정 2026-08-08).
+  @override
+  bool hitTest(Offset position) {
+    // 손잡이 아래로 최소 터치 타깃(44)의 절반만큼만 여유를 둔다
+    final reach = restLength + extension + 11 + 22;
+    return position.dy <= reach;
   }
 
   @override

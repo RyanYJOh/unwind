@@ -12,6 +12,7 @@ import '../../core/tokens/typography.dart';
 import '../../core/utils/dates.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
+import '../../widgets/top_toast.dart';
 import '../today/providers.dart';
 import 'date_bar.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -135,6 +136,13 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
     } else {
       await repo.add(
           title: title, memo: memo.isEmpty ? null : memo, date: _dateKey);
+    }
+
+    // 추가 확인 토스트 — 푸시 알림 형태, 상단 (개편 2026-08-08)
+    if (mounted) {
+      showTopToast(context,
+          title: title,
+          body: AppLocalizations.of(context).toastTaskAdded);
     }
 
     // §6.3 함정 3: 연속 입력 — 입력창만 비우고 시트·키보드·날짜는 유지
@@ -376,21 +384,25 @@ class DateBarHost extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (isEdit)
-          GestureDetector(
-            onTap: onSaveEdit,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  vertical: UnwindSpacing.s8),
-              child: Center(
-                child: Text(AppLocalizations.of(context).save, // 버튼은 동사로 (§8.5)
-                    style: UnwindType.bodyStrong.copyWith(
-                        color: colors.lamp,
-                        decoration: TextDecoration.none)),
-              ),
+        // 편집: 저장 후 닫힘 / 신규: 저장 후 연속 입력 (§6.3) — 키보드 return
+        // 없이도 저장할 수 있는 유일한 손잡이이므로 항상 노출한다.
+        GestureDetector(
+          onTap: onSaveEdit,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                vertical: UnwindSpacing.s8),
+            child: Center(
+              child: Text(
+                  isEdit
+                      ? AppLocalizations.of(context).save // 버튼은 동사로 (§8.5)
+                      : AppLocalizations.of(context).add,
+                  style: UnwindType.bodyStrong.copyWith(
+                      color: colors.lamp,
+                      decoration: TextDecoration.none)),
             ),
           ),
+        ),
         DateBar(
           dateKey: dateKey,
           todayKey: todayKey,

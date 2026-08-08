@@ -9,6 +9,7 @@ import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
 import '../../data/repositories/bill_repository.dart';
 import '../../data/repositories/todo_repository.dart';
+import '../../domain/models/lumi_state.dart';
 import '../../domain/services/brightness_engine.dart';
 import '../../domain/services/day_rollover_service.dart';
 import '../../domain/services/notification_service.dart';
@@ -94,7 +95,8 @@ class TodayKeyNotifier extends Notifier<String> {
   }
 }
 
-/// 오늘의 할 일 스트림 — sortIndex 고정 정렬
+/// 오늘의 할 일 스트림 — sortIndex 고정 정렬.
+/// (야간 리마인더 등 "실제 오늘"에 묶인 서비스가 쓴다 — 열람 날짜와 무관)
 final todayTodosProvider = StreamProvider<List<Todo>>((ref) {
   final repo = ref.watch(todoRepositoryProvider);
   return repo.watchTodos(ref.watch(todayKeyProvider));
@@ -106,13 +108,48 @@ final todayDayProvider = StreamProvider<Day?>((ref) {
   return repo.watchDay(ref.watch(todayKeyProvider));
 });
 
-/// §3.2 조도 상태는 앱 전역에서 단 하나의 값 — 목표 t.
+// ── 열람 날짜 (개편 2026-08-09) ──────────────────────────────
+// 하단 최근 7일에서 날짜를 고르면 오늘 화면이 그 날짜의 방을 보여준다.
+
+/// 사용자가 고른 날짜. null = 오늘을 따라간다 (롤오버 시 자동 이동)
+final selectedDateProvider =
+    NotifierProvider<SelectedDateNotifier, String?>(
+        SelectedDateNotifier.new);
+
+class SelectedDateNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String? dateKey) => state = dateKey;
+}
+
+/// 화면이 실제로 보여주는 날짜
+final viewedDayKeyProvider = Provider<String>((ref) =>
+    ref.watch(selectedDateProvider) ?? ref.watch(todayKeyProvider));
+
+/// 열람 날짜의 할 일 스트림 — 화면(리스트·조도·Lumi)이 쓴다
+final viewedTodosProvider = StreamProvider<List<Todo>>((ref) {
+  final repo = ref.watch(todoRepositoryProvider);
+  return repo.watchTodos(ref.watch(viewedDayKeyProvider));
+});
+
+/// 열람 날짜의 days 행
+final viewedDayProvider = StreamProvider<Day?>((ref) {
+  final repo = ref.watch(todoRepositoryProvider);
+  return repo.watchDay(ref.watch(viewedDayKeyProvider));
+});
+
+/// §3.2 조도 상태는 앱 전역에서 단 하나의 값 — 열람 날짜의 목표 t.
 /// (표시용 보간·펄스·호흡은 화면 레이어에서 이 목표를 따라간다)
 final brightnessProvider = Provider<double>((ref) {
-  final todos = ref.watch(todayTodosProvider).value;
-  final day = ref.watch(todayDayProvider).value;
+  final todos = ref.watch(viewedTodosProvider).value;
+  final day = ref.watch(viewedDayProvider).value;
+  final isPast = ref.watch(viewedDayKeyProvider) !=
+      ref.watch(todayKeyProvider);
 
   if (day?.lightsOutAt != null) return 1.0; // §5.3 당긴 후 고정
+  // 지난 날은 롤오버 때 기록된 최종 조도가 그날의 진실이다
+  if (isPast && day?.finalT != null) return day!.finalT!.clamp(0.0, 1.0);
   if (todos == null) return BrightnessEngine.emptyRoomT; // 로딩 중
   final counted =
       todos.where((t) => t.status != TodoStatus.deferred).length;
@@ -120,16 +157,88 @@ final brightnessProvider = Provider<double>((ref) {
   return (day?.peakProgress ?? 0.0).clamp(0.0, 1.0);
 });
 
-/// 전등 줄 활성 조건 (§6.4): 항목 있음 + 아직 안 당김
+/// 전등 줄 활성 조건 (§6.4): 오늘을 보고 있을 때만 + 항목 있음 + 안 당김
 final pullCordEnabledProvider = Provider<bool>((ref) {
-  final todos = ref.watch(todayTodosProvider).value ?? const [];
-  final day = ref.watch(todayDayProvider).value;
-  return todos.isNotEmpty && day?.lightsOutAt == null;
+  final todos = ref.watch(viewedTodosProvider).value ?? const [];
+  final day = ref.watch(viewedDayProvider).value;
+  final isToday = ref.watch(viewedDayKeyProvider) ==
+      ref.watch(todayKeyProvider);
+  return isToday && todos.isNotEmpty && day?.lightsOutAt == null;
 });
 
-/// Lumi 취침 여부 (§6.1 FAB 동작 분기에도 사용)
+/// Lumi 취침 여부 — 열람 날짜 기준 (§6.1 FAB 동작 분기에도 사용)
 final isAsleepProvider = Provider<bool>((ref) =>
-    ref.watch(todayDayProvider).value?.lightsOutAt != null);
+    ref.watch(viewedDayProvider).value?.lightsOutAt != null);
+
+// ── Lumi 하루 (개편 2026-08-08) ─────────────────────────────
+
+/// 밤의 시작 — 이 시각부터 Lumi는 자고 싶어한다.
+/// (아침 경계는 dayStartHour 설정을 그대로 쓴다 — 기본 06시)
+const kLumiNightHour = 19;
+
+/// 1분 시계 — 일과 슬롯·낮밤 전환 감지용
+final clockProvider = StreamProvider<DateTime>((ref) async* {
+  yield DateTime.now();
+  yield* Stream.periodic(
+      const Duration(minutes: 1), (_) => DateTime.now());
+});
+
+class LumiModeState {
+  final LumiMode mode;
+  final LumiDayActivity? activity;
+  final double dazzle;
+
+  const LumiModeState({
+    required this.mode,
+    this.activity,
+    this.dazzle = 0.0,
+  });
+}
+
+/// Lumi 생활 모드 (개편 2026-08-08):
+/// - 소등했거나, 전부 체크됐거나(시간 무관), 밤의 빈 방 → 만족스러운 잠
+/// - 낮(06~19) → 행복한 일과. 2시간 슬롯마다 활동이 바뀐다
+/// - 밤 + 미완 항목 → 못 자는 상태. 눈부심 = 방에 남은 빛(1 - t):
+///   불이 많이 남았으면 눈부셔 못 자고, 몇 개 안 남았으면 꾸벅꾸벅 존다
+final lumiModeProvider = Provider<LumiModeState>((ref) {
+  final now =
+      ref.watch(clockProvider).value ?? DateTime.now();
+  final todos = ref.watch(viewedTodosProvider).value ?? const <Todo>[];
+  final roomAsleep = ref.watch(isAsleepProvider);
+  final t = ref.watch(brightnessProvider);
+  final dayStart = ref.watch(dayStartHourProvider);
+  final isViewingPast = ref.watch(viewedDayKeyProvider) !=
+      ref.watch(todayKeyProvider);
+
+  final counted =
+      todos.where((x) => x.status != TodoStatus.deferred).toList();
+  final allDone = counted.isNotEmpty &&
+      counted.every((x) => x.status == TodoStatus.done);
+
+  // 지난 날짜 열람 (개편 2026-08-09): 그날 밤의 최종 모습 스냅샷.
+  // 불을 다 껐으면 만족스러운 잠, 남겼으면 그 빛에 못 잔 모습.
+  if (isViewingPast) {
+    if (roomAsleep || allDone || counted.isEmpty) {
+      return const LumiModeState(mode: LumiMode.asleep);
+    }
+    return LumiModeState(
+        mode: LumiMode.nightAwake, dazzle: (1 - t).clamp(0.0, 1.0));
+  }
+
+  final isDaytime = now.hour >= dayStart && now.hour < kLumiNightHour;
+
+  if (roomAsleep || allDone || (!isDaytime && counted.isEmpty)) {
+    return const LumiModeState(mode: LumiMode.asleep);
+  }
+  if (isDaytime) {
+    const acts = LumiDayActivity.values; // 순서 = 2시간 슬롯 (06시부터)
+    final slot =
+        ((now.hour - dayStart) ~/ 2).clamp(0, acts.length - 1);
+    return LumiModeState(mode: LumiMode.day, activity: acts[slot]);
+  }
+  return LumiModeState(
+      mode: LumiMode.nightAwake, dazzle: (1 - t).clamp(0.0, 1.0));
+});
 
 /// 입력 시트의 기본 날짜 (§6.1): 취침 후엔 내일
 final composeDefaultDateProvider = Provider<String>((ref) {
@@ -159,13 +268,6 @@ final weekTodosProvider = StreamProvider<List<Todo>>((ref) {
       weekMondayKey(todayKey), weekSundayKey(todayKey));
 });
 
-final weekDayRowsProvider = StreamProvider<List<Day>>((ref) {
-  final db = ref.watch(databaseProvider);
-  final todayKey = ref.watch(todayKeyProvider);
-  return db.dayDao.watchRange(
-      weekMondayKey(todayKey), weekSundayKey(todayKey));
-});
-
 /// 주간 스트립 한 칸의 표시 정보 (§6.2 — 조도만으로 표현, 개수·퍼센트 금지)
 class WindowInfo {
   final String dateKey;
@@ -187,29 +289,39 @@ class WindowInfo {
   });
 }
 
+/// 스트립이 훑는 구간 — 오늘 포함 최근 [kStripDays]일 (개편 2026-08-09).
+/// 맨 오른쪽이 오늘이고 왼쪽으로 갈수록 과거다. 7일만 보이면 화면에 다
+/// 들어가 스크롤할 것이 없어서, 한 달치를 스크롤로 거슬러 올라가게 한다.
+const kStripDays = 30;
+
+String stripStartKey(String todayKey) =>
+    dayKey(addDays(parseDayKey(todayKey), -(kStripDays - 1)));
+
+final stripDayRowsProvider = StreamProvider<List<Day>>((ref) {
+  final db = ref.watch(databaseProvider);
+  final todayKey = ref.watch(todayKeyProvider);
+  return db.dayDao.watchRange(stripStartKey(todayKey), todayKey);
+});
+
 final weekWindowsProvider = Provider<List<WindowInfo>>((ref) {
   final todayKey = ref.watch(todayKeyProvider);
-  final dayRows = ref.watch(weekDayRowsProvider).value ?? const <Day>[];
-  final todos = ref.watch(weekTodosProvider).value ?? const <Todo>[];
+  final dayRows = ref.watch(stripDayRowsProvider).value ?? const <Day>[];
 
   final byDate = {for (final d in dayRows) d.date: d};
-  final datesWithTodos = {for (final t in todos) t.date};
-  final monday = parseDayKey(weekMondayKey(todayKey));
-  final today = parseDayKey(todayKey);
+  final start = parseDayKey(stripStartKey(todayKey));
 
+  // 최근 kStripDays일: 왼쪽(과거) → 오른쪽(오늘). 미래는 포함하지 않는다.
   return [
-    for (var i = 0; i < 7; i++)
+    for (var i = 0; i < kStripDays; i++)
       () {
-        final day = addDays(monday, i);
+        final day = addDays(start, i);
         final key = dayKey(day);
-        final isPast = day.isBefore(today);
+        final isToday = key == todayKey;
         return WindowInfo(
           dateKey: key,
-          isToday: key == todayKey,
-          isPast: isPast,
+          isToday: isToday,
+          isPast: !isToday,
           finalT: byDate[key]?.finalT,
-          hasPreheat: !isPast && key != todayKey &&
-              datesWithTodos.contains(key),
         );
       }(),
   ];

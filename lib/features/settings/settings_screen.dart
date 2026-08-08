@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/unwind_theme.dart';
@@ -33,7 +34,10 @@ class SettingsScreen extends ConsumerWidget {
 
     return UnwindTheme(
       colors: colors,
-      child: DefaultTextStyle(
+      // 밝은 배경 위 상태바는 어두운 아이콘 — 오늘 화면(다크)의 설정을 덮어쓴다
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: DefaultTextStyle(
         style: UnwindType.body.copyWith(decoration: TextDecoration.none),
         child: ColoredBox(
           color: colors.bg,
@@ -165,6 +169,7 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
