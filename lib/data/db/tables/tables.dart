@@ -6,9 +6,10 @@ enum TodoStatus { pending, done, deferred }
 
 @TableIndex(name: 'idx_todos_date_sort', columns: {#date, #sortIndex})
 @TableIndex(
-    name: 'idx_todos_recurrence_date',
-    columns: {#recurrenceId, #date},
-    unique: true) // 반복 인스턴스 중복 방지
+  name: 'idx_todos_recurrence_date',
+  columns: {#recurrenceId, #date},
+  unique: true,
+) // 반복 인스턴스 중복 방지
 class Todos extends Table {
   TextColumn get id => text()(); // uuid v4
   TextColumn get title => text().withLength(min: 1, max: 200)();
@@ -19,12 +20,20 @@ class Todos extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get completedAt => dateTime().nullable()();
   TextColumn get recurrenceId => text().nullable()();
+  BoolColumn get autoDefer => boolean().withDefault(const Constant(false))();
+  IntColumn get scheduledTimeMinutes => integer().nullable()();
 
   /// 미루기용 — v1에서는 기록만 하고 사용하지 않음 (§15)
   TextColumn get deferredFrom => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'CHECK (scheduled_time_minutes IS NULL '
+        'OR scheduled_time_minutes BETWEEN 0 AND 1439)',
+  ];
 }
 
 /// §4.2 recurrences — 반복 규칙
@@ -39,10 +48,17 @@ class Recurrences extends Table {
   IntColumn get dayOfMonth => integer().nullable()(); // 1~31
   TextColumn get startDate => text()();
   TextColumn get endDate => text().nullable()(); // null이면 무기한
+  IntColumn get scheduledTimeMinutes => integer().nullable()();
   BoolColumn get isActive => boolean()();
 
   @override
   Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'CHECK (scheduled_time_minutes IS NULL '
+        'OR scheduled_time_minutes BETWEEN 0 AND 1439)',
+  ];
 }
 
 /// §4.3 days — 하루의 기록

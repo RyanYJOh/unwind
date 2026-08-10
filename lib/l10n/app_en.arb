@@ -15,6 +15,8 @@
   "add": "Add",
   "edit": "Edit",
   "delete": "Delete",
+  "deleteThisTask": "Delete only this task",
+  "deleteFutureRecurring": "Delete this and all future repeats",
   "close": "Close",
   "save": "Save",
   "share": "Share",
@@ -28,13 +30,27 @@
   "dateToday": "Today",
   "dateTomorrow": "Tomorrow",
   "dateDayAfter": "In 2 days",
+  "chooseDate": "Choose date",
   "repeatNone": "No repeat",
   "repeatDaily": "Every day",
   "repeatWeekdays": "Weekdays",
   "repeatWeekly": "Weekly",
   "repeatMonthly": "Monthly",
+  "repeatEveryWeekday": "Every {weekday}",
+  "@repeatEveryWeekday": {
+    "placeholders": {
+      "weekday": {"type": "String"}
+    }
+  },
+  "repeatEveryMonthDay": "Every {day}",
+  "@repeatEveryMonthDay": {
+    "placeholders": {
+      "day": {"type": "String"}
+    }
+  },
 
   "weekdaysShort": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+  "weekdaysLong": "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday",
   "monthsShort": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
   "monthDay": "{monthName} {day}",
   "@monthDay": {
@@ -114,5 +130,10 @@
   "onboardSample2": "Return the borrowed book",
   "onboardSample3": "A 20-minute evening walk",
 
-  "m0Reset": "Experience again from the start (M0 test)"
+  "m0Reset": "Experience again from the start (M0 test)",
+  "autoDeferTitle": "Move to tomorrow automatically",
+  "autoDeferSubtitle": "If it isn't done today, it moves to tomorrow's room",
+  "taskTime": "Time",
+  "taskTimeNone": "Any time",
+  "todoReminderBody": "A gentle reminder — this light is due in 10 minutes"
 }

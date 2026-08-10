@@ -52,6 +52,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get delete => 'Delete';
 
   @override
+  String get deleteThisTask => 'Delete only this task';
+
+  @override
+  String get deleteFutureRecurring => 'Delete this and all future repeats';
+
+  @override
   String get close => 'Close';
 
   @override
@@ -89,6 +95,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dateDayAfter => 'In 2 days';
 
   @override
+  String get chooseDate => 'Choose date';
+
+  @override
   String get repeatNone => 'No repeat';
 
   @override
@@ -104,7 +113,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get repeatMonthly => 'Monthly';
 
   @override
+  String repeatEveryWeekday(String weekday) {
+    return 'Every $weekday';
+  }
+
+  @override
+  String repeatEveryMonthDay(String day) {
+    return 'Every $day';
+  }
+
+  @override
   String get weekdaysShort => 'Mon,Tue,Wed,Thu,Fri,Sat,Sun';
+
+  @override
+  String get weekdaysLong =>
+      'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday';
 
   @override
   String get monthsShort => 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec';
@@ -276,4 +299,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get m0Reset => 'Experience again from the start (M0 test)';
+
+  @override
+  String get autoDeferTitle => 'Move to tomorrow automatically';
+
+  @override
+  String get autoDeferSubtitle =>
+      'If it isn\'t done today, it moves to tomorrow\'s room';
+
+  @override
+  String get taskTime => 'Time';
+
+  @override
+  String get taskTimeNone => 'Any time';
+
+  @override
+  String get todoReminderBody =>
+      'A gentle reminder — this light is due in 10 minutes';
 }

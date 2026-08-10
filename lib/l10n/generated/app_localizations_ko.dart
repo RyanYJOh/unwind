@@ -51,6 +51,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get delete => '삭제';
 
   @override
+  String get deleteThisTask => '이 할 일만 삭제';
+
+  @override
+  String get deleteFutureRecurring => '이 할 일과 앞으로의 반복 모두 삭제';
+
+  @override
   String get close => '닫기';
 
   @override
@@ -87,6 +93,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get dateDayAfter => '모레';
 
   @override
+  String get chooseDate => '날짜 선택';
+
+  @override
   String get repeatNone => '반복 없음';
 
   @override
@@ -102,7 +111,20 @@ class AppLocalizationsKo extends AppLocalizations {
   String get repeatMonthly => '매월';
 
   @override
+  String repeatEveryWeekday(String weekday) {
+    return '매주 $weekday';
+  }
+
+  @override
+  String repeatEveryMonthDay(String day) {
+    return '매월 $day일';
+  }
+
+  @override
   String get weekdaysShort => '월,화,수,목,금,토,일';
+
+  @override
+  String get weekdaysLong => '월요일,화요일,수요일,목요일,금요일,토요일,일요일';
 
   @override
   String get monthsShort => '1,2,3,4,5,6,7,8,9,10,11,12';
@@ -270,4 +292,19 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get m0Reset => '처음부터 다시 체험하기 (M0 테스트용)';
+
+  @override
+  String get autoDeferTitle => '자동으로 미루기';
+
+  @override
+  String get autoDeferSubtitle => '오늘 안 하면 내일의 할 일로 등록돼요';
+
+  @override
+  String get taskTime => '시간';
+
+  @override
+  String get taskTimeNone => '시간 없음';
+
+  @override
+  String get todoReminderBody => '10분 뒤 이 불을 끌 시간이에요';
 }

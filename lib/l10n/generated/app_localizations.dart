@@ -182,6 +182,18 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get delete;
 
+  /// No description provided for @deleteThisTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete only this task'**
+  String get deleteThisTask;
+
+  /// No description provided for @deleteFutureRecurring.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this and all future repeats'**
+  String get deleteFutureRecurring;
+
   /// No description provided for @close.
   ///
   /// In en, this message translates to:
@@ -254,6 +266,12 @@ abstract class AppLocalizations {
   /// **'In 2 days'**
   String get dateDayAfter;
 
+  /// No description provided for @chooseDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose date'**
+  String get chooseDate;
+
   /// No description provided for @repeatNone.
   ///
   /// In en, this message translates to:
@@ -284,11 +302,29 @@ abstract class AppLocalizations {
   /// **'Monthly'**
   String get repeatMonthly;
 
+  /// No description provided for @repeatEveryWeekday.
+  ///
+  /// In en, this message translates to:
+  /// **'Every {weekday}'**
+  String repeatEveryWeekday(String weekday);
+
+  /// No description provided for @repeatEveryMonthDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Every {day}'**
+  String repeatEveryMonthDay(String day);
+
   /// No description provided for @weekdaysShort.
   ///
   /// In en, this message translates to:
   /// **'Mon,Tue,Wed,Thu,Fri,Sat,Sun'**
   String get weekdaysShort;
+
+  /// No description provided for @weekdaysLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'**
+  String get weekdaysLong;
 
   /// No description provided for @monthsShort.
   ///
@@ -583,6 +619,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Experience again from the start (M0 test)'**
   String get m0Reset;
+
+  /// No description provided for @autoDeferTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to tomorrow automatically'**
+  String get autoDeferTitle;
+
+  /// No description provided for @autoDeferSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'If it isn\'t done today, it moves to tomorrow\'s room'**
+  String get autoDeferSubtitle;
+
+  /// No description provided for @taskTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get taskTime;
+
+  /// No description provided for @taskTimeNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Any time'**
+  String get taskTimeNone;
+
+  /// No description provided for @todoReminderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A gentle reminder — this light is due in 10 minutes'**
+  String get todoReminderBody;
 }
 
 class _AppLocalizationsDelegate

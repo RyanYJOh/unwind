@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import '../../core/utils/dates.dart';
 import '../../data/db/daos/todo_dao.dart';
 import '../../data/db/database.dart';
+import '../../data/repositories/todo_repository.dart';
 import 'brightness_engine.dart';
 
 /// §5.3 자정 롤오버 — 정확히는 dayStartHour(기본 6시) 경계.
@@ -26,14 +27,16 @@ class DayRolloverService {
     required this.onRollover,
     this.dayStartHour = 6,
     DateTime? now,
-  }) : _todayKey =
-            logicalTodayKey(now ?? DateTime.now(), dayStartHour: dayStartHour);
+  }) : _todayKey = logicalTodayKey(
+         now ?? DateTime.now(),
+         dayStartHour: dayStartHour,
+       );
 
   String get todayKey => _todayKey;
 
   /// 앱 시작 시 호출: 지난 날들을 봉인하고 다음 경계 타이머를 건다.
   Future<void> start() async {
-    await sealPastDays(DateTime.now());
+    await sealAndDefer(DateTime.now());
     _schedule();
   }
 
@@ -44,11 +47,17 @@ class DayRolloverService {
     final next = nextRolloverAt(now, dayStartHour: dayStartHour);
     _timer = Timer(next.difference(now) + const Duration(seconds: 1), () async {
       final now2 = DateTime.now();
-      await sealPastDays(now2);
+      await sealAndDefer(now2);
       _todayKey = logicalTodayKey(now2, dayStartHour: dayStartHour);
       onRollover(_todayKey);
       _schedule();
     });
+  }
+
+  Future<void> sealAndDefer(DateTime now) async {
+    await sealPastDays(now);
+    final today = logicalTodayKey(now, dayStartHour: dayStartHour);
+    await TodoRepository(db).processAutoDefer(today);
   }
 
   /// 오늘 이전의, finalT가 비어 있는 날을 전부 봉인한다.

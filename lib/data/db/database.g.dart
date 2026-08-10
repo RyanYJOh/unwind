@@ -101,6 +101,31 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, Todo> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _autoDeferMeta = const VerificationMeta(
+    'autoDefer',
+  );
+  @override
+  late final GeneratedColumn<bool> autoDefer = GeneratedColumn<bool>(
+    'auto_defer',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_defer" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _scheduledTimeMinutesMeta =
+      const VerificationMeta('scheduledTimeMinutes');
+  @override
+  late final GeneratedColumn<int> scheduledTimeMinutes = GeneratedColumn<int>(
+    'scheduled_time_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _deferredFromMeta = const VerificationMeta(
     'deferredFrom',
   );
@@ -123,6 +148,8 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, Todo> {
     createdAt,
     completedAt,
     recurrenceId,
+    autoDefer,
+    scheduledTimeMinutes,
     deferredFrom,
   ];
   @override
@@ -198,6 +225,21 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, Todo> {
         ),
       );
     }
+    if (data.containsKey('auto_defer')) {
+      context.handle(
+        _autoDeferMeta,
+        autoDefer.isAcceptableOrUnknown(data['auto_defer']!, _autoDeferMeta),
+      );
+    }
+    if (data.containsKey('scheduled_time_minutes')) {
+      context.handle(
+        _scheduledTimeMinutesMeta,
+        scheduledTimeMinutes.isAcceptableOrUnknown(
+          data['scheduled_time_minutes']!,
+          _scheduledTimeMinutesMeta,
+        ),
+      );
+    }
     if (data.containsKey('deferred_from')) {
       context.handle(
         _deferredFromMeta,
@@ -254,6 +296,14 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, Todo> {
         DriftSqlType.string,
         data['${effectivePrefix}recurrence_id'],
       ),
+      autoDefer: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_defer'],
+      )!,
+      scheduledTimeMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}scheduled_time_minutes'],
+      ),
       deferredFrom: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}deferred_from'],
@@ -280,6 +330,8 @@ class Todo extends DataClass implements Insertable<Todo> {
   final DateTime createdAt;
   final DateTime? completedAt;
   final String? recurrenceId;
+  final bool autoDefer;
+  final int? scheduledTimeMinutes;
 
   /// 미루기용 — v1에서는 기록만 하고 사용하지 않음 (§15)
   final String? deferredFrom;
@@ -293,6 +345,8 @@ class Todo extends DataClass implements Insertable<Todo> {
     required this.createdAt,
     this.completedAt,
     this.recurrenceId,
+    required this.autoDefer,
+    this.scheduledTimeMinutes,
     this.deferredFrom,
   });
   @override
@@ -317,6 +371,10 @@ class Todo extends DataClass implements Insertable<Todo> {
     if (!nullToAbsent || recurrenceId != null) {
       map['recurrence_id'] = Variable<String>(recurrenceId);
     }
+    map['auto_defer'] = Variable<bool>(autoDefer);
+    if (!nullToAbsent || scheduledTimeMinutes != null) {
+      map['scheduled_time_minutes'] = Variable<int>(scheduledTimeMinutes);
+    }
     if (!nullToAbsent || deferredFrom != null) {
       map['deferred_from'] = Variable<String>(deferredFrom);
     }
@@ -338,6 +396,10 @@ class Todo extends DataClass implements Insertable<Todo> {
       recurrenceId: recurrenceId == null && nullToAbsent
           ? const Value.absent()
           : Value(recurrenceId),
+      autoDefer: Value(autoDefer),
+      scheduledTimeMinutes: scheduledTimeMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scheduledTimeMinutes),
       deferredFrom: deferredFrom == null && nullToAbsent
           ? const Value.absent()
           : Value(deferredFrom),
@@ -361,6 +423,10 @@ class Todo extends DataClass implements Insertable<Todo> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       recurrenceId: serializer.fromJson<String?>(json['recurrenceId']),
+      autoDefer: serializer.fromJson<bool>(json['autoDefer']),
+      scheduledTimeMinutes: serializer.fromJson<int?>(
+        json['scheduledTimeMinutes'],
+      ),
       deferredFrom: serializer.fromJson<String?>(json['deferredFrom']),
     );
   }
@@ -379,6 +445,8 @@ class Todo extends DataClass implements Insertable<Todo> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'recurrenceId': serializer.toJson<String?>(recurrenceId),
+      'autoDefer': serializer.toJson<bool>(autoDefer),
+      'scheduledTimeMinutes': serializer.toJson<int?>(scheduledTimeMinutes),
       'deferredFrom': serializer.toJson<String?>(deferredFrom),
     };
   }
@@ -393,6 +461,8 @@ class Todo extends DataClass implements Insertable<Todo> {
     DateTime? createdAt,
     Value<DateTime?> completedAt = const Value.absent(),
     Value<String?> recurrenceId = const Value.absent(),
+    bool? autoDefer,
+    Value<int?> scheduledTimeMinutes = const Value.absent(),
     Value<String?> deferredFrom = const Value.absent(),
   }) => Todo(
     id: id ?? this.id,
@@ -404,6 +474,10 @@ class Todo extends DataClass implements Insertable<Todo> {
     createdAt: createdAt ?? this.createdAt,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
     recurrenceId: recurrenceId.present ? recurrenceId.value : this.recurrenceId,
+    autoDefer: autoDefer ?? this.autoDefer,
+    scheduledTimeMinutes: scheduledTimeMinutes.present
+        ? scheduledTimeMinutes.value
+        : this.scheduledTimeMinutes,
     deferredFrom: deferredFrom.present ? deferredFrom.value : this.deferredFrom,
   );
   Todo copyWithCompanion(TodosCompanion data) {
@@ -421,6 +495,10 @@ class Todo extends DataClass implements Insertable<Todo> {
       recurrenceId: data.recurrenceId.present
           ? data.recurrenceId.value
           : this.recurrenceId,
+      autoDefer: data.autoDefer.present ? data.autoDefer.value : this.autoDefer,
+      scheduledTimeMinutes: data.scheduledTimeMinutes.present
+          ? data.scheduledTimeMinutes.value
+          : this.scheduledTimeMinutes,
       deferredFrom: data.deferredFrom.present
           ? data.deferredFrom.value
           : this.deferredFrom,
@@ -439,6 +517,8 @@ class Todo extends DataClass implements Insertable<Todo> {
           ..write('createdAt: $createdAt, ')
           ..write('completedAt: $completedAt, ')
           ..write('recurrenceId: $recurrenceId, ')
+          ..write('autoDefer: $autoDefer, ')
+          ..write('scheduledTimeMinutes: $scheduledTimeMinutes, ')
           ..write('deferredFrom: $deferredFrom')
           ..write(')'))
         .toString();
@@ -455,6 +535,8 @@ class Todo extends DataClass implements Insertable<Todo> {
     createdAt,
     completedAt,
     recurrenceId,
+    autoDefer,
+    scheduledTimeMinutes,
     deferredFrom,
   );
   @override
@@ -470,6 +552,8 @@ class Todo extends DataClass implements Insertable<Todo> {
           other.createdAt == this.createdAt &&
           other.completedAt == this.completedAt &&
           other.recurrenceId == this.recurrenceId &&
+          other.autoDefer == this.autoDefer &&
+          other.scheduledTimeMinutes == this.scheduledTimeMinutes &&
           other.deferredFrom == this.deferredFrom);
 }
 
@@ -483,6 +567,8 @@ class TodosCompanion extends UpdateCompanion<Todo> {
   final Value<DateTime> createdAt;
   final Value<DateTime?> completedAt;
   final Value<String?> recurrenceId;
+  final Value<bool> autoDefer;
+  final Value<int?> scheduledTimeMinutes;
   final Value<String?> deferredFrom;
   final Value<int> rowid;
   const TodosCompanion({
@@ -495,6 +581,8 @@ class TodosCompanion extends UpdateCompanion<Todo> {
     this.createdAt = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.recurrenceId = const Value.absent(),
+    this.autoDefer = const Value.absent(),
+    this.scheduledTimeMinutes = const Value.absent(),
     this.deferredFrom = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -508,6 +596,8 @@ class TodosCompanion extends UpdateCompanion<Todo> {
     required DateTime createdAt,
     this.completedAt = const Value.absent(),
     this.recurrenceId = const Value.absent(),
+    this.autoDefer = const Value.absent(),
+    this.scheduledTimeMinutes = const Value.absent(),
     this.deferredFrom = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -526,6 +616,8 @@ class TodosCompanion extends UpdateCompanion<Todo> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? completedAt,
     Expression<String>? recurrenceId,
+    Expression<bool>? autoDefer,
+    Expression<int>? scheduledTimeMinutes,
     Expression<String>? deferredFrom,
     Expression<int>? rowid,
   }) {
@@ -539,6 +631,9 @@ class TodosCompanion extends UpdateCompanion<Todo> {
       if (createdAt != null) 'created_at': createdAt,
       if (completedAt != null) 'completed_at': completedAt,
       if (recurrenceId != null) 'recurrence_id': recurrenceId,
+      if (autoDefer != null) 'auto_defer': autoDefer,
+      if (scheduledTimeMinutes != null)
+        'scheduled_time_minutes': scheduledTimeMinutes,
       if (deferredFrom != null) 'deferred_from': deferredFrom,
       if (rowid != null) 'rowid': rowid,
     });
@@ -554,6 +649,8 @@ class TodosCompanion extends UpdateCompanion<Todo> {
     Value<DateTime>? createdAt,
     Value<DateTime?>? completedAt,
     Value<String?>? recurrenceId,
+    Value<bool>? autoDefer,
+    Value<int?>? scheduledTimeMinutes,
     Value<String?>? deferredFrom,
     Value<int>? rowid,
   }) {
@@ -567,6 +664,8 @@ class TodosCompanion extends UpdateCompanion<Todo> {
       createdAt: createdAt ?? this.createdAt,
       completedAt: completedAt ?? this.completedAt,
       recurrenceId: recurrenceId ?? this.recurrenceId,
+      autoDefer: autoDefer ?? this.autoDefer,
+      scheduledTimeMinutes: scheduledTimeMinutes ?? this.scheduledTimeMinutes,
       deferredFrom: deferredFrom ?? this.deferredFrom,
       rowid: rowid ?? this.rowid,
     );
@@ -604,6 +703,12 @@ class TodosCompanion extends UpdateCompanion<Todo> {
     if (recurrenceId.present) {
       map['recurrence_id'] = Variable<String>(recurrenceId.value);
     }
+    if (autoDefer.present) {
+      map['auto_defer'] = Variable<bool>(autoDefer.value);
+    }
+    if (scheduledTimeMinutes.present) {
+      map['scheduled_time_minutes'] = Variable<int>(scheduledTimeMinutes.value);
+    }
     if (deferredFrom.present) {
       map['deferred_from'] = Variable<String>(deferredFrom.value);
     }
@@ -625,6 +730,8 @@ class TodosCompanion extends UpdateCompanion<Todo> {
           ..write('createdAt: $createdAt, ')
           ..write('completedAt: $completedAt, ')
           ..write('recurrenceId: $recurrenceId, ')
+          ..write('autoDefer: $autoDefer, ')
+          ..write('scheduledTimeMinutes: $scheduledTimeMinutes, ')
           ..write('deferredFrom: $deferredFrom, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -722,6 +829,16 @@ class $RecurrencesTable extends Recurrences
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _scheduledTimeMinutesMeta =
+      const VerificationMeta('scheduledTimeMinutes');
+  @override
+  late final GeneratedColumn<int> scheduledTimeMinutes = GeneratedColumn<int>(
+    'scheduled_time_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -746,6 +863,7 @@ class $RecurrencesTable extends Recurrences
     dayOfMonth,
     startDate,
     endDate,
+    scheduledTimeMinutes,
     isActive,
   ];
   @override
@@ -811,6 +929,15 @@ class $RecurrencesTable extends Recurrences
         endDate.isAcceptableOrUnknown(data['end_date']!, _endDateMeta),
       );
     }
+    if (data.containsKey('scheduled_time_minutes')) {
+      context.handle(
+        _scheduledTimeMinutesMeta,
+        scheduledTimeMinutes.isAcceptableOrUnknown(
+          data['scheduled_time_minutes']!,
+          _scheduledTimeMinutesMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_active')) {
       context.handle(
         _isActiveMeta,
@@ -862,6 +989,10 @@ class $RecurrencesTable extends Recurrences
         DriftSqlType.string,
         data['${effectivePrefix}end_date'],
       ),
+      scheduledTimeMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}scheduled_time_minutes'],
+      ),
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -887,6 +1018,7 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
   final int? dayOfMonth;
   final String startDate;
   final String? endDate;
+  final int? scheduledTimeMinutes;
   final bool isActive;
   const Recurrence({
     required this.id,
@@ -897,6 +1029,7 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
     this.dayOfMonth,
     required this.startDate,
     this.endDate,
+    this.scheduledTimeMinutes,
     required this.isActive,
   });
   @override
@@ -922,6 +1055,9 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
     if (!nullToAbsent || endDate != null) {
       map['end_date'] = Variable<String>(endDate);
     }
+    if (!nullToAbsent || scheduledTimeMinutes != null) {
+      map['scheduled_time_minutes'] = Variable<int>(scheduledTimeMinutes);
+    }
     map['is_active'] = Variable<bool>(isActive);
     return map;
   }
@@ -942,6 +1078,9 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
       endDate: endDate == null && nullToAbsent
           ? const Value.absent()
           : Value(endDate),
+      scheduledTimeMinutes: scheduledTimeMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scheduledTimeMinutes),
       isActive: Value(isActive),
     );
   }
@@ -962,6 +1101,9 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
       dayOfMonth: serializer.fromJson<int?>(json['dayOfMonth']),
       startDate: serializer.fromJson<String>(json['startDate']),
       endDate: serializer.fromJson<String?>(json['endDate']),
+      scheduledTimeMinutes: serializer.fromJson<int?>(
+        json['scheduledTimeMinutes'],
+      ),
       isActive: serializer.fromJson<bool>(json['isActive']),
     );
   }
@@ -979,6 +1121,7 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
       'dayOfMonth': serializer.toJson<int?>(dayOfMonth),
       'startDate': serializer.toJson<String>(startDate),
       'endDate': serializer.toJson<String?>(endDate),
+      'scheduledTimeMinutes': serializer.toJson<int?>(scheduledTimeMinutes),
       'isActive': serializer.toJson<bool>(isActive),
     };
   }
@@ -992,6 +1135,7 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
     Value<int?> dayOfMonth = const Value.absent(),
     String? startDate,
     Value<String?> endDate = const Value.absent(),
+    Value<int?> scheduledTimeMinutes = const Value.absent(),
     bool? isActive,
   }) => Recurrence(
     id: id ?? this.id,
@@ -1002,6 +1146,9 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
     dayOfMonth: dayOfMonth.present ? dayOfMonth.value : this.dayOfMonth,
     startDate: startDate ?? this.startDate,
     endDate: endDate.present ? endDate.value : this.endDate,
+    scheduledTimeMinutes: scheduledTimeMinutes.present
+        ? scheduledTimeMinutes.value
+        : this.scheduledTimeMinutes,
     isActive: isActive ?? this.isActive,
   );
   Recurrence copyWithCompanion(RecurrencesCompanion data) {
@@ -1018,6 +1165,9 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
           : this.dayOfMonth,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       endDate: data.endDate.present ? data.endDate.value : this.endDate,
+      scheduledTimeMinutes: data.scheduledTimeMinutes.present
+          ? data.scheduledTimeMinutes.value
+          : this.scheduledTimeMinutes,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
     );
   }
@@ -1033,6 +1183,7 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
           ..write('dayOfMonth: $dayOfMonth, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
+          ..write('scheduledTimeMinutes: $scheduledTimeMinutes, ')
           ..write('isActive: $isActive')
           ..write(')'))
         .toString();
@@ -1048,6 +1199,7 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
     dayOfMonth,
     startDate,
     endDate,
+    scheduledTimeMinutes,
     isActive,
   );
   @override
@@ -1062,6 +1214,7 @@ class Recurrence extends DataClass implements Insertable<Recurrence> {
           other.dayOfMonth == this.dayOfMonth &&
           other.startDate == this.startDate &&
           other.endDate == this.endDate &&
+          other.scheduledTimeMinutes == this.scheduledTimeMinutes &&
           other.isActive == this.isActive);
 }
 
@@ -1074,6 +1227,7 @@ class RecurrencesCompanion extends UpdateCompanion<Recurrence> {
   final Value<int?> dayOfMonth;
   final Value<String> startDate;
   final Value<String?> endDate;
+  final Value<int?> scheduledTimeMinutes;
   final Value<bool> isActive;
   final Value<int> rowid;
   const RecurrencesCompanion({
@@ -1085,6 +1239,7 @@ class RecurrencesCompanion extends UpdateCompanion<Recurrence> {
     this.dayOfMonth = const Value.absent(),
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
+    this.scheduledTimeMinutes = const Value.absent(),
     this.isActive = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1097,6 +1252,7 @@ class RecurrencesCompanion extends UpdateCompanion<Recurrence> {
     this.dayOfMonth = const Value.absent(),
     required String startDate,
     this.endDate = const Value.absent(),
+    this.scheduledTimeMinutes = const Value.absent(),
     required bool isActive,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -1113,6 +1269,7 @@ class RecurrencesCompanion extends UpdateCompanion<Recurrence> {
     Expression<int>? dayOfMonth,
     Expression<String>? startDate,
     Expression<String>? endDate,
+    Expression<int>? scheduledTimeMinutes,
     Expression<bool>? isActive,
     Expression<int>? rowid,
   }) {
@@ -1125,6 +1282,8 @@ class RecurrencesCompanion extends UpdateCompanion<Recurrence> {
       if (dayOfMonth != null) 'day_of_month': dayOfMonth,
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
+      if (scheduledTimeMinutes != null)
+        'scheduled_time_minutes': scheduledTimeMinutes,
       if (isActive != null) 'is_active': isActive,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1139,6 +1298,7 @@ class RecurrencesCompanion extends UpdateCompanion<Recurrence> {
     Value<int?>? dayOfMonth,
     Value<String>? startDate,
     Value<String?>? endDate,
+    Value<int?>? scheduledTimeMinutes,
     Value<bool>? isActive,
     Value<int>? rowid,
   }) {
@@ -1151,6 +1311,7 @@ class RecurrencesCompanion extends UpdateCompanion<Recurrence> {
       dayOfMonth: dayOfMonth ?? this.dayOfMonth,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
+      scheduledTimeMinutes: scheduledTimeMinutes ?? this.scheduledTimeMinutes,
       isActive: isActive ?? this.isActive,
       rowid: rowid ?? this.rowid,
     );
@@ -1185,6 +1346,9 @@ class RecurrencesCompanion extends UpdateCompanion<Recurrence> {
     if (endDate.present) {
       map['end_date'] = Variable<String>(endDate.value);
     }
+    if (scheduledTimeMinutes.present) {
+      map['scheduled_time_minutes'] = Variable<int>(scheduledTimeMinutes.value);
+    }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
@@ -1205,6 +1369,7 @@ class RecurrencesCompanion extends UpdateCompanion<Recurrence> {
           ..write('dayOfMonth: $dayOfMonth, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
+          ..write('scheduledTimeMinutes: $scheduledTimeMinutes, ')
           ..write('isActive: $isActive, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -2275,6 +2440,8 @@ typedef $$TodosTableCreateCompanionBuilder =
       required DateTime createdAt,
       Value<DateTime?> completedAt,
       Value<String?> recurrenceId,
+      Value<bool> autoDefer,
+      Value<int?> scheduledTimeMinutes,
       Value<String?> deferredFrom,
       Value<int> rowid,
     });
@@ -2289,6 +2456,8 @@ typedef $$TodosTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<DateTime?> completedAt,
       Value<String?> recurrenceId,
+      Value<bool> autoDefer,
+      Value<int?> scheduledTimeMinutes,
       Value<String?> deferredFrom,
       Value<int> rowid,
     });
@@ -2345,6 +2514,16 @@ class $$TodosTableFilterComposer
 
   ColumnFilters<String> get recurrenceId => $composableBuilder(
     column: $table.recurrenceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoDefer => $composableBuilder(
+    column: $table.autoDefer,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get scheduledTimeMinutes => $composableBuilder(
+    column: $table.scheduledTimeMinutes,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2408,6 +2587,16 @@ class $$TodosTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get autoDefer => $composableBuilder(
+    column: $table.autoDefer,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get scheduledTimeMinutes => $composableBuilder(
+    column: $table.scheduledTimeMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get deferredFrom => $composableBuilder(
     column: $table.deferredFrom,
     builder: (column) => ColumnOrderings(column),
@@ -2454,6 +2643,14 @@ class $$TodosTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get autoDefer =>
+      $composableBuilder(column: $table.autoDefer, builder: (column) => column);
+
+  GeneratedColumn<int> get scheduledTimeMinutes => $composableBuilder(
+    column: $table.scheduledTimeMinutes,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get deferredFrom => $composableBuilder(
     column: $table.deferredFrom,
     builder: (column) => column,
@@ -2497,6 +2694,8 @@ class $$TodosTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<String?> recurrenceId = const Value.absent(),
+                Value<bool> autoDefer = const Value.absent(),
+                Value<int?> scheduledTimeMinutes = const Value.absent(),
                 Value<String?> deferredFrom = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion(
@@ -2509,6 +2708,8 @@ class $$TodosTableTableManager
                 createdAt: createdAt,
                 completedAt: completedAt,
                 recurrenceId: recurrenceId,
+                autoDefer: autoDefer,
+                scheduledTimeMinutes: scheduledTimeMinutes,
                 deferredFrom: deferredFrom,
                 rowid: rowid,
               ),
@@ -2523,6 +2724,8 @@ class $$TodosTableTableManager
                 required DateTime createdAt,
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<String?> recurrenceId = const Value.absent(),
+                Value<bool> autoDefer = const Value.absent(),
+                Value<int?> scheduledTimeMinutes = const Value.absent(),
                 Value<String?> deferredFrom = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion.insert(
@@ -2535,6 +2738,8 @@ class $$TodosTableTableManager
                 createdAt: createdAt,
                 completedAt: completedAt,
                 recurrenceId: recurrenceId,
+                autoDefer: autoDefer,
+                scheduledTimeMinutes: scheduledTimeMinutes,
                 deferredFrom: deferredFrom,
                 rowid: rowid,
               ),
@@ -2570,6 +2775,7 @@ typedef $$RecurrencesTableCreateCompanionBuilder =
       Value<int?> dayOfMonth,
       required String startDate,
       Value<String?> endDate,
+      Value<int?> scheduledTimeMinutes,
       required bool isActive,
       Value<int> rowid,
     });
@@ -2583,6 +2789,7 @@ typedef $$RecurrencesTableUpdateCompanionBuilder =
       Value<int?> dayOfMonth,
       Value<String> startDate,
       Value<String?> endDate,
+      Value<int?> scheduledTimeMinutes,
       Value<bool> isActive,
       Value<int> rowid,
     });
@@ -2634,6 +2841,11 @@ class $$RecurrencesTableFilterComposer
 
   ColumnFilters<String> get endDate => $composableBuilder(
     column: $table.endDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get scheduledTimeMinutes => $composableBuilder(
+    column: $table.scheduledTimeMinutes,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2692,6 +2904,11 @@ class $$RecurrencesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get scheduledTimeMinutes => $composableBuilder(
+    column: $table.scheduledTimeMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
@@ -2734,6 +2951,11 @@ class $$RecurrencesTableAnnotationComposer
 
   GeneratedColumn<String> get endDate =>
       $composableBuilder(column: $table.endDate, builder: (column) => column);
+
+  GeneratedColumn<int> get scheduledTimeMinutes => $composableBuilder(
+    column: $table.scheduledTimeMinutes,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
@@ -2778,6 +3000,7 @@ class $$RecurrencesTableTableManager
                 Value<int?> dayOfMonth = const Value.absent(),
                 Value<String> startDate = const Value.absent(),
                 Value<String?> endDate = const Value.absent(),
+                Value<int?> scheduledTimeMinutes = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecurrencesCompanion(
@@ -2789,6 +3012,7 @@ class $$RecurrencesTableTableManager
                 dayOfMonth: dayOfMonth,
                 startDate: startDate,
                 endDate: endDate,
+                scheduledTimeMinutes: scheduledTimeMinutes,
                 isActive: isActive,
                 rowid: rowid,
               ),
@@ -2802,6 +3026,7 @@ class $$RecurrencesTableTableManager
                 Value<int?> dayOfMonth = const Value.absent(),
                 required String startDate,
                 Value<String?> endDate = const Value.absent(),
+                Value<int?> scheduledTimeMinutes = const Value.absent(),
                 required bool isActive,
                 Value<int> rowid = const Value.absent(),
               }) => RecurrencesCompanion.insert(
@@ -2813,6 +3038,7 @@ class $$RecurrencesTableTableManager
                 dayOfMonth: dayOfMonth,
                 startDate: startDate,
                 endDate: endDate,
+                scheduledTimeMinutes: scheduledTimeMinutes,
                 isActive: isActive,
                 rowid: rowid,
               ),

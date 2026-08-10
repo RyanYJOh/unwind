@@ -2,8 +2,12 @@ import 'dart:convert' show jsonEncode;
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart'
-    show CupertinoActionSheet, CupertinoActionSheetAction, showCupertinoModalPopup;
-import 'package:flutter/material.dart' show Icons;
+    show
+        CupertinoActionSheet,
+        CupertinoActionSheetAction,
+        showCupertinoModalPopup;
+import 'package:flutter/material.dart'
+    show Icons, MaterialLocalizations, TimeOfDay;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,37 +66,46 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   void initState() {
     super.initState();
     _theme = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: UnwindMotion.themeMoveMs));
+      vsync: this,
+      duration: const Duration(milliseconds: UnwindMotion.themeMoveMs),
+    );
     _tAnim = const AlwaysStoppedAnimation(0.0);
 
     _pulse = AnimationController(
-        vsync: this,
-        duration: const Duration(
-            milliseconds:
-                UnwindMotion.pulseRiseMs + UnwindMotion.pulseFallMs));
+      vsync: this,
+      duration: const Duration(
+        milliseconds: UnwindMotion.pulseRiseMs + UnwindMotion.pulseFallMs,
+      ),
+    );
     _pulseAnim = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: UnwindMotion.pulseAmount)
-            .chain(CurveTween(curve: UnwindMotion.pulseRise)),
+        tween: Tween(
+          begin: 0.0,
+          end: UnwindMotion.pulseAmount,
+        ).chain(CurveTween(curve: UnwindMotion.pulseRise)),
         weight: UnwindMotion.pulseRiseMs.toDouble(),
       ),
       TweenSequenceItem(
-        tween: Tween(begin: UnwindMotion.pulseAmount, end: 0.0)
-            .chain(CurveTween(curve: UnwindMotion.pulseFall)),
+        tween: Tween(
+          begin: UnwindMotion.pulseAmount,
+          end: 0.0,
+        ).chain(CurveTween(curve: UnwindMotion.pulseFall)),
         weight: UnwindMotion.pulseFallMs.toDouble(),
       ),
     ]).animate(_pulse);
 
     _breath = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: UnwindMotion.breathPeriodMs));
+      vsync: this,
+      duration: const Duration(milliseconds: UnwindMotion.breathPeriodMs),
+    );
     _zoom = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: UnwindMotion.cordZoomOutMs));
+      vsync: this,
+      duration: const Duration(milliseconds: UnwindMotion.cordZoomOutMs),
+    );
     _stars = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: UnwindMotion.starsFadeInMs));
+      vsync: this,
+      duration: const Duration(milliseconds: UnwindMotion.starsFadeInMs),
+    );
 
     // 초기 t 반영 (프레임 후 provider 값으로 점프 없이 세팅)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -126,13 +139,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
 
   double get _displayTStatic => _tAnim.value;
 
-  double get _displayT =>
-      (_tAnim.value + _pulseAnim.value).clamp(0.0, 1.0);
+  double get _displayT => (_tAnim.value + _pulseAnim.value).clamp(0.0, 1.0);
 
   void _animateThemeTo(double target, {Duration? duration}) {
     if ((target - _displayTStatic).abs() < 1e-9) return;
-    _tAnim = Tween(begin: _displayTStatic, end: target).animate(
-        CurvedAnimation(parent: _theme, curve: UnwindMotion.theme));
+    _tAnim = Tween(
+      begin: _displayTStatic,
+      end: target,
+    ).animate(CurvedAnimation(parent: _theme, curve: UnwindMotion.theme));
     _theme.duration =
         duration ?? const Duration(milliseconds: UnwindMotion.themeMoveMs);
     _theme.forward(from: 0);
@@ -173,8 +187,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   // 실데이터 없이 청구서 화면을 확인하기 위한 가짜 지난주 청구서.
   void _openDummyBill() {
     final todayKey = ref.read(todayKeyProvider);
-    final lastMonday =
-        dayKey(addDays(parseDayKey(weekMondayKey(todayKey)), -7));
+    final lastMonday = dayKey(
+      addDays(parseDayKey(weekMondayKey(todayKey)), -7),
+    );
     const kwhByDay = [0.42, 0.30, 0.55, 0.18, 0.36, 0.24, 0.12];
     const lightsOutByDay = [true, true, false, true, true, false, true];
     final days = [
@@ -186,10 +201,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
           sleepMinutes: lightsOutByDay[i] ? 420 + i * 10 : 0,
         ),
     ];
-    final totalKwh =
-        days.fold<double>(0, (sum, d) => sum + d.kwh);
-    final sleepTotal =
-        days.fold<int>(0, (sum, d) => sum + d.sleepMinutes);
+    final totalKwh = days.fold<double>(0, (sum, d) => sum + d.kwh);
+    final sleepTotal = days.fold<int>(0, (sum, d) => sum + d.sleepMinutes);
     showBillScreen(
       context,
       WeeklyBill(
@@ -219,7 +232,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
 
     final lit = [
       for (final t in todos)
-        if (t.status == TodoStatus.pending) t
+        if (t.status == TodoStatus.pending) t,
     ];
     final n = lit.length;
 
@@ -228,17 +241,21 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     final dominoMs = n == 0
         ? 0
         : (n - 1) * UnwindMotion.dominoIntervalMs + UnwindMotion.lampOffMs;
-    _animateThemeTo(1.0,
-        duration: Duration(
-            milliseconds: reduce
-                ? UnwindMotion.reducedFadeMs
-                : math.max(dominoMs, UnwindMotion.themeMoveMs)));
+    _animateThemeTo(
+      1.0,
+      duration: Duration(
+        milliseconds: reduce
+            ? UnwindMotion.reducedFadeMs
+            : math.max(dominoMs, UnwindMotion.themeMoveMs),
+      ),
+    );
 
     // 70ms 도미노 — 절대 동시에 꺼지지 않는다.
     for (var k = 0; k < n; k++) {
       if (k > 0) {
         await Future.delayed(
-            const Duration(milliseconds: UnwindMotion.dominoIntervalMs));
+          const Duration(milliseconds: UnwindMotion.dominoIntervalMs),
+        );
       }
       if (!mounted) return;
       final isLast = k == n - 1;
@@ -258,14 +275,19 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       }
     }
 
-    await Future.delayed(Duration(
-        milliseconds:
-            reduce ? UnwindMotion.reducedFadeMs : UnwindMotion.lampOffMs));
+    await Future.delayed(
+      Duration(
+        milliseconds: reduce
+            ? UnwindMotion.reducedFadeMs
+            : UnwindMotion.lampOffMs,
+      ),
+    );
     if (!mounted) return;
 
     // +500ms 정적 (§9.3 — 임의 단축 금지)
     await Future.delayed(
-        const Duration(milliseconds: UnwindMotion.silenceAfterLastMs));
+      const Duration(milliseconds: UnwindMotion.silenceAfterLastMs),
+    );
     if (!mounted) return;
 
     // DB 기록: 상태는 pending 유지, lightsOutAt/finalT만 (§6.4)
@@ -280,28 +302,56 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     if (mounted) setState(() => _dominoRunning = false);
   }
 
-  // ── 롱프레스 메뉴 (§6.1) ────────────────────────────────────
-  void _showItemMenu(Todo todo) {
+  // ── 롱프레스 삭제 메뉴 (§6.1) ────────────────────────────────
+  Future<void> _showItemMenu(Todo todo) async {
     final l10n = AppLocalizations.of(context);
-    showCupertinoModalPopup<void>(
+    final shouldDelete = await showCupertinoModalPopup<bool>(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
         title: Text(todo.title),
         actions: [
           CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              showComposeSheet(context, existing: todo);
-            },
-            child: Text(l10n.edit),
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.delete),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text(l10n.close),
+        ),
+      ),
+    );
+    if (shouldDelete != true || !mounted) return;
+
+    if (todo.recurrenceId == null) {
+      await ref.read(todoRepositoryProvider).remove(todo);
+      return;
+    }
+    // 첫 액션 시트의 dismiss 전환이 끝난 뒤 범위 선택 시트를 연다.
+    await Future<void>.delayed(
+      const Duration(milliseconds: UnwindMotion.sheetMs),
+    );
+    if (!mounted) return;
+    await _showRecurringDeleteMenu(todo);
+  }
+
+  Future<void> _showRecurringDeleteMenu(Todo todo) async {
+    final l10n = AppLocalizations.of(context);
+    final deleteFuture = await showCupertinoModalPopup<bool>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(todo.title),
+        actions: [
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.deleteThisTask),
           ),
           CupertinoActionSheetAction(
             isDestructiveAction: true,
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              ref.read(todoRepositoryProvider).remove(todo);
-            },
-            child: Text(l10n.delete),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.deleteFutureRecurring),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
@@ -310,6 +360,13 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
         ),
       ),
     );
+    if (deleteFuture == null || !mounted) return;
+    final repo = ref.read(todoRepositoryProvider);
+    if (deleteFuture) {
+      await repo.removeRecurringFrom(todo);
+    } else {
+      await repo.remove(todo);
+    }
   }
 
   @override
@@ -339,14 +396,17 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
 
     // §10 밤 리마인더 조건 갱신 활성화
     ref.watch(nightReminderSchedulerProvider);
+    ref.watch(todoReminderSchedulerProvider);
 
     // §10 알림 탭 라우팅: 청구서 알림 → 청구서 화면
     ref.listen<String?>(notificationTapProvider, (prev, next) async {
       if (next == null) return;
       ref.read(notificationTapProvider.notifier).clear();
       if (next == 'bill') {
-        final bills =
-            await ref.read(billRepositoryProvider).watchUnread().first;
+        final bills = await ref
+            .read(billRepositoryProvider)
+            .watchUnread()
+            .first;
         if (context.mounted && bills.isNotEmpty) {
           showBillScreen(context, bills.first);
         }
@@ -370,17 +430,21 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
             child: AnimatedBuilder(
               animation: _zoom,
               builder: (context, inner) {
-                final scale = UnwindMotion.cordZoomScale -
+                final scale =
+                    UnwindMotion.cordZoomScale -
                     (UnwindMotion.cordZoomScale - 1.0) *
                         UnwindMotion.settle.transform(_zoom.value);
                 return Transform.scale(
-                    scale: _zoom.value > 0 ? scale : 1.0, child: inner);
+                  scale: _zoom.value > 0 ? scale : 1.0,
+                  child: inner,
+                );
               },
               child: ColoredBox(
                 color: colors.bg,
                 child: DefaultTextStyle(
-                  style: UnwindType.body
-                      .copyWith(decoration: TextDecoration.none),
+                  style: UnwindType.body.copyWith(
+                    decoration: TextDecoration.none,
+                  ),
                   child: child!,
                 ),
               ),
@@ -397,7 +461,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                   animation: _stars,
                   builder: (context, _) => CustomPaint(
                     painter: NightSkyPainter(
-                        opacity: Curves.easeInOut.transform(_stars.value)),
+                      opacity: Curves.easeInOut.transform(_stars.value),
+                    ),
                   ),
                 ),
               ),
@@ -443,87 +508,98 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                 // (개정 2026-08-09: 타이틀을 설정 아이콘 우측으로)
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: UnwindSpacing.s16),
+                    horizontal: UnwindSpacing.s16,
+                  ),
                   child: Row(
                     children: [
-                      Builder(builder: (context) {
-                        final colors = UnwindTheme.of(context);
-                        return GestureDetector(
-                          onTap: () => showSettingsScreen(context),
-                          behavior: HitTestBehavior.opaque,
-                          child: Semantics(
-                            label: l10n.settingsTitle,
-                            button: true,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.all(UnwindSpacing.s8),
-                              child: Icon(Icons.settings_outlined,
-                                  size: 24, color: colors.textSecondary),
-                            ),
-                          ),
-                        );
-                      }),
-                      const SizedBox(width: UnwindSpacing.s8),
-                      // 과거 날짜 열람 중엔 그 날짜를 타이틀로 (개편 2026-08-09)
-                      Builder(builder: (context) {
-                        final viewedKey =
-                            ref.watch(viewedDayKeyProvider);
-                        final isPast = viewedKey !=
-                            ref.watch(todayKeyProvider);
-                        final String title;
-                        if (isPast) {
-                          final d = parseDayKey(viewedKey);
-                          title = l10n.monthDay(
-                              l10n.monthsShort
-                                  .split(',')[d.month - 1],
-                              d.month,
-                              d.day);
-                        } else {
-                          title = l10n.today;
-                        }
-                        return PrimaryText(title,
-                            style: UnwindType.title);
-                      }),
-                      const Spacer(),
-                      // §6.5 미확인 청구서 배지
-                      if ((ref.watch(unreadBillsProvider).value ?? const [])
-                          .isNotEmpty)
-                        Builder(builder: (context) {
+                      Builder(
+                        builder: (context) {
                           final colors = UnwindTheme.of(context);
-                          final bill = ref
-                              .watch(unreadBillsProvider)
-                              .value!
-                              .first;
                           return GestureDetector(
-                            onTap: () => showBillScreen(context, bill),
+                            onTap: () => showSettingsScreen(context),
                             behavior: HitTestBehavior.opaque,
                             child: Semantics(
-                              label: l10n.notifBillArrived,
+                              label: l10n.settingsTitle,
                               button: true,
                               child: Padding(
-                                padding:
-                                    const EdgeInsets.all(UnwindSpacing.s8),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 7,
-                                      height: 7,
-                                      decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: colors.lamp),
-                                    ),
-                                    const SizedBox(width: UnwindSpacing.s4),
-                                    Text(l10n.billBadge,
-                                        style: UnwindType.label.copyWith(
-                                            color: colors.textSecondary,
-                                            decoration:
-                                                TextDecoration.none)),
-                                  ],
+                                padding: const EdgeInsets.all(UnwindSpacing.s8),
+                                child: Icon(
+                                  Icons.settings_outlined,
+                                  size: 24,
+                                  color: colors.textSecondary,
                                 ),
                               ),
                             ),
                           );
-                        }),
+                        },
+                      ),
+                      const SizedBox(width: UnwindSpacing.s8),
+                      // 과거 날짜 열람 중엔 그 날짜를 타이틀로 (개편 2026-08-09)
+                      Builder(
+                        builder: (context) {
+                          final viewedKey = ref.watch(viewedDayKeyProvider);
+                          final isPast =
+                              viewedKey != ref.watch(todayKeyProvider);
+                          final String title;
+                          if (isPast) {
+                            final d = parseDayKey(viewedKey);
+                            title = l10n.monthDay(
+                              l10n.monthsShort.split(',')[d.month - 1],
+                              d.month,
+                              d.day,
+                            );
+                          } else {
+                            title = l10n.today;
+                          }
+                          return PrimaryText(title, style: UnwindType.title);
+                        },
+                      ),
+                      const Spacer(),
+                      // §6.5 미확인 청구서 배지
+                      if ((ref.watch(unreadBillsProvider).value ?? const [])
+                          .isNotEmpty)
+                        Builder(
+                          builder: (context) {
+                            final colors = UnwindTheme.of(context);
+                            final bill = ref
+                                .watch(unreadBillsProvider)
+                                .value!
+                                .first;
+                            return GestureDetector(
+                              onTap: () => showBillScreen(context, bill),
+                              behavior: HitTestBehavior.opaque,
+                              child: Semantics(
+                                label: l10n.notifBillArrived,
+                                button: true,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(
+                                    UnwindSpacing.s8,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 7,
+                                        height: 7,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: colors.lamp,
+                                        ),
+                                      ),
+                                      const SizedBox(width: UnwindSpacing.s4),
+                                      Text(
+                                        l10n.billBadge,
+                                        style: UnwindType.label.copyWith(
+                                          color: colors.textSecondary,
+                                          decoration: TextDecoration.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                     ],
                   ),
                 ),
@@ -538,8 +614,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                         state: LumiState(
                           brightness: _displayTStatic,
                           // 시간 무관: 전부 체크 시 잠들고, 밤의 빈 방도 잠든다
-                          isAsleep:
-                              lumiMode.mode == LumiMode.asleep,
+                          isAsleep: lumiMode.mode == LumiMode.asleep,
                           mode: lumiMode.mode,
                           activity: lumiMode.activity,
                           dazzle: lumiMode.dazzle,
@@ -558,33 +633,97 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                       ? _EmptyRoom()
                       : ListView.builder(
                           padding: const EdgeInsets.only(
-                              bottom: UnwindSpacing.s48 * 2 +
-                                  UnwindSpacing.s24),
+                            bottom: UnwindSpacing.s48 * 2 + UnwindSpacing.s24,
+                          ),
                           itemCount: todos.length,
                           itemBuilder: (context, i) {
                             final todo = todos[i];
                             final isOn =
                                 todo.status == TodoStatus.pending &&
-                                    !_visualOffOverride.contains(todo.id);
+                                !_visualOffOverride.contains(todo.id);
+                            final rowColors = UnwindTheme.of(context);
                             // 개정 2026-08-07: 스위치=토글, 패널 탭=편집.
                             // 취침 중 스위치 = 깨우기(undo)
-                            return LampRow(
-                              title: todo.title,
-                              isOn: isOn,
-                              isDone: todo.status == TodoStatus.done,
-                              breath:
-                                  reduce ? null : BreathAnimation(_breath),
-                              onToggle: _dominoRunning
-                                  ? null
-                                  : () => _toggle(todo),
-                              onTap: asleep || _dominoRunning
-                                  ? null
-                                  : () =>
-                                      showComposeSheet(context, existing: todo),
-                              onLongPress: _dominoRunning
-                                  ? null
-                                  : () => _showItemMenu(todo),
-                              dominoBounce: _dominoRunning, // 순차 통통 (개편)
+                            return Dismissible(
+                              key: ValueKey(todo.id),
+                              direction: _dominoRunning
+                                  ? DismissDirection.none
+                                  : DismissDirection.endToStart,
+                              confirmDismiss: (_) async {
+                                await ref
+                                    .read(todoRepositoryProvider)
+                                    .remove(todo);
+                                return true;
+                              },
+                              background: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: UnwindSpacing.s24,
+                                  vertical: UnwindSpacing.s8 - 2,
+                                ),
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: rowColors.lamp.withValues(
+                                      alpha: 0.9,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      UnwindRadius.md,
+                                    ),
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                        right: UnwindSpacing.s16,
+                                      ),
+                                      child: Semantics(
+                                        label: l10n.delete,
+                                        child: Icon(
+                                          Icons.delete_outline_rounded,
+                                          color: rowColors.textPrimaryDark,
+                                          size: UnwindSpacing.s24,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              child: LampRow(
+                                title: todo.title,
+                                timeLabel: todo.scheduledTimeMinutes == null
+                                    ? null
+                                    : MaterialLocalizations.of(
+                                        context,
+                                      ).formatTimeOfDay(
+                                        TimeOfDay(
+                                          hour:
+                                              todo.scheduledTimeMinutes! ~/ 60,
+                                          minute:
+                                              todo.scheduledTimeMinutes! % 60,
+                                        ),
+                                        alwaysUse24HourFormat:
+                                            MediaQuery.alwaysUse24HourFormatOf(
+                                              context,
+                                            ),
+                                      ),
+                                isOn: isOn,
+                                isDone: todo.status == TodoStatus.done,
+                                breath: reduce
+                                    ? null
+                                    : BreathAnimation(_breath),
+                                onToggle: _dominoRunning
+                                    ? null
+                                    : () => _toggle(todo),
+                                onTap: asleep || _dominoRunning
+                                    ? null
+                                    : () => showComposeSheet(
+                                        context,
+                                        existing: todo,
+                                      ),
+                                onLongPress: _dominoRunning
+                                    ? null
+                                    : () => _showItemMenu(todo),
+                                dominoBounce: _dominoRunning, // 순차 통통 (개편)
+                              ),
                             );
                           },
                         ),
@@ -592,8 +731,12 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                 // 최근 7일 + Bill (개편 2026-08-09) — 좌: 스크롤 날짜 선택,
                 // 우: 청구서 버튼. 날짜 탭 = 그 날짜의 방으로 전환.
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(UnwindSpacing.s16,
-                      0, UnwindSpacing.s16, UnwindSpacing.s8),
+                  padding: const EdgeInsets.fromLTRB(
+                    UnwindSpacing.s16,
+                    0,
+                    UnwindSpacing.s16,
+                    UnwindSpacing.s8,
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -654,8 +797,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                     // 과거 날짜 열람 중엔 그 날짜로 추가 (개편 2026-08-09)
                     final viewed = ref.read(viewedDayKeyProvider);
                     final today = ref.read(todayKeyProvider);
-                    showComposeSheet(context,
-                        initialDate: viewed != today ? viewed : null);
+                    showComposeSheet(
+                      context,
+                      initialDate: viewed != today ? viewed : null,
+                    );
                   },
                 ),
               ),
@@ -665,25 +810,32 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
           // 위에서 펼쳐지는 380ms settle 전환 유지 (§9.4). 앱 재실행 시에도
           // weekViewOpen 설정에 따라 열린 채 시작된다.
           Positioned.fill(
-            child: Consumer(builder: (context, ref, _) {
-              final weekOpen = ref.watch(settingsControllerProvider
-                      .select((s) => s.value?.weekViewOpen)) ??
-                  false;
-              return IgnorePointer(
-                ignoring: !weekOpen,
-                child: AnimatedSlide(
-                  offset: weekOpen ? Offset.zero : const Offset(0, -1.1),
-                  duration: const Duration(
-                      milliseconds: UnwindMotion.weekExpandMs),
-                  curve: UnwindMotion.settle,
-                  child: WeekScreen(
-                    onCollapse: () => ref
-                        .read(settingsControllerProvider.notifier)
-                        .setWeekViewOpen(false),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final weekOpen =
+                    ref.watch(
+                      settingsControllerProvider.select(
+                        (s) => s.value?.weekViewOpen,
+                      ),
+                    ) ??
+                    false;
+                return IgnorePointer(
+                  ignoring: !weekOpen,
+                  child: AnimatedSlide(
+                    offset: weekOpen ? Offset.zero : const Offset(0, -1.1),
+                    duration: const Duration(
+                      milliseconds: UnwindMotion.weekExpandMs,
+                    ),
+                    curve: UnwindMotion.settle,
+                    child: WeekScreen(
+                      onCollapse: () => ref
+                          .read(settingsControllerProvider.notifier)
+                          .setWeekViewOpen(false),
+                    ),
                   ),
-                ),
-              );
-            }),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -703,10 +855,13 @@ class _EmptyRoom extends StatelessWidget {
         children: [
           PrimaryText(l10n.emptyRoomTitle, style: UnwindType.bodyStrong),
           const SizedBox(height: UnwindSpacing.s8),
-          Text(l10n.emptyRoomSubtitle,
-              style: UnwindType.label.copyWith(
-                  color: colors.textSecondary,
-                  decoration: TextDecoration.none)),
+          Text(
+            l10n.emptyRoomSubtitle,
+            style: UnwindType.label.copyWith(
+              color: colors.textSecondary,
+              decoration: TextDecoration.none,
+            ),
+          ),
         ],
       ),
     );
@@ -781,15 +936,20 @@ class _FabPainter extends CustomPainter {
         c,
         glowR,
         Paint()
-          ..shader = RadialGradient(colors: [
-            glowColor.withValues(alpha: 0.4 * glow),
-            glowColor.withValues(alpha: 0.0),
-          ]).createShader(Rect.fromCircle(center: c, radius: glowR)),
+          ..shader = RadialGradient(
+            colors: [
+              glowColor.withValues(alpha: 0.4 * glow),
+              glowColor.withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromCircle(center: c, radius: glowR)),
       );
     }
     // 부드러운 그림자 (§8.4 — 검정 금지, 따뜻한 계열)
-    canvas.drawCircle(c.translate(0, 2), r,
-        Paint()..color = shadowColor.withValues(alpha: shadowColor.a * 0.9));
+    canvas.drawCircle(
+      c.translate(0, 2),
+      r,
+      Paint()..color = shadowColor.withValues(alpha: shadowColor.a * 0.9),
+    );
     canvas.drawCircle(c, r, Paint()..color = bodyColor);
 
     final p = Paint()

@@ -15,6 +15,8 @@
   "add": "추가",
   "edit": "편집",
   "delete": "삭제",
+  "deleteThisTask": "이 할 일만 삭제",
+  "deleteFutureRecurring": "이 할 일과 앞으로의 반복 모두 삭제",
   "close": "닫기",
   "save": "저장",
   "share": "공유",
@@ -28,13 +30,17 @@
   "dateToday": "오늘",
   "dateTomorrow": "내일",
   "dateDayAfter": "모레",
+  "chooseDate": "날짜 선택",
   "repeatNone": "반복 없음",
   "repeatDaily": "매일",
   "repeatWeekdays": "주중",
   "repeatWeekly": "매주",
   "repeatMonthly": "매월",
+  "repeatEveryWeekday": "매주 {weekday}",
+  "repeatEveryMonthDay": "매월 {day}일",
 
   "weekdaysShort": "월,화,수,목,금,토,일",
+  "weekdaysLong": "월요일,화요일,수요일,목요일,금요일,토요일,일요일",
   "monthsShort": "1,2,3,4,5,6,7,8,9,10,11,12",
   "monthDay": "{month}월 {day}일",
 
@@ -88,5 +94,10 @@
   "onboardSample2": "빌린 책 반납하기",
   "onboardSample3": "저녁 산책 20분",
 
-  "m0Reset": "처음부터 다시 체험하기 (M0 테스트용)"
+  "m0Reset": "처음부터 다시 체험하기 (M0 테스트용)",
+  "autoDeferTitle": "자동으로 미루기",
+  "autoDeferSubtitle": "오늘 안 하면 내일의 할 일로 등록돼요",
+  "taskTime": "시간",
+  "taskTimeNone": "시간 없음",
+  "todoReminderBody": "10분 뒤 이 불을 끌 시간이에요"
 }

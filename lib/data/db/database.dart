@@ -17,7 +17,8 @@ part 'database.g.dart';
 )
 class UnwindDatabase extends _$UnwindDatabase {
   UnwindDatabase()
-      : super(driftDatabase(
+    : super(
+        driftDatabase(
           name: 'unwind',
           // 웹은 개발 미리보기 전용 (§1.4 — 제품은 iOS 온리).
           // web/sqlite3.wasm + web/drift_worker.js 필요.
@@ -25,11 +26,23 @@ class UnwindDatabase extends _$UnwindDatabase {
             sqlite3Wasm: Uri.parse('sqlite3.wasm'),
             driftWorker: Uri.parse('drift_worker.js'),
           ),
-        ));
+        ),
+      );
 
   /// 테스트용 인메모리 등 임의 executor 주입
   UnwindDatabase.withExecutor(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(todos, todos.autoDefer);
+        await m.addColumn(todos, todos.scheduledTimeMinutes);
+        await m.addColumn(recurrences, recurrences.scheduledTimeMinutes);
+      }
+    },
+  );
 }

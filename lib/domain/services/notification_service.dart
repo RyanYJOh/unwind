@@ -1,6 +1,54 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+
+import '../../core/utils/dates.dart';
+
+class TodoReminder {
+  final String todoId;
+  final String title;
+  final DateTime dueAt;
+
+  const TodoReminder({
+    required this.todoId,
+    required this.title,
+    required this.dueAt,
+  });
+}
+
+DateTime todoDueAt({
+  required String dateKey,
+  required int scheduledTimeMinutes,
+  required int dayStartHour,
+}) {
+  final logicalDate = parseDayKey(dateKey);
+  final calendarDate = scheduledTimeMinutes < dayStartHour * 60
+      ? logicalDate.add(const Duration(days: 1))
+      : logicalDate;
+  return DateTime(
+    calendarDate.year,
+    calendarDate.month,
+    calendarDate.day,
+    scheduledTimeMinutes ~/ 60,
+    scheduledTimeMinutes % 60,
+  );
+}
+
+DateTime todoReminderAt({
+  required String dateKey,
+  required int scheduledTimeMinutes,
+  required int dayStartHour,
+}) => todoDueAt(
+  dateKey: dateKey,
+  scheduledTimeMinutes: scheduledTimeMinutes,
+  dayStartHour: dayStartHour,
+).subtract(const Duration(minutes: 10));
+
+bool shouldScheduleTodoReminder({
+  required DateTime dueAt,
+  required DateTime now,
+}) => dueAt.subtract(const Duration(minutes: 10)).isAfter(now);
 
 /// §10 로컬 알림 — 서버 없음, 로컬만.
 ///
@@ -12,6 +60,7 @@ import 'package:timezone/timezone.dart' as tz;
 class NotificationService {
   static const _nightReminderId = 1;
   static const _billId = 2;
+  static const _todoIdFloor = 1000;
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -26,12 +75,9 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
     tzdata.initializeTimeZones();
-    // 로컬 오프셋 기반 타임존 선택 — DST 없는 KST 환경 기준.
-    // TODO(unwind): 해외 타임존 정확도가 필요해지면 flutter_timezone 도입 검토.
-    final offset = DateTime.now().timeZoneOffset;
     try {
-      final name = offset.inHours == 9 ? 'Asia/Seoul' : 'UTC';
-      tz.setLocalLocation(tz.getLocation(name));
+      final timezone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timezone.identifier));
     } catch (_) {
       // 기본 로케이션 유지
     }
@@ -59,12 +105,24 @@ class NotificationService {
 
   /// 온보딩 종료 후 호출 (§10 — 첫 실행 즉시 요청 금지)
   Future<bool> requestPermission() async {
-    final ios = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
+    await init();
+    if (!_initialized) return false;
+    final ios = _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     try {
-      final granted = await ios?.requestPermissions(
-          alert: true, badge: true, sound: true);
-      return granted ?? false;
+      final iosGranted = await ios?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      final androidGranted = await android?.requestNotificationsPermission();
+      return iosGranted ?? androidGranted ?? false;
     } catch (_) {
       return false;
     }
@@ -78,10 +136,17 @@ class NotificationService {
     required int minute,
     required String body,
   }) async {
+    await init();
     if (!_initialized) return;
     final now = tz.TZDateTime.now(tz.local);
     var at = tz.TZDateTime(
-        tz.local, now.year, now.month, now.day, hour, minute);
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
     if (!at.isAfter(now)) return; // 오늘 시각이 이미 지났으면 보내지 않는다
 
     await _plugin.zonedSchedule(
@@ -98,6 +163,7 @@ class NotificationService {
   }
 
   Future<void> cancelNightReminder() async {
+    await init();
     if (!_initialized) return;
     await _plugin.cancel(id: _nightReminderId);
   }
@@ -107,6 +173,7 @@ class NotificationService {
     bool enabled = true,
     required String body,
   }) async {
+    await init();
     if (!_initialized) return;
     await _plugin.cancel(id: _billId);
     if (!enabled) return;
@@ -129,5 +196,83 @@ class NotificationService {
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime, // 매주 반복
       payload: 'bill',
     );
+  }
+
+  static int todoNotificationId(String todoId) {
+    var hash = 0x811c9dc5;
+    for (final unit in todoId.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 0x01000193) & 0x3fffffff;
+    }
+    return _todoIdFloor + hash;
+  }
+
+  Future<void> cancelTodoReminder(String todoId) async {
+    await init();
+    if (!_initialized) return;
+    await _plugin.cancel(id: todoNotificationId(todoId));
+  }
+
+  /// 가장 가까운 회차만 유지해 iOS의 보류 알림 개수 제한을 넘지 않는다.
+  Future<void> syncTodoReminders({
+    required Iterable<TodoReminder> reminders,
+    required String body,
+    DateTime? now,
+  }) async {
+    await init();
+    if (!_initialized) return;
+
+    final localNow = now ?? DateTime.now();
+    final eligible =
+        reminders
+            .where(
+              (reminder) => shouldScheduleTodoReminder(
+                dueAt: reminder.dueAt,
+                now: localNow,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final selected = eligible.take(48).toList();
+    final desiredIds = {
+      for (final reminder in selected) todoNotificationId(reminder.todoId),
+    };
+
+    final pending = await _plugin.pendingNotificationRequests();
+    for (final request in pending) {
+      if (request.id >= _todoIdFloor && !desiredIds.contains(request.id)) {
+        await _plugin.cancel(id: request.id);
+      }
+    }
+
+    for (final reminder in selected) {
+      final at = reminder.dueAt.subtract(const Duration(minutes: 10));
+      final scheduled = tz.TZDateTime(
+        tz.local,
+        at.year,
+        at.month,
+        at.day,
+        at.hour,
+        at.minute,
+      );
+      await _plugin.zonedSchedule(
+        id: todoNotificationId(reminder.todoId),
+        title: reminder.title,
+        body: body,
+        scheduledDate: scheduled,
+        notificationDetails: const NotificationDetails(
+          iOS: DarwinNotificationDetails(presentSound: false),
+          android: AndroidNotificationDetails(
+            'todo_reminders',
+            'Task reminders',
+            channelDescription: 'Gentle reminders before a task time',
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: 'home',
+      );
+    }
   }
 }

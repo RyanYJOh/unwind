@@ -37,6 +37,7 @@ class RecurrenceExpander {
           memo: rec.memo,
           date: key,
           recurrenceId: rec.id,
+          scheduledTimeMinutes: rec.scheduledTimeMinutes,
         );
       }
     }

@@ -14,18 +14,36 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
 
   static const _uuid = Uuid();
 
-  /// 특정 날짜의 할 일 스트림 — sortIndex 고정 정렬 (§6.1: 완료해도 순서 유지)
+  void _validateTime(int? minutes) {
+    if (minutes != null && (minutes < 0 || minutes > 1439)) {
+      throw RangeError.range(minutes, 0, 1439, 'scheduledTimeMinutes');
+    }
+  }
+
+  /// 특정 날짜의 할 일 스트림 — 시간이 있는 항목 우선, 이른 시간 순.
   Stream<List<Todo>> watchByDate(String date) {
     return (select(todos)
-          ..where((t) => t.date.equals(date))
-          ..orderBy([(t) => OrderingTerm.asc(t.sortIndex)]))
+          ..where(
+            (t) =>
+                t.date.equals(date) &
+                t.status.equalsValue(TodoStatus.deferred).not(),
+          )
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.scheduledTimeMinutes.isNull()),
+            (t) => OrderingTerm.asc(t.scheduledTimeMinutes),
+            (t) => OrderingTerm.asc(t.sortIndex),
+          ]))
         .watch();
   }
 
   Future<List<Todo>> getByDate(String date) {
     return (select(todos)
           ..where((t) => t.date.equals(date))
-          ..orderBy([(t) => OrderingTerm.asc(t.sortIndex)]))
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.scheduledTimeMinutes.isNull()),
+            (t) => OrderingTerm.asc(t.scheduledTimeMinutes),
+            (t) => OrderingTerm.asc(t.sortIndex),
+          ]))
         .get();
   }
 
@@ -35,12 +53,16 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
     String? memo,
     required String date,
     String? recurrenceId,
+    bool autoDefer = false,
+    int? scheduledTimeMinutes,
   }) async {
-    final maxSort = await (selectOnly(todos)
-          ..addColumns([todos.sortIndex.max()])
-          ..where(todos.date.equals(date)))
-        .map((row) => row.read(todos.sortIndex.max()))
-        .getSingle();
+    _validateTime(scheduledTimeMinutes);
+    final maxSort =
+        await (selectOnly(todos)
+              ..addColumns([todos.sortIndex.max()])
+              ..where(todos.date.equals(date)))
+            .map((row) => row.read(todos.sortIndex.max()))
+            .getSingle();
     final entry = TodosCompanion.insert(
       id: _uuid.v4(),
       title: title,
@@ -50,10 +72,13 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
       sortIndex: (maxSort ?? -1) + 1,
       createdAt: DateTime.now(),
       recurrenceId: Value(recurrenceId),
+      autoDefer: Value(recurrenceId == null && autoDefer),
+      scheduledTimeMinutes: Value(scheduledTimeMinutes),
     );
     await into(todos).insert(entry);
-    return (select(todos)..where((t) => t.id.equals(entry.id.value)))
-        .getSingle();
+    return (select(
+      todos,
+    )..where((t) => t.id.equals(entry.id.value))).getSingle();
   }
 
   /// 완료 토글 (§6.1: 탭 → 토글)
@@ -66,11 +91,38 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
     );
   }
 
-  Future<void> updateContent(String id, {String? title, String? memo}) {
-    return (update(todos)..where((t) => t.id.equals(id))).write(
+  Future<void> updateContent(
+    String id, {
+    String? title,
+    String? memo,
+    String? date,
+    bool? autoDefer,
+    int? scheduledTimeMinutes,
+    bool updateScheduledTime = false,
+  }) async {
+    if (updateScheduledTime) _validateTime(scheduledTimeMinutes);
+    int? nextSortIndex;
+    if (date != null) {
+      final maxSort =
+          await (selectOnly(todos)
+                ..addColumns([todos.sortIndex.max()])
+                ..where(todos.date.equals(date)))
+              .map((row) => row.read(todos.sortIndex.max()))
+              .getSingle();
+      nextSortIndex = (maxSort ?? -1) + 1;
+    }
+    await (update(todos)..where((t) => t.id.equals(id))).write(
       TodosCompanion(
         title: title != null ? Value(title) : const Value.absent(),
         memo: Value(memo),
+        date: date != null ? Value(date) : const Value.absent(),
+        autoDefer: autoDefer != null ? Value(autoDefer) : const Value.absent(),
+        scheduledTimeMinutes: updateScheduledTime
+            ? Value(scheduledTimeMinutes)
+            : const Value.absent(),
+        sortIndex: nextSortIndex != null
+            ? Value(nextSortIndex)
+            : const Value.absent(),
       ),
     );
   }
@@ -79,22 +131,97 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
     return (delete(todos)..where((t) => t.id.equals(id))).go();
   }
 
+  Future<List<Todo>> getPendingAutoDeferBefore(String today) {
+    return (select(todos)
+          ..where(
+            (t) =>
+                t.date.isSmallerThanValue(today) &
+                t.autoDefer.equals(true) &
+                t.status.equalsValue(TodoStatus.pending),
+          )
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.date),
+            (t) => OrderingTerm.asc(t.sortIndex),
+          ]))
+        .get();
+  }
+
+  Future<int> nextSortIndex(String date) async {
+    final maxSort =
+        await (selectOnly(todos)
+              ..addColumns([todos.sortIndex.max()])
+              ..where(todos.date.equals(date)))
+            .map((row) => row.read(todos.sortIndex.max()))
+            .getSingle();
+    return (maxSort ?? -1) + 1;
+  }
+
+  Future<void> moveAutoDeferredTodo(
+    Todo todo, {
+    required String date,
+    required int sortIndex,
+  }) {
+    return (update(todos)..where((t) => t.id.equals(todo.id))).write(
+      TodosCompanion(
+        date: Value(date),
+        sortIndex: Value(sortIndex),
+        deferredFrom: Value(todo.date),
+      ),
+    );
+  }
+
+  Stream<List<Todo>> watchTimedPendingFrom(String fromDate) {
+    return (select(todos)
+          ..where(
+            (t) =>
+                t.date.isBiggerOrEqualValue(fromDate) &
+                t.status.equalsValue(TodoStatus.pending) &
+                t.scheduledTimeMinutes.isNotNull(),
+          )
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.date),
+            (t) => OrderingTerm.asc(t.scheduledTimeMinutes),
+          ]))
+        .watch();
+  }
+
+  /// 반복 인스턴스 단건 삭제용 tombstone.
+  /// 행을 남겨 (recurrenceId, date) 중복 방지가 재전개를 막도록 한다.
+  Future<void> suppressRecurringTodo(Todo todo) {
+    return (update(todos)..where((t) => t.id.equals(todo.id))).write(
+      TodosCompanion(
+        status: const Value(TodoStatus.deferred),
+        completedAt: const Value(null),
+        deferredFrom: Value(todo.date),
+      ),
+    );
+  }
+
   /// 반복 인스턴스 존재 여부 (§4.2 중복 방지)
   Future<bool> existsInstance(String recurrenceId, String date) async {
-    final row = await (select(todos)
-          ..where((t) =>
-              t.recurrenceId.equals(recurrenceId) & t.date.equals(date))
-          ..limit(1))
-        .getSingleOrNull();
+    final row =
+        await (select(todos)
+              ..where(
+                (t) =>
+                    t.recurrenceId.equals(recurrenceId) & t.date.equals(date),
+              )
+              ..limit(1))
+            .getSingleOrNull();
     return row != null;
   }
 
   /// 날짜 범위의 할 일 스트림 (주간 뷰 §6.2)
   Stream<List<Todo>> watchRange(String from, String to) {
     return (select(todos)
-          ..where((t) => t.date.isBetweenValues(from, to))
+          ..where(
+            (t) =>
+                t.date.isBetweenValues(from, to) &
+                t.status.equalsValue(TodoStatus.deferred).not(),
+          )
           ..orderBy([
             (t) => OrderingTerm.asc(t.date),
+            (t) => OrderingTerm.asc(t.scheduledTimeMinutes.isNull()),
+            (t) => OrderingTerm.asc(t.scheduledTimeMinutes),
             (t) => OrderingTerm.asc(t.sortIndex),
           ]))
         .watch();
@@ -104,10 +231,8 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
   /// deferred는 조도 계산에서 제외 (v1에서는 발생하지 않음, §15)
   Future<(int, int)> countsForDate(String date) async {
     final rows = await getByDate(date);
-    final counted =
-        rows.where((t) => t.status != TodoStatus.deferred).toList();
-    final done =
-        counted.where((t) => t.status == TodoStatus.done).length;
+    final counted = rows.where((t) => t.status != TodoStatus.deferred).toList();
+    final done = counted.where((t) => t.status == TodoStatus.done).length;
     return (done, counted.length);
   }
 }
