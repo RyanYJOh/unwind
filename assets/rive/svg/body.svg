@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Body: 팔까지 하나로 이어진 실루엣 (레퍼런스처럼 아웃라인이 끊기지 않음).
+       볼터치 포함. viewBox 0 0 500 500 — 모든 파츠 공통 좌표계.
+       재측정 (레퍼런스 1250px → ×0.4): 돔 폭 232 ≈ 팔 아래 몸폭 236
+       (거의 동일) → 밑단 274로 크게 플레어. 팔은 y218~296에 두껍게,
+       끝이 위로 말리는 플리퍼. -->
+  <defs>
+    <linearGradient id="bodyFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.62" stop-color="#FDFCFE"/>
+      <stop offset="1" stop-color="#F3F1F8"/>
+    </linearGradient>
+    <radialGradient id="blush" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F5A9B8" stop-opacity="0.85"/>
+      <stop offset="0.75" stop-color="#F5A9B8" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#F5A9B8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g id="Body">
+    <path id="silhouette"
+      d="M 100 382
+         C 112 350 126 308 136 266
+         C 126 268.5 114 270 103 269
+         C 93 268 83 262 82 252
+         C 81 241 89 232 99 231
+         C 112 228 126 225 138 223
+         C 139 221.5 140 220 140 218
+         C 140 152 188 102 250 102
+         C 312 102 360 152 360 218
+         C 360 220 361 221.5 362 223
+         C 374 225 388 228 401 231
+         C 411 232 419 241 418 252
+         C 417 262 407 268 397 269
+         C 386 270 374 268.5 364 266
+         C 374 308 388 350 400 382
+         C 403 398 397 413 382 416
+         C 369 418 352 405 342 398
+         C 327 398 312 421 296 421
+         C 280 421 265 398 250 398
+         C 235 398 220 421 204 421
+         C 188 421 173 398 158 398
+         C 148 405 131 418 118 416
+         C 103 413 97 398 100 382
+         Z"
+      fill="url(#bodyFill)" stroke="#1E1A2E" stroke-width="8"
+      stroke-linejoin="round" stroke-linecap="round"/>
+    <ellipse id="blushL" cx="192" cy="222" rx="14" ry="9.5" fill="url(#blush)"/>
+    <ellipse id="blushR" cx="308" cy="222" rx="14" ry="9.5" fill="url(#blush)"/>
+  </g>
+</svg>

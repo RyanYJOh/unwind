@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Mouth / happy: 레퍼런스 기본 — 혀 보이는 열린 미소.
+       모든 mouth_*.svg는 같은 위치에 등록 — Rive에서 Mouth 노드 아래
+       visibility 토글로 전환한다. -->
+  <g id="MouthHappy">
+    <path id="cavity"
+      d="M 235 222 Q 250 227 265 222
+         C 269.5 232 263.5 242 250 242
+         C 236.5 242 230.5 232 235 222 Z"
+      fill="#221C31" stroke="#1E1A2E" stroke-width="4" stroke-linejoin="round"/>
+    <path id="tongue"
+      d="M 241 233
+         Q 245.5 230 250 233
+         Q 254.5 230 259 233
+         C 257.5 240.5 242.5 240.5 241 233 Z"
+      fill="#F0798C"/>
+  </g>
+</svg>

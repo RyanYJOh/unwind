@@ -1,16 +1,17 @@
 import 'package:drift/native.dart';
-import 'package:flutter/cupertino.dart' show CupertinoActionSheetAction;
-import 'package:flutter/material.dart' show Checkbox, TextField;
+import 'package:flutter/material.dart' show TextField;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:unwind/core/utils/dates.dart';
 import 'package:unwind/data/db/database.dart';
 import 'package:unwind/data/db/tables/tables.dart';
+import 'package:unwind/domain/models/lumi_state.dart';
+import 'package:unwind/widgets/lumi/lumi_view.dart';
 import 'package:unwind/features/compose/date_bar.dart';
 import 'package:unwind/features/today/providers.dart';
 import 'package:unwind/main.dart';
-import 'package:unwind/widgets/lamp_row.dart';
+import 'package:unwind/ui/ui.dart';
 
 /// §6.3 입력 시트 흐름 + §14 사용성 수용 기준 (인메모리 DB)
 void main() {
@@ -44,14 +45,12 @@ void main() {
   testWidgets('FAB → 시트 → 원형 저장 CTA → 키보드가 닫히고 항목이 나타난다', (tester) async {
     await pumpApp(tester);
 
-    // 빈 상태 문구 (§6.1)
-    expect(
-      find.text('No lights to keep on today'),
-      findsNWidgets(2),
-    ); // 크로스페이드 2겹
+    // 빈 상태 문구 (§6.1) — v2: textPrimary 크로스페이드 폐기, 한 겹
+    expect(find.text('No lights to keep on today'), findsOneWidget);
 
     // FAB 탭
     await tester.tap(find.bySemanticsLabel('Add a task'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400)); // 시트 320ms
 
     // 우측 원형 화살표 저장 CTA가 추가·편집 공통으로 노출된다.
@@ -60,22 +59,15 @@ void main() {
     // 제목 입력 후 CTA가 연결된 저장 콜백을 실행한다.
     await tester.enterText(find.byType(TextField).first, '치과 예약 전화하기');
     tester.widget<DateBar>(find.byType(DateBar)).onSave();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    // 저장 후 시트와 선택 날짜는 유지하지만 키보드는 닫히고 입력창은 비워진다.
-    expect(find.byType(TextField), findsWidgets);
-    expect(
-      (tester.widget<TextField>(find.byType(TextField).first)).controller!.text,
-      isEmpty,
-    );
-    expect(tester.testTextInput.isVisible, false);
-
-    // 배리어를 눌러 시트 닫기
-    await tester.tapAt(const Offset(8, 8));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
+    // 개정 2026-08-12: 저장하면 키보드와 함께 시트도 닫힌다 (토스트 없음).
+    expect(find.byType(DateBar), findsNothing);
+    expect(tester.testTextInput.isVisible, false);
+
     // DB → 스트림 → 등 1개
-    expect(find.byType(LampRow), findsOneWidget);
+    expect(find.byType(UnwindTodoTile), findsOneWidget);
 
     await teardownApp(tester);
   });
@@ -86,11 +78,12 @@ void main() {
     await db.todoDao.insertTodo(title: '운동 30분', date: todayKey);
 
     await pumpApp(tester);
-    expect(find.byType(LampRow), findsOneWidget);
+    expect(find.byType(UnwindTodoTile), findsOneWidget);
 
     // 개정 2026-08-07: 토글은 우측 스위치로
-    await tester.tap(find.byType(LampSwitch));
+    await tester.tap(find.byType(UnwindLampSwitch));
     await tester.pump(); // 리빌드 프레임
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
     final rows = await db.todoDao.getByDate(todayKey);
@@ -98,7 +91,7 @@ void main() {
     expect(rows.single.completedAt, isNotNull);
 
     // §14: 완료해도 리스트에서 사라지지 않는다
-    expect(find.byType(LampRow), findsOneWidget);
+    expect(find.byType(UnwindTodoTile), findsOneWidget);
 
     await teardownApp(tester);
   });
@@ -106,54 +99,45 @@ void main() {
   testWidgets('자동 미루기와 반복은 상호 배제되고 기본 시간이 저장된다', (tester) async {
     await pumpApp(tester);
     await tester.tap(find.bySemanticsLabel('Add a task'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+
+    // 개정 2026-08-12: 역할별로 UI가 다르다 —
+    // 시간=값 행, 자동 미루기=토글 행, 반복=칩 그룹.
+    bool autoDefer() =>
+        tester.widget<UnwindToggle>(find.byType(UnwindToggle)).value;
+    UnwindChip chip(String label) =>
+        tester.widget<UnwindChip>(find.widgetWithText(UnwindChip, label));
+    Future<void> tapText(String label) async {
+      await tester.tap(find.text(label));
+      await tester.pump();
+    }
 
     expect(find.text('Move to tomorrow automatically'), findsOneWidget);
     expect(find.text('Time'), findsOneWidget);
+    expect(chip('No repeat').selected, true);
 
-    tester.widget<Checkbox>(find.byType(Checkbox)).onChanged!(true);
-    await tester.pump();
-    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, true);
+    await tapText('Move to tomorrow automatically');
+    expect(autoDefer(), true);
 
-    tester
-        .widget<GestureDetector>(
-          find
-              .ancestor(
-                of: find.text('Every day'),
-                matching: find.byType(GestureDetector),
-              )
-              .first,
-        )
-        .onTap!();
-    await tester.pump();
-    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, false);
+    // 반복을 고르면 자동 미루기가 풀린다 (상호 배제)
+    await tapText('Every day');
+    expect(chip('Every day').selected, true);
+    expect(autoDefer(), false);
 
-    tester
-        .widget<GestureDetector>(
-          find
-              .ancestor(
-                of: find.text('No repeat'),
-                matching: find.byType(GestureDetector),
-              )
-              .first,
-        )
-        .onTap!();
-    await tester.pump();
-    tester.widget<Checkbox>(find.byType(Checkbox)).onChanged!(true);
-    tester
-        .widget<GestureDetector>(
-          find
-              .ancestor(
-                of: find.text('Time'),
-                matching: find.byType(GestureDetector),
-              )
-              .first,
-        )
-        .onTap!();
-    await tester.pump();
+    // 선택된 반복 칩을 다시 누르면 해제된다
+    await tapText('Every day');
+    expect(chip('Every day').selected, false);
+    expect(chip('No repeat').selected, true);
+
+    await tapText('Move to tomorrow automatically');
+    await tapText('Time'); // 값 행을 열면 기본 09:00이 잡힌다
+    await tester.pump(const Duration(milliseconds: 100));
+
     await tester.enterText(find.byType(TextField).first, '시간 있는 일');
     tester.widget<DateBar>(find.byType(DateBar)).onSave();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     final todayKey = logicalTodayKey(DateTime.now());
     final saved = (await db.todoDao.getByDate(todayKey)).single;
@@ -176,7 +160,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
 
     expect(await db.todoDao.getByDate(todayKey), isEmpty);
-    expect(find.byType(LampRow), findsNothing);
+    expect(find.byType(UnwindTodoTile), findsNothing);
     await teardownApp(tester);
   });
 
@@ -194,28 +178,119 @@ void main() {
     );
     await pumpApp(tester);
 
-    await tester.longPress(find.byType(LampRow));
+    // v2: 롱프레스 → 곧바로 삭제 범위를 묻는 액션 시트 (중간 단계 제거)
+    await tester.longPress(find.byType(UnwindTodoTile));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Edit'), findsNothing);
-    expect(find.text('Delete'), findsOneWidget);
-
-    await tester.tap(find.text('Delete'));
-    await tester.pump(const Duration(milliseconds: 700));
     expect(find.text('Delete only this task'), findsOneWidget);
     expect(find.text('Delete this and all future repeats'), findsOneWidget);
 
-    final deleteOnlyAction = find.ancestor(
-      of: find.text('Delete only this task'),
-      matching: find.byType(CupertinoActionSheetAction),
-    );
-    tester.widget<CupertinoActionSheetAction>(deleteOnlyAction).onPressed();
+    await tester.tap(find.text('Delete only this task'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(
       (await db.todoDao.getByDate(todayKey)).single.status,
       TodoStatus.deferred,
     );
     await tester.pump();
-    expect(find.byType(LampRow), findsNothing);
+    expect(find.byType(UnwindTodoTile), findsNothing);
+    await teardownApp(tester);
+  });
+
+  testWidgets('삭제하면 되돌리기 토스트가 뜨고, 누르면 등이 돌아온다', (tester) async {
+    final todayKey = logicalTodayKey(DateTime.now());
+    await db.todoDao.insertTodo(title: '되살릴 일', date: todayKey);
+    await pumpApp(tester);
+
+    final dismissible = tester.widget<Dismissible>(find.byType(Dismissible));
+    expect(
+      await dismissible.confirmDismiss!(DismissDirection.endToStart),
+      true,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(await db.todoDao.getByDate(todayKey), isEmpty);
+    expect(find.text('Taken out of the room'), findsOneWidget);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final restored = await db.todoDao.getByDate(todayKey);
+    expect(restored.single.title, '되살릴 일');
+    expect(restored.single.status, TodoStatus.pending);
+
+    await tester.pump(const Duration(seconds: 6)); // 토스트 정리
+    await teardownApp(tester);
+  });
+
+  testWidgets('반복 항목은 스와이프로 지울 때도 삭제 범위를 묻는다', (tester) async {
+    final todayKey = logicalTodayKey(DateTime.now());
+    final recurrence = await db.recurrenceDao.create(
+      title: '반복 항목',
+      rule: RecurrenceRule.daily,
+      startDate: todayKey,
+    );
+    await db.todoDao.insertTodo(
+      title: '반복 항목',
+      date: todayKey,
+      recurrenceId: recurrence.id,
+    );
+    await pumpApp(tester);
+
+    final dismissible = tester.widget<Dismissible>(find.byType(Dismissible));
+    final pending = dismissible.confirmDismiss!(DismissDirection.endToStart);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // 개정 2026-08-12: 스와이프도 범위를 묻는다 (그냥 지워지던 버그).
+    expect(find.text('Delete only this task'), findsOneWidget);
+    expect(find.text('Delete this and all future repeats'), findsOneWidget);
+    expect(
+      (await db.todoDao.getByDate(todayKey)).single.status,
+      TodoStatus.pending,
+    );
+
+    // 닫기 = 취소 → 항목은 제자리로 돌아온다
+    await tester.tap(find.text('Close'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(await pending, false);
+    expect(
+      (await db.todoDao.getByDate(todayKey)).single.status,
+      TodoStatus.pending,
+    );
+
+    await teardownApp(tester);
+  });
+
+  testWidgets('Lumi를 톡 건드리면 반응하고, 잠들었을 땐 무반응', (tester) async {
+    final todayKey = logicalTodayKey(DateTime.now());
+    await db.todoDao.insertTodo(title: '남은 일', date: todayKey);
+    await pumpApp(tester);
+
+    LumiState lumi() => tester.widget<LumiView>(find.byType(LumiView)).state;
+    expect(lumi().isAsleep, isFalse);
+
+    final before = lumi().eventTick;
+    await tester.tap(find.byType(LumiView));
+    await tester.pump();
+    expect(lumi().event, LumiEvent.poke);
+    expect(lumi().eventTick, greaterThan(before));
+
+    // 소등 → 잠든 방. 이제 아무리 건드려도 반응하지 않는다.
+    await db.dayDao.markLightsOut(todayKey, DateTime.now());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(lumi().isAsleep, isTrue);
+
+    final asleepTick = lumi().eventTick;
+    await tester.tap(find.byType(LumiView));
+    await tester.pump();
+    expect(lumi().eventTick, asleepTick, reason: '잠든 Lumi는 깨우지 않는다');
+
     await teardownApp(tester);
   });
 }

@@ -5,17 +5,24 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
 import '../core/haptics/haptics.dart';
-import '../core/theme/unwind_theme.dart';
 import '../core/tokens/motion.dart';
+import '../core/tokens/palette.dart';
 import '../l10n/generated/app_localizations.dart';
 
 /// §6.4 전등 줄 — 하루를 닫는 마무리 액션. 이 앱의 클라이맥스.
 ///
 /// - 당기는 중: 0~72px, 저항 곡선(뒤로 갈수록 무거워짐)
 /// - 임계점 56px 통과: mediumImpact + 손잡이가 미세하게 밝아짐
-/// - 임계 이상 놓음: 스프링으로 튕겨 올라가고 소등 시퀀스 시작
-/// - 임계 미만 놓음: 원위치 복귀, 아무 일도 없음
+/// - 임계 이상 놓음: 튕겨 올라가고 소등 시퀀스 시작
+/// - 임계 미만 놓음: 튕겼다가 흔들리며 잦아든다. 아무 일도 없지만 기분은 좋다
 /// - 비활성(할 일 0개 / 이미 당김): 흐리게, 당겨지지 않음
+///
+/// **놓았을 때의 물리 (개편 2026-08-12)**: 두 축을 각각 damped spring으로
+/// 적분한다 (`flutter/physics`의 [SpringSimulation]).
+///   - 세로: 원위치를 **지나쳐** 위로 튀었다가 통통 되돌아온다.
+///     (이전에는 오버슈트를 `max(0, …)`로 잘라내 튕김이 보이지 않았다)
+///   - 가로: 느린 진자. 줄이 슬랙해지며 옆으로 부푸는 걸 흉내낸다 —
+///     구슬이 가장 많이, 줄 중간은 그 절반쯤 흔들려 자연스러운 호를 그린다.
 class PullCord extends StatefulWidget {
   final bool enabled;
   final VoidCallback onPull;
@@ -36,13 +43,21 @@ class PullCord extends StatefulWidget {
   State<PullCord> createState() => _PullCordState();
 }
 
-class _PullCordState extends State<PullCord>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _spring; // 놓았을 때 복귀 (unbounded)
+class _PullCordState extends State<PullCord> with TickerProviderStateMixin {
+  /// 세로 되튐 (unbounded — 음수면 원위치 위로 튄 것)
+  late final AnimationController _recoil;
+
+  /// 가로 흔들림 (unbounded — 0 주위로 진동하는 진자)
+  late final AnimationController _sway;
+
   double _rawDrag = 0.0; // 손가락 누적 이동
   double _extension = 0.0; // 화면에 보이는 늘어남 (저항 적용)
+  double _swayX = 0.0; // 구슬의 좌우 변위
   bool _pastThreshold = false;
   bool _dragging = false;
+
+  /// 되튐이 원위치를 처음 지나칠 때 한 번만 울리는 "탁" (아래 참고)
+  bool _snapPending = false;
 
   /// tension 연속 햅틱 (개정 2026-08-07): 당길수록 틱 간격이 좁아진다.
   /// 팽팽함을 손끝의 "다다다다"로 표현 — 멈춰 있어도 tension만큼 계속 뛴다.
@@ -55,11 +70,12 @@ class _PullCordState extends State<PullCord>
   void _scheduleTension() {
     _tensionTimer?.cancel();
     if (!_dragging || _extension < _tensionMinExt) return;
-    final f = ((_extension - _tensionMinExt) /
-            (UnwindMotion.cordMaxDragPx - _tensionMinExt))
-        .clamp(0.0, 1.0);
-    final interval =
-        (_tensionSlowMs + (_tensionFastMs - _tensionSlowMs) * f).round();
+    final f =
+        ((_extension - _tensionMinExt) /
+                (UnwindMotion.cordMaxDragPx - _tensionMinExt))
+            .clamp(0.0, 1.0);
+    final interval = (_tensionSlowMs + (_tensionFastMs - _tensionSlowMs) * f)
+        .round();
     _tensionTimer = Timer(Duration(milliseconds: interval), () {
       if (!mounted || !_dragging) return;
       widget.haptics.tensionTick();
@@ -70,16 +86,28 @@ class _PullCordState extends State<PullCord>
   @override
   void initState() {
     super.initState();
-    _spring = AnimationController.unbounded(vsync: this, value: 0.0)
-      ..addListener(() {
-        setState(() => _extension = math.max(0.0, _spring.value));
-      });
+    _recoil = AnimationController.unbounded(vsync: this, value: 0.0)
+      ..addListener(_onRecoilTick);
+    _sway = AnimationController.unbounded(vsync: this, value: 0.0)
+      ..addListener(() => setState(() => _swayX = _sway.value));
+  }
+
+  void _onRecoilTick() {
+    // 원위치 위로는 조금만 — 헤더를 침범하지 않는다
+    final v = _recoil.value.clamp(-UnwindMotion.cordRecoilLimitPx, 1e4);
+    // 줄이 팽팽해지며 원위치를 처음 지나치는 순간의 "탁"
+    if (_snapPending && v <= 0) {
+      _snapPending = false;
+      widget.haptics.tensionTick();
+    }
+    setState(() => _extension = v);
   }
 
   @override
   void dispose() {
     _tensionTimer?.cancel();
-    _spring.dispose();
+    _recoil.dispose();
+    _sway.dispose();
     super.dispose();
   }
 
@@ -89,9 +117,11 @@ class _PullCordState extends State<PullCord>
 
   void _onDragStart(DragStartDetails d) {
     if (!widget.enabled) return;
-    _spring.stop();
+    _recoil.stop();
+    _sway.stop();
+    _snapPending = false;
     _dragging = true;
-    _rawDrag = 0.0;
+    _rawDrag = math.max(0.0, _extension); // 흔들리는 중에 다시 잡아도 이어진다
     _scheduleTension();
   }
 
@@ -115,36 +145,53 @@ class _PullCordState extends State<PullCord>
 
   void _onDragEnd(DragEndDetails d) {
     if (!widget.enabled || !_dragging) return;
-    _dragging = false;
-    _tensionTimer?.cancel();
     final fired = _extension >= UnwindMotion.cordThresholdPx;
-    // 스프링으로 튕겨 올라감 (§9.1 spring)
-    _spring.animateWith(SpringSimulation(
-      UnwindMotion.spring,
-      _extension,
-      0.0,
-      fired ? -900 : -200, // 발동 시 더 세게 튕긴다
-    ));
-    _pastThreshold = false;
+    _release(fired: fired, flingVelocity: d.primaryVelocity ?? 0);
     if (fired) widget.onPull();
   }
 
   void _cancelDrag() {
     if (!_dragging) return;
+    _release(fired: false, flingVelocity: 0);
+  }
+
+  /// 손을 뗐다 — 두 축을 각각 스프링에 넘긴다.
+  void _release({required bool fired, required double flingVelocity}) {
     _dragging = false;
     _tensionTimer?.cancel();
     _pastThreshold = false;
-    _spring.animateWith(
-        SpringSimulation(UnwindMotion.spring, _extension, 0.0, -200));
+
+    // 당긴 만큼이 되튐과 흔들림의 에너지가 된다 (0~1)
+    final energy = (_extension / UnwindMotion.cordMaxDragPx).clamp(0.0, 1.0);
+
+    // 세로 — 원위치를 지나쳐 튀어 올랐다가 통통 잦아든다.
+    // 손가락이 위로 튕겨 놓았다면(음수 속도) 그 힘도 얹는다.
+    final up = -(360 + 620 * energy) + math.min(0.0, flingVelocity) * 0.35;
+    _snapPending = _extension > 4;
+    _recoil.animateWith(
+      SpringSimulation(UnwindMotion.cordRecoil, _extension, 0.0, up),
+    );
+
+    // 가로 — 줄이 슬랙해지며 옆으로 부푸는 진자. 오른쪽으로 늘어져 있던
+    // 줄이라 왼쪽으로 먼저 부푼다.
+    _sway.animateWith(
+      SpringSimulation(
+        UnwindMotion.cordSway,
+        _swayX,
+        0.0,
+        -UnwindMotion.cordSwayKick * energy,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = UnwindTheme.of(context);
     final height = widget.restLength + UnwindMotion.cordMaxDragPx + 28;
 
     return Semantics(
-      label: AppLocalizations.of(context).endDayLabel, // §12 — 제스처 없이도 실행 가능해야 함
+      label: AppLocalizations.of(
+        context,
+      ).endDayLabel, // §12 — 제스처 없이도 실행 가능해야 함
       button: true,
       enabled: widget.enabled,
       onTap: widget.enabled ? widget.onPull : null,
@@ -160,12 +207,13 @@ class _PullCordState extends State<PullCord>
           opacity: widget.enabled ? 1.0 : 0.35,
           child: CustomPaint(
             size: Size(56, height),
-            painter: _CordPainter(
+            painter: CordPainter(
               extension: _extension,
+              sway: _swayX,
               restLength: widget.restLength,
               glowing: _pastThreshold,
-              cordColor: colors.textMuted,
-              handleColor: colors.lamp,
+              cordColor: UnwindColors.textMuted,
+              handleColor: UnwindColors.accent,
             ),
           ),
         ),
@@ -174,15 +222,22 @@ class _PullCordState extends State<PullCord>
   }
 }
 
-class _CordPainter extends CustomPainter {
+/// 공개 이유: 놓았을 때의 물리(되튐·흔들림)를 위젯 테스트에서 검증한다.
+/// (`test/features/pull_cord_test.dart`)
+@visibleForTesting
+class CordPainter extends CustomPainter {
   final double extension;
+
+  /// 구슬의 좌우 변위 (진자). 줄 중간은 이보다 덜 흔들린다.
+  final double sway;
   final double restLength;
   final bool glowing;
   final Color cordColor;
   final Color handleColor;
 
-  const _CordPainter({
+  const CordPainter({
     required this.extension,
+    required this.sway,
     required this.restLength,
     required this.glowing,
     required this.cordColor,
@@ -194,11 +249,15 @@ class _CordPainter extends CustomPainter {
     final x = size.width / 2;
     final endY = restLength + extension;
 
-    // 줄 — 늘어날수록 아주 살짝 팽팽해지는 곡선
+    // 줄 — 위는 천장에 고정, 아래로 갈수록 크게 흔들리는 진자 호.
+    // 중간점을 구슬 변위의 60%에 두면 자연스러운 활 모양이 된다.
+    // 늘어나 팽팽해질수록 원래의 처짐(slack)은 사라진다.
     final slack = math.max(0.0, 6.0 - extension * 0.1);
+    final endX = x + sway;
+    final midX = x + sway * 0.6 + slack;
     final cord = Path()
       ..moveTo(x, 0)
-      ..quadraticBezierTo(x + slack, endY * 0.55, x, endY);
+      ..quadraticBezierTo(midX, endY * 0.55, endX, endY);
     canvas.drawPath(
       cord,
       Paint()
@@ -211,7 +270,9 @@ class _CordPainter extends CustomPainter {
     // 손잡이 (나무 구슬) — 임계점 통과 시 미세하게 밝아진다 (§6.4).
     // 개정 2026-08-08: 밝아진 코너 글로우 위에서도 확실히 읽히도록
     // 크기를 키우고 잉크 아웃라인 + 상단 하이라이트를 넣는다.
-    final handleC = Offset(x, endY + 11);
+    // 구슬은 줄 끝의 접선 방향으로 매달린다 — 흔들릴수록 바깥으로 실린다
+    final tangent = (endX - midX) * 0.10;
+    final handleC = Offset(endX + tangent, endY + 11);
     const handleR = 10.0;
     if (glowing) {
       const glowR = 26.0;
@@ -219,10 +280,12 @@ class _CordPainter extends CustomPainter {
         handleC,
         glowR,
         Paint()
-          ..shader = RadialGradient(colors: [
-            handleColor.withValues(alpha: 0.45),
-            handleColor.withValues(alpha: 0.0),
-          ]).createShader(Rect.fromCircle(center: handleC, radius: glowR)),
+          ..shader = RadialGradient(
+            colors: [
+              handleColor.withValues(alpha: 0.45),
+              handleColor.withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromCircle(center: handleC, radius: glowR)),
       );
     }
     // 구슬 본체 — 위가 밝고 아래가 어두운 나무 결
@@ -236,8 +299,7 @@ class _CordPainter extends CustomPainter {
           colors: glowing
               ? const [Color(0xFFFFE0A8), Color(0xFFD79B45)]
               : const [Color(0xFFE8D6B4), Color(0xFFB08E62)],
-        ).createShader(
-            Rect.fromCircle(center: handleC, radius: handleR)),
+        ).createShader(Rect.fromCircle(center: handleC, radius: handleR)),
     );
     // 잉크 아웃라인 — 밝은 배경에서도 실루엣이 유지된다
     canvas.drawCircle(
@@ -267,8 +329,9 @@ class _CordPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_CordPainter old) =>
+  bool shouldRepaint(CordPainter old) =>
       old.extension != extension ||
+      old.sway != sway ||
       old.glowing != glowing ||
       old.cordColor != cordColor ||
       old.handleColor != handleColor;

@@ -8,6 +8,29 @@ abstract final class UnwindMotion {
   static const settle = Curves.easeOutQuint;
   static const spring = SpringDescription(mass: 1, stiffness: 380, damping: 22);
 
+  // §6.4 전등 줄 물리 (개편 2026-08-12) — 놓으면 진짜 줄처럼 논다.
+  // 두 축을 각각 damped spring으로 적분한다 (flutter/physics).
+  /// 세로 되튐. ζ≈0.34 — 원위치를 지나쳐 두어 번 통통 튄다.
+  /// (이전 spring은 ζ≈0.56에 오버슈트를 잘라내 튕김이 보이지 않았다)
+  static const cordRecoil = SpringDescription(
+    mass: 1,
+    stiffness: 320,
+    damping: 12,
+  );
+
+  /// 가로 흔들림 — 느리고 길게 남는 진자 (주기 ≈ 0.97s, ζ≈0.25).
+  static const cordSway = SpringDescription(
+    mass: 1,
+    stiffness: 42,
+    damping: 3.2,
+  );
+
+  /// 줄이 원위치 위로 되튈 수 있는 한계 (px) — 헤더를 침범하지 않게
+  static const cordRecoilLimitPx = 20.0;
+
+  /// 놓는 순간 옆으로 실리는 힘 (당긴 정도에 비례)
+  static const cordSwayKick = 260.0;
+
   // §9.2 개별 체크
   static const checkHapticDelayMs = 0;
   static const iconPressMs = 140; // scale 1.0 → 0.94 → 1.0

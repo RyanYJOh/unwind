@@ -14,7 +14,8 @@ class BillRepository {
 
   Stream<List<WeeklyBill>> watchUnread() => db.billDao.watchUnread();
 
-  Future<WeeklyBill?> getBill(String weekStart) => db.billDao.getBill(weekStart);
+  Future<WeeklyBill?> getBill(String weekStart) =>
+      db.billDao.getBill(weekStart);
 
   Future<WeeklyBill?> getLatestBefore(String weekStart) =>
       db.billDao.getLatestBefore(weekStart);
@@ -36,8 +37,10 @@ class BillRepository {
     final todos = await _todosInRange(dayKey(lastMonday), dayKey(lastSunday));
     if (todos.isEmpty) return null; // 빈 주 — 청구서 없음
 
-    final dayRows =
-        await db.dayDao.getRange(dayKey(lastMonday), dayKey(lastSunday));
+    final dayRows = await db.dayDao.getRange(
+      dayKey(lastMonday),
+      dayKey(lastSunday),
+    );
 
     final result = BillCalculator.calcWeek(
       weekStartKey: weekStartKey,
@@ -45,15 +48,17 @@ class BillRepository {
       daysByDate: {for (final d in dayRows) d.date: d},
     );
 
-    await db.billDao.insertBill(WeeklyBillsCompanion.insert(
-      weekStart: weekStartKey,
-      kwh: result.kwh,
-      amount: result.amount,
-      sleepMinutes: result.sleepMinutes,
-      generatedAt: DateTime.now(),
-      isRead: false,
-      payload: jsonEncode([for (final d in result.days) d.toJson()]),
-    ));
+    await db.billDao.insertBill(
+      WeeklyBillsCompanion.insert(
+        weekStart: weekStartKey,
+        kwh: result.kwh,
+        amount: result.amount,
+        sleepMinutes: result.sleepMinutes,
+        generatedAt: DateTime.now(),
+        isRead: false,
+        payload: jsonEncode([for (final d in result.days) d.toJson()]),
+      ),
+    );
     return db.billDao.getBill(weekStartKey);
   }
 
@@ -71,6 +76,6 @@ class BillRepository {
 
 /// payload JSON → 일별 상세
 List<DayBill> decodeBillPayload(String payload) => [
-      for (final e in jsonDecode(payload) as List)
-        DayBill.fromJson(e as Map<String, dynamic>)
-    ];
+  for (final e in jsonDecode(payload) as List)
+    DayBill.fromJson(e as Map<String, dynamic>),
+];

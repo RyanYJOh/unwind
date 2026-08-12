@@ -70,9 +70,10 @@ class SoundPlayer {
   Future<void> click() => _play(_clickAsset);
 
   /// 소등 도미노 k번째 등의 음 (§9.3) — 반음계 하강, 5음 순환
-  Future<void> dominoNote(int index) =>
-      _play(_noteAssets[UnwindSound.dominoNotes[
-          index % UnwindSound.dominoNotes.length]]!);
+  Future<void> dominoNote(int index) => _play(
+    _noteAssets[UnwindSound.dominoNotes[index %
+        UnwindSound.dominoNotes.length]]!,
+  );
 
   /// 마지막 등 — 항상 가장 낮은 음 C3 (§9.3)
   Future<void> lastNote() => _play(_noteAssets[UnwindSound.lastNote]!);

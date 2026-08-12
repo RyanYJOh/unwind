@@ -2,6 +2,11 @@ import 'dart:math' as math;
 
 import '../db/database.dart';
 
+/// 삭제 실행취소 핸들 — 상단 토스트의 "되돌리기"가 이걸 실행한다.
+/// 삭제 방식(단건·반복 tombstone·반복 전체)마다 되돌리는 법이 달라
+/// 지식을 저장소 안에 가둬 둔다.
+typedef TodoUndo = Future<void> Function();
+
 /// §3.2 오늘의 방에 대한 쓰기 창구.
 /// §5.2 단조 감소 규칙을 DB(days.peakProgress)에 영속화하는 책임을 진다.
 /// 조도 값 자체는 brightnessProvider가 days+todos 스트림에서 파생한다.
@@ -52,34 +57,50 @@ class TodoRepository {
     await db.dayDao.upsertPeak(todo.date, peak);
   }
 
-  /// 삭제 — peak = max(peak, raw) (§5.2)
-  Future<void> remove(Todo todo) async {
+  /// 삭제 — peak = max(peak, raw) (§5.2).
+  /// 되돌리기 핸들을 준다 (개편 2026-08-12: 삭제 토스트의 실행취소).
+  Future<TodoUndo> remove(Todo todo) async {
+    final prevPeak = await _peak(todo.date);
     if (todo.recurrenceId == null) {
       await db.todoDao.deleteTodo(todo.id);
     } else {
       // 반복 규칙이 다음 전개 때 같은 회차를 되살리지 않도록 tombstone 유지.
       await db.todoDao.suppressRecurringTodo(todo);
     }
-    final raw = await _rawProgress(todo.date);
-    await db.dayDao.upsertPeak(
-      todo.date,
-      math.max(await _peak(todo.date), raw),
-    );
+    await _bumpPeak(todo.date);
+
+    return () async {
+      if (todo.recurrenceId == null) {
+        await db.todoDao.restoreTodos([todo]);
+      } else {
+        await db.todoDao.unsuppressRecurringTodo(todo);
+      }
+      // 삭제로 올라갔던 peak을 원래대로 (명시적 되돌리기라 하강 허용, §5.2)
+      await db.dayDao.upsertPeak(todo.date, prevPeak);
+    };
   }
 
   /// 반복 항목의 선택 날짜부터 모든 인스턴스와 규칙을 삭제한다.
-  Future<void> removeRecurringFrom(Todo todo) async {
+  Future<TodoUndo> removeRecurringFrom(Todo todo) async {
     final recurrenceId = todo.recurrenceId;
-    if (recurrenceId == null) {
-      await remove(todo);
-      return;
-    }
+    if (recurrenceId == null) return remove(todo);
+
+    final prevPeak = await _peak(todo.date);
+    // 되살릴 수 있도록 지우기 전에 스냅샷을 뜬다
+    final removed = await db.todoDao.getRecurringFrom(recurrenceId, todo.date);
     await db.recurrenceDao.deleteFrom(recurrenceId, fromDate: todo.date);
-    final raw = await _rawProgress(todo.date);
-    await db.dayDao.upsertPeak(
-      todo.date,
-      math.max(await _peak(todo.date), raw),
-    );
+    await _bumpPeak(todo.date);
+
+    return () async {
+      await db.recurrenceDao.setActive(recurrenceId, true);
+      await db.todoDao.restoreTodos(removed);
+      await db.dayDao.upsertPeak(todo.date, prevPeak);
+    };
+  }
+
+  Future<void> _bumpPeak(String date) async {
+    final raw = await _rawProgress(date);
+    await db.dayDao.upsertPeak(date, math.max(await _peak(date), raw));
   }
 
   Future<void> edit(

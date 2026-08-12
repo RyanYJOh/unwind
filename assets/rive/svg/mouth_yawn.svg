@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Mouth / yawn: 크게 벌어진 동그란 O + 아래 혀 -->
+  <g id="MouthYawn">
+    <ellipse id="cavity" cx="250" cy="234" rx="15" ry="21"
+      fill="#221C31" stroke="#1E1A2E" stroke-width="4"/>
+    <path id="tongue"
+      d="M 239.5 245 C 242.5 252.5 257.5 252.5 260.5 245
+         Q 250 238.5 239.5 245 Z"
+      fill="#F0798C"/>
+  </g>
+</svg>

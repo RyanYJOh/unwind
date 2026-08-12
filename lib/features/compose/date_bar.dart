@@ -1,29 +1,30 @@
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 
-import '../../core/haptics/haptics.dart';
-import '../../core/theme/unwind_theme.dart';
-import '../../core/tokens/color_ramp.dart';
+import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../core/utils/dates.dart';
+import '../../ui/ui.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// §6.3 플로팅 날짜 바 — 키보드 바로 위 고정.
 ///
 /// ```
-/// [calendar]             [ ‹  오늘  › ]  [(→)]
+/// [calendar]        [ ‹  오늘  › ]        [ 방에 놓기 → ]
 /// ```
 ///
-/// 함정 1 대응: 모든 버튼은 GestureDetector라 포커스를 만들지 않는다 —
-/// 키보드가 절대 내려가지 않는다.
+/// 함정 1 대응: 모든 버튼은 GestureDetector 기반([UnwindPressable])이라
+/// 포커스를 만들지 않는다 — 키보드가 절대 내려가지 않는다.
 class DateBar extends StatelessWidget {
   final String dateKey;
   final String todayKey;
   final ValueChanged<String> onDateChanged;
   final VoidCallback onCalendarTap;
   final VoidCallback onSave;
-  final UnwindHaptics haptics;
+
+  /// 제목이 비어 있으면 저장 CTA가 죽는다
+  final bool canSave;
 
   const DateBar({
     super.key,
@@ -32,7 +33,7 @@ class DateBar extends StatelessWidget {
     required this.onDateChanged,
     required this.onCalendarTap,
     required this.onSave,
-    required this.haptics,
+    this.canSave = true,
   });
 
   /// 라벨은 의미 우선 (§6.3): 오늘 / 내일 / 모레 → 그 이후는 '10월 27일 (월)'
@@ -57,145 +58,88 @@ class DateBar extends StatelessWidget {
     final next = dayKey(addDays(parseDayKey(dateKey), days));
     // 오늘 이전으로는 내려가지 않는다 (지난 방에는 등을 놓을 수 없다, §2)
     if (parseDayKey(next).isBefore(parseDayKey(todayKey))) return;
-    haptics.selection(); // §6.3 날짜 변경 햅틱
     onDateChanged(next);
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = UnwindTheme.of(context);
     final l10n = AppLocalizations.of(context);
     final isToday = dateKey == todayKey;
 
-    // §6.3: 날짜가 오늘이 아닐 때는 바 전체 배경이 눈에 띄게 달라진다.
-    final barColor = isToday
-        ? colors.surfaceRaised
-        : Color.lerp(colors.surfaceRaised, colors.lamp, 0.28)!;
-
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: barColor,
-        border: Border(top: BorderSide(color: colors.border, width: 0.5)),
+      decoration: const BoxDecoration(
+        color: UnwindColors.ink,
+        border: Border(
+          top: BorderSide(color: UnwindColors.border, width: UnwindStroke.base),
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: UnwindSpacing.s8,
-          vertical: UnwindSpacing.s4,
+        padding: const EdgeInsets.fromLTRB(
+          UnwindSpacing.s12,
+          UnwindSpacing.s8,
+          UnwindSpacing.s12,
+          UnwindSpacing.s8,
         ),
         child: Row(
           children: [
-            _IconButton(
+            UnwindIconButton(
               icon: Icons.calendar_today_rounded,
-              onTap: onCalendarTap,
-              colors: colors,
-              semanticsLabel: l10n.chooseDate,
+              iconSize: 20,
+              onPressed: onCalendarTap,
+              semanticLabel: l10n.chooseDate,
             ),
             Expanded(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _IconButton(
+                  UnwindIconButton(
                     icon: Icons.chevron_left_rounded,
-                    iconSize: 34,
-                    onTap: isToday ? null : () => _shift(-1),
-                    colors: colors,
+                    iconSize: 30,
+                    onPressed: isToday ? null : () => _shift(-1),
+                    haptic: UnwindHapticKind.selection,
                   ),
-                  GestureDetector(
+                  UnwindPressable(
                     onTap: onCalendarTap,
-                    behavior: HitTestBehavior.opaque,
+                    depth: 0,
+                    pressScale: 0.94,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
-                        minWidth: 88,
+                        minWidth: 92,
                         minHeight: UnwindTouch.minTarget,
                       ),
                       child: Center(
                         child: Text(
                           _label(l10n),
-                          style: UnwindType.bodyStrong.copyWith(
-                            color: colors.textPrimarySnap,
-                            decoration: TextDecoration.none,
+                          textAlign: TextAlign.center,
+                          style: UnwindType.label.copyWith(
+                            color: isToday
+                                ? UnwindColors.textPrimary
+                                : UnwindColors.accent,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  _IconButton(
+                  UnwindIconButton(
                     icon: Icons.chevron_right_rounded,
-                    iconSize: 34,
-                    onTap: () => _shift(1),
-                    colors: colors,
+                    iconSize: 30,
+                    onPressed: () => _shift(1),
+                    haptic: UnwindHapticKind.selection,
                   ),
                 ],
               ),
             ),
-            Semantics(
-              label: l10n.save,
-              button: true,
-              child: GestureDetector(
-                onTap: onSave,
-                behavior: HitTestBehavior.opaque,
-                child: SizedBox.square(
-                  dimension: UnwindTouch.minTarget,
-                  child: Center(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colors.lamp,
-                        shape: BoxShape.circle,
-                      ),
-                      child: SizedBox.square(
-                        dimension: 40,
-                        child: Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 24,
-                          color: colors.textPrimaryDark,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            // 저장 CTA — 라벨 없이 화살표 하나 (개정 2026-08-12)
+            UnwindIconButton(
+              icon: Icons.arrow_forward_rounded,
+              iconSize: 26,
+              size: 48,
+              style: UnwindIconButtonStyle.accent,
+              semanticLabel: l10n.save,
+              haptic: UnwindHapticKind.none, // 저장 성공 햅틱은 시트가 쏜다
+              onPressed: canSave ? onSave : null,
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _IconButton extends StatelessWidget {
-  final IconData icon;
-  final double iconSize;
-  final VoidCallback? onTap;
-  final UnwindColors colors;
-  final String? semanticsLabel;
-
-  const _IconButton({
-    required this.icon,
-    this.iconSize = 24,
-    required this.onTap,
-    required this.colors,
-    this.semanticsLabel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: semanticsLabel,
-      button: true,
-      enabled: onTap != null,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: UnwindTouch.minTarget,
-          height: UnwindTouch.minTarget,
-          child: Center(
-            child: Icon(
-              icon,
-              size: iconSize,
-              color: onTap == null ? colors.textMuted : colors.textSecondary,
-            ),
-          ),
         ),
       ),
     );

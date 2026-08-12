@@ -1,6 +1,9 @@
 /// §7.2 Lumi 인터페이스 — 최종 에셋(또는 Rive)으로 교체할 때도 이 인터페이스를
 /// 유지한다. LumiView는 이 상태만 받아 렌더링한다.
-enum LumiEvent { blink, yawn, react, fallAsleep }
+/// [poke]: 사용자가 Lumi를 톡 건드렸다 (개편 2026-08-12).
+/// 반응은 렌더러가 **자기 모드를 보고** 고른다 — 깨어 있으면 간지럼,
+/// 졸리면 실눈으로 두리번, 잠들었으면 무반응.
+enum LumiEvent { blink, yawn, react, fallAsleep, poke }
 
 /// Lumi의 하루 (개편 2026-08-08) — 시각·체크리스트 상태로 결정되는 생활 모드.
 /// - [day]: 낮(기본 06~19시). 행복한 펫 — 2시간마다 일과가 바뀐다.

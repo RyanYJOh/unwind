@@ -41,11 +41,13 @@ class _CornerGlowPainter extends CustomPainter {
 
   const _CornerGlowPainter({required this.light, required this.breath});
 
-  // 따뜻하지만 세련된 톤 — 채도를 눌러 우아하게
-  static const _wash = Color(0xFFE8C98F);
-  static const _mid = Color(0xFFF3DCAC);
-  static const _core = Color(0xFFFBEFD3);
-  static const _hot = Color(0xFFFFFBF0);
+  // 디자인 시스템 v2: 빛도 포인트 컬러(앰버)에 묶는다. 이전의 크림 톤은
+  // 차가운 슬레이트 베이스 위에서 화면 전체를 베이지로 덮어 팔레트를 죽였다.
+  // 방은 어디까지나 어두운 네이비고, 코너만 따뜻하게 빛난다.
+  static const _wash = Color(0xFFD89A2A);
+  static const _mid = Color(0xFFFFB224); // = UnwindColors.accent
+  static const _core = Color(0xFFFFD07A);
+  static const _hot = Color(0xFFFFF0CC);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -56,10 +58,12 @@ class _CornerGlowPainter extends CustomPainter {
     // 광원: 우측 상단 코너 살짝 바깥 — 화면 안에 광원 원반이 보이지 않아
     // "어딘가 위에서 빛이 내려온다"는 인상을 준다
     final origin = Offset(w * 1.04, -w * 0.10);
-    final ease = Curves.easeOutQuad.transform(l); // 감쇠가 자연스럽도록
+    // 선형 응답 (개정 2026-08-12): easeOutQuad는 위쪽 구간이 평평해서
+    // 등을 하나씩 꺼도 밝기 차이가 거의 안 보였다. 한 칸 끌 때마다 같은
+    // 폭으로 어두워져야 "내가 방을 어둡게 하고 있다"가 읽힌다.
+    final ease = l;
 
-    void glow(double radius, Color color, double alpha,
-        {double focus = 0.0}) {
+    void glow(double radius, Color color, double alpha, {double focus = 0.0}) {
       if (alpha <= 0.003) return;
       canvas.drawCircle(
         origin,
@@ -76,15 +80,17 @@ class _CornerGlowPainter extends CustomPainter {
       );
     }
 
-    // 강화 2026-08-08: 광원이 확실히 "빛나는" 인상을 주도록 전 겹 증폭
-    // 1. 워시 — 방 전체로 스미는 온기 (좌하단은 어둠에 남는다)
-    glow(w * (1.05 + 1.35 * ease), _wash, 0.36 * ease);
+    // 재조정 2026-08-12 (2차): **눈부실 만큼 밝게.** 할 일이 가득한 방은
+    // Lumi가 잠들 수 없을 정도여야 하고, 그래야 하나씩 끌 때마다 방이
+    // 어두워지는 게 확실히 읽힌다. 좌하단은 언제나 어둠에 남는다.
+    // 1. 워시 — 방 전체로 스미는 온기
+    glow(w * (0.95 + 1.25 * ease), _wash, 0.34 * ease);
     // 2. 미드 — 상부를 채우는 빛
-    glow(w * (0.70 + 0.95 * ease), _mid, 0.62 * ease);
+    glow(w * (0.62 + 0.90 * ease), _mid, 0.55 * ease);
     // 3. 코어 — 코너의 빛덩어리
-    glow(w * (0.36 + 0.56 * ease), _core, 0.92 * ease, focus: 0.10);
-    // 4. 핫스팟 — 광원의 눈부심 (최대 밝기)
-    glow(w * (0.20 + 0.32 * ease), _hot, 1.0 * ease, focus: 0.22);
+    glow(w * (0.34 + 0.52 * ease), _core, 0.85 * ease, focus: 0.10);
+    // 4. 핫스팟 — 광원 자체의 눈부심 (거의 흰색)
+    glow(w * (0.18 + 0.28 * ease), _hot, 1.0 * ease, focus: 0.22);
   }
 
   @override

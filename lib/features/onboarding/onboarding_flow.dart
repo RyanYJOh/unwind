@@ -1,12 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/unwind_theme.dart';
-import '../../core/tokens/color_ramp.dart';
 import '../../core/tokens/motion.dart';
+import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../domain/models/lumi_state.dart';
+import '../../ui/ui.dart';
+import '../../widgets/corner_glow.dart';
 import '../../widgets/lumi/lumi_view.dart';
 import '../compose/compose_sheet.dart';
 import '../settings/settings_controller.dart';
@@ -16,7 +17,7 @@ import '../today/today_screen.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// §6.6 온보딩 — 계정 없음, 3화면 이내.
-/// 1. 컨셉 설명 (Lumi가 눈부셔하는 그림)
+/// 1. 컨셉 설명 (빛이 가득한 방 + 눈부셔하는 Lumi)
 /// 2. 샘플 3개가 놓인 방 — 직접 끄고 전등 줄까지 체험 (아하 모먼트)
 /// 3. 체험 후: `이제 진짜 오늘의 할 일을 적어볼까요` + 입력 시트 자동 오픈
 ///
@@ -43,8 +44,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     // 진짜 오늘의 방으로 + 입력 시트 자동 오픈 (§6.6)
     await Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        transitionDuration:
-            const Duration(milliseconds: UnwindMotion.pageMs),
+        transitionDuration: const Duration(milliseconds: UnwindMotion.pageMs),
         pageBuilder: (_, animation, secondary) => FadeTransition(
           opacity: animation,
           child: const TodayScreenWithComposeOpen(),
@@ -78,7 +78,71 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   }
 }
 
-/// 1단계 — 컨셉 설명. Lumi가 눈부셔한다 (밝은 방 + 눈꺼풀 살짝).
+/// 온보딩 페이지 공통 뼈대 — 빛의 양만 다르다.
+class _OnboardPage extends StatelessWidget {
+  final double light;
+  final Widget lumi;
+  final String title;
+  final String? body;
+  final String cta;
+  final VoidCallback onTap;
+
+  const _OnboardPage({
+    required this.light,
+    required this.lumi,
+    required this.title,
+    required this.cta,
+    required this.onTap,
+    this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return UnwindScreen(
+      safeArea: false,
+      child: Stack(
+        children: [
+          Positioned.fill(child: CornerGlow(light: light)),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(UnwindSpacing.s24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Spacer(flex: 2),
+                  Center(child: lumi),
+                  const Spacer(),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: UnwindType.display.copyWith(
+                      color: UnwindColors.textPrimary,
+                    ),
+                  ),
+                  if (body != null) ...[
+                    const SizedBox(height: UnwindSpacing.s16),
+                    Text(
+                      body!,
+                      textAlign: TextAlign.center,
+                      style: UnwindType.body.copyWith(
+                        color: UnwindColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                  const Spacer(flex: 2),
+                  UnwindButton(label: cta, onPressed: onTap),
+                  const SizedBox(height: UnwindSpacing.s16),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 1단계 — 컨셉 설명. 방에 불이 가득하고 Lumi가 눈부셔한다.
 class _ConceptPage extends StatelessWidget {
   final VoidCallback onNext;
   const _ConceptPage({required this.onNext});
@@ -86,66 +150,18 @@ class _ConceptPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final colors = lerpRamp(0.0); // 가장 밝은 정오 — 눈부신 방
-    return UnwindTheme(
-      colors: colors,
-      child: DefaultTextStyle(
-        style: UnwindType.body.copyWith(decoration: TextDecoration.none),
-        child: ColoredBox(
-          color: colors.bg,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(UnwindSpacing.s32),
-              child: Column(
-                children: [
-                  const Spacer(flex: 2),
-                  // 눈부셔하는 Lumi — 밝음(0.0)인데 눈꺼풀이 내려온 모습은
-                  // brightness를 살짝 올린 상태로 표현 (찡그림 금지 §7.3)
-                  const LumiView(
-                      state: LumiState(brightness: 0.45)),
-                  const Spacer(),
-                  PrimaryText(l10n.onboardTitle,
-                      style: UnwindType.display, textAlign: TextAlign.center),
-                  const SizedBox(height: UnwindSpacing.s16),
-                  Text(
-                    l10n.onboardBody,
-                    textAlign: TextAlign.center,
-                    style: UnwindType.body.copyWith(
-                        color: colors.textSecondary,
-                        decoration: TextDecoration.none),
-                  ),
-                  const Spacer(flex: 2),
-                  GestureDetector(
-                    onTap: onNext,
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: UnwindSpacing.s12,
-                          horizontal: UnwindSpacing.s32),
-                      decoration: BoxDecoration(
-                        color: colors.lamp.withValues(alpha: 0.18),
-                        borderRadius:
-                            BorderRadius.circular(UnwindRadius.pill),
-                        border: Border.all(color: colors.lamp),
-                      ),
-                      child: Text(l10n.onboardGo, // 버튼은 동사로 (§8.5)
-                          style: UnwindType.bodyStrong.copyWith(
-                              color: colors.textPrimarySnap,
-                              decoration: TextDecoration.none)),
-                    ),
-                  ),
-                  const SizedBox(height: UnwindSpacing.s24),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return _OnboardPage(
+      light: 1.0,
+      lumi: const LumiView(state: LumiState(brightness: 0.45)),
+      title: l10n.onboardTitle,
+      body: l10n.onboardBody,
+      cta: l10n.onboardGo, // 버튼은 동사로 (§8.5)
+      onTap: onNext,
     );
   }
 }
 
-/// 3단계 — 체험 후 전환.
+/// 3단계 — 체험 후 전환. 불은 다 꺼졌다.
 class _TransitionPage extends StatelessWidget {
   final VoidCallback onStart;
   const _TransitionPage({required this.onStart});
@@ -153,51 +169,12 @@ class _TransitionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final colors = lerpRamp(1.0); // 체험 직후 — 아직 밤의 여운
-    return UnwindTheme(
-      colors: colors,
-      child: DefaultTextStyle(
-        style: UnwindType.body.copyWith(decoration: TextDecoration.none),
-        child: ColoredBox(
-          color: colors.bg,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(UnwindSpacing.s32),
-              child: Column(
-                children: [
-                  const Spacer(flex: 2),
-                  const LumiView(
-                      state: LumiState(brightness: 1.0, isAsleep: true)),
-                  const Spacer(),
-                  PrimaryText(l10n.onboardTransition,
-                      style: UnwindType.title, textAlign: TextAlign.center),
-                  const Spacer(flex: 2),
-                  GestureDetector(
-                    onTap: onStart,
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: UnwindSpacing.s12,
-                          horizontal: UnwindSpacing.s32),
-                      decoration: BoxDecoration(
-                        color: colors.lamp.withValues(alpha: 0.18),
-                        borderRadius:
-                            BorderRadius.circular(UnwindRadius.pill),
-                        border: Border.all(color: colors.lamp),
-                      ),
-                      child: Text(l10n.onboardStart,
-                          style: UnwindType.bodyStrong.copyWith(
-                              color: colors.textPrimarySnap,
-                              decoration: TextDecoration.none)),
-                    ),
-                  ),
-                  const SizedBox(height: UnwindSpacing.s24),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return _OnboardPage(
+      light: 0.0,
+      lumi: const LumiView(state: LumiState(brightness: 1.0, isAsleep: true)),
+      title: l10n.onboardTransition,
+      cta: l10n.onboardStart,
+      onTap: onStart,
     );
   }
 }

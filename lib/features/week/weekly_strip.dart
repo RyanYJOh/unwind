@@ -1,19 +1,18 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/unwind_theme.dart';
-import '../../core/tokens/color_ramp.dart';
+import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
+import '../../ui/ui.dart';
 import '../today/providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 
-/// §6.2 최근 7일 스트립 (개편 2026-08-09) — 골목에서 이웃집 창을 보는 은유.
-/// 각 날은 작은 창문: 그날의 조도 + 그날 밤 Lumi의 눈.
+/// §6.2 최근 30일 스트립 — 골목에서 이웃집 창을 보는 은유.
+/// 각 날은 작은 창문: 그날 남은 빛 + 그날 밤 Lumi의 눈.
 ///   - 불이 남은 밝은 창 = 못 자고 크게 졸린 눈
 ///   - 꺼진 캄캄한 창 = 만족스럽게 감긴 눈
 /// 날짜를 탭하면 오늘 화면이 그 날짜의 방으로 전환된다 (주간 뷰 아님).
-/// 좌우 스크롤 — Bill 버튼과 분리된 스크롤 컨테이너.
 class WeeklyStrip extends ConsumerWidget {
   /// 오늘 창에 반영할 실시간 t (화면의 표시값과 동기)
   final double currentT;
@@ -22,22 +21,21 @@ class WeeklyStrip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = UnwindTheme.of(context);
     final l10n = AppLocalizations.of(context);
     final windows = ref.watch(weekWindowsProvider);
     final viewedKey = ref.watch(viewedDayKeyProvider);
 
     return DecoratedBox(
-      // 스크롤 영역 컨테이너 — Bill 버튼과 시각적으로 분리 (개편 2026-08-09)
       decoration: BoxDecoration(
-        color: colors.surface
-            .withValues(alpha: colors.surface.a * 0.45),
-        borderRadius: BorderRadius.circular(UnwindRadius.lg),
-        border:
-            Border.all(color: colors.border.withValues(alpha: 0.5)),
+        color: UnwindColors.surface,
+        borderRadius: BorderRadius.circular(UnwindRadius.md),
+        border: Border.all(
+          color: UnwindColors.border,
+          width: UnwindStroke.base,
+        ),
       ),
       child: SizedBox(
-        height: 65,
+        height: 68,
         child: Semantics(
           label: l10n.thisWeekLabel,
           child: ListView(
@@ -45,17 +43,17 @@ class WeeklyStrip extends ConsumerWidget {
             // reverse: 오늘(맨 오른쪽)이 처음부터 보이도록 오른쪽 정렬
             reverse: true,
             padding: const EdgeInsets.symmetric(
-                horizontal: UnwindSpacing.s12, vertical: 6),
+              horizontal: UnwindSpacing.s12,
+              vertical: UnwindSpacing.s4,
+            ),
             children: [
               for (final w in windows.reversed)
                 Padding(
-                  padding:
-                      const EdgeInsets.only(left: UnwindSpacing.s8),
+                  padding: const EdgeInsets.only(left: UnwindSpacing.s8),
                   child: _DayCell(
                     info: w,
                     currentT: currentT,
                     selected: w.dateKey == viewedKey,
-                    colors: colors,
                     onTap: () {
                       // 오늘을 고르면 null — 롤오버 시 자동으로 따라간다
                       ref
@@ -90,44 +88,37 @@ class _DayCell extends StatelessWidget {
   final WindowInfo info;
   final double currentT;
   final bool selected;
-  final UnwindColors colors;
   final VoidCallback onTap;
 
   const _DayCell({
     required this.info,
     required this.currentT,
     required this.selected,
-    required this.colors,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return UnwindPressable(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Semantics(
-        label: info.dateKey,
-        button: true,
-        selected: selected,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 라벨 = "월.일" 최소 표기 (개정 2026-08-09)
-            Text(
-              _compactDate(info.dateKey),
-              style: UnwindType.caption.copyWith(
-                  fontSize: 10,
-                  color: selected
-                      ? colors.textSecondary
-                      : colors.textMuted,
-                  decoration: TextDecoration.none),
+      depth: 0,
+      pressScale: 0.9,
+      haptic: UnwindHapticKind.selection,
+      semanticLabel: info.dateKey,
+      isToggled: selected,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _compactDate(info.dateKey),
+            style: UnwindType.caption.copyWith(
+              fontSize: 10,
+              color: selected ? UnwindColors.accent : UnwindColors.textMuted,
             ),
-            const SizedBox(height: 3),
-            _Window(info: info, currentT: currentT,
-                selected: selected, colors: colors),
-          ],
-        ),
+          ),
+          const SizedBox(height: 3),
+          _Window(info: info, currentT: currentT, selected: selected),
+        ],
       ),
     );
   }
@@ -139,19 +130,15 @@ class _Window extends StatelessWidget {
   final WindowInfo info;
   final double currentT;
   final bool selected;
-  final UnwindColors colors;
 
   const _Window({
     required this.info,
     required this.currentT,
     required this.selected,
-    required this.colors,
   });
 
   @override
   Widget build(BuildContext context) {
-    const darkWindow = Color(0xFF241F30); // 캄캄한 창
-
     // 그날 방에 남아 있던 빛 (오늘은 실시간)
     final double light;
     if (info.isToday) {
@@ -161,44 +148,42 @@ class _Window extends StatelessWidget {
       // 기록 없는 지난 날은 캄캄한 창 (빈 방이었다)
       light = ft == null ? 0.0 : (1 - ft).clamp(0.0, 1.0);
     }
-    final fill = Color.lerp(darkWindow, colors.lamp, light)!;
 
     // 만족스럽게 잠든 날 = 기록이 있고 불이 다 꺼진 날 (오늘 포함).
-    // 기록 없는 빈 날은 그냥 감긴 눈만 — 미소는 "다 끄고 잔" 날의 몫.
-    final satisfied = light < 0.06 &&
-        (info.isToday || info.finalT != null);
+    final satisfied = light < 0.06 && (info.isToday || info.finalT != null);
 
     return Container(
-      width: 34, // 정방형 (개정 2026-08-09)
+      width: 34,
       height: 34,
       decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(UnwindRadius.sm),
-        // 선택된 날짜: 테두리로 현재 위치 표시
-        border: selected
-            ? Border.all(color: colors.textSecondary, width: 1.5)
-            : Border.all(
-                color: colors.border.withValues(alpha: 0.6), width: 0.5),
+        color: UnwindColors.window(light),
+        borderRadius: BorderRadius.circular(UnwindRadius.xs),
+        border: Border.all(
+          color: selected ? UnwindColors.accent : UnwindColors.border,
+          width: selected ? UnwindStroke.base : UnwindStroke.hair,
+        ),
       ),
       child: CustomPaint(
-          painter:
-              _WindowFacePainter(light: light, satisfied: satisfied)),
+        painter: _WindowFacePainter(light: light, satisfied: satisfied),
+      ),
     );
   }
 }
 
-/// 창 안의 눈 — 그날 밤의 Lumi (개편 2026-08-09).
+/// 창 안의 눈 — 그날 밤의 Lumi.
 /// light 1.0(대낮같이 밝음) = 무겁게 졸린 실눈 / 0.0(소등) = 감긴 곡선.
 /// [satisfied]면 잔잔한 미소도 — "다 끄고 만족스럽게 잤다".
 class _WindowFacePainter extends CustomPainter {
   final double light;
   final bool satisfied;
 
-  const _WindowFacePainter(
-      {required this.light, this.satisfied = false});
+  const _WindowFacePainter({required this.light, this.satisfied = false});
 
-  static const _ink = Color(0xFF241F30); // 밝은 창 위의 눈
-  static const _sleepInk = Color(0xFF9A91B4); // 캄캄한 창 위의 감긴 눈
+  /// 밝은 창(앰버) 위의 눈 — 어두운 잉크
+  static const _ink = UnwindColors.onAccent;
+
+  /// 캄캄한 창 위의 감긴 눈
+  static const _sleepInk = UnwindColors.textMuted;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -220,7 +205,7 @@ class _WindowFacePainter extends CustomPainter {
           ..quadraticBezierTo(ec.dx, ec.dy + 2.6, ec.dx + 3.2, ec.dy);
         canvas.drawPath(path, p);
       }
-      // 살짝 스마일 — 전부 체크하고 잠든 날의 만족 (개정 2026-08-09)
+      // 살짝 스마일 — 전부 체크하고 잠든 날의 만족
       if (satisfied) {
         final my = size.height * 0.68;
         final smile = Path()

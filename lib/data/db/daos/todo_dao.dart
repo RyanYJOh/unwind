@@ -131,6 +131,22 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
     return (delete(todos)..where((t) => t.id.equals(id))).go();
   }
 
+  /// 삭제 실행취소 — 지워진 행을 id·정렬·생성시각까지 그대로 되살린다.
+  Future<void> restoreTodos(List<Todo> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAllOnConflictUpdate(todos, rows));
+  }
+
+  /// 반복 규칙의 [fromDate] 이후 인스턴스 (삭제 전 스냅샷용)
+  Future<List<Todo>> getRecurringFrom(String recurrenceId, String fromDate) {
+    return (select(todos)..where(
+          (t) =>
+              t.recurrenceId.equals(recurrenceId) &
+              t.date.isBiggerOrEqualValue(fromDate),
+        ))
+        .get();
+  }
+
   Future<List<Todo>> getPendingAutoDeferBefore(String today) {
     return (select(todos)
           ..where(
@@ -193,6 +209,17 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
         status: const Value(TodoStatus.deferred),
         completedAt: const Value(null),
         deferredFrom: Value(todo.date),
+      ),
+    );
+  }
+
+  /// [suppressRecurringTodo]의 실행취소 — tombstone을 걷고 다시 켠다.
+  Future<void> unsuppressRecurringTodo(Todo todo) {
+    return (update(todos)..where((t) => t.id.equals(todo.id))).write(
+      TodosCompanion(
+        status: Value(todo.status),
+        completedAt: Value(todo.completedAt),
+        deferredFrom: Value(todo.deferredFrom),
       ),
     );
   }

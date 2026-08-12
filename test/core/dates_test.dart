@@ -13,10 +13,11 @@ void main() {
   });
 
   test('다음 롤오버 시각', () {
-    expect(nextRolloverAt(DateTime(2026, 8, 6, 12)),
-        DateTime(2026, 8, 7, 6));
-    expect(nextRolloverAt(DateTime(2026, 8, 6, 2)),
-        DateTime(2026, 8, 6, 6)); // 어제의 방에 있을 때는 오늘 아침 6시
+    expect(nextRolloverAt(DateTime(2026, 8, 6, 12)), DateTime(2026, 8, 7, 6));
+    expect(
+      nextRolloverAt(DateTime(2026, 8, 6, 2)),
+      DateTime(2026, 8, 6, 6),
+    ); // 어제의 방에 있을 때는 오늘 아침 6시
   });
 
   test('dayKey 왕복', () {

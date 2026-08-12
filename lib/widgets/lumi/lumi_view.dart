@@ -20,19 +20,25 @@ class LumiView extends StatelessWidget {
   /// 렌더 크기 (정사각). 홈에서는 화면 점유를 줄이기 위해 축소해 쓴다.
   final double size;
 
-  const LumiView(
-      {super.key,
-      required this.state,
-      this.reduceMotion = false,
-      this.size = 240});
+  const LumiView({
+    super.key,
+    required this.state,
+    this.reduceMotion = false,
+    this.size = 240,
+  });
 
   @override
   Widget build(BuildContext context) {
     return switch (kLumiRenderer) {
-      LumiRenderer.dummy =>
-        LumiDummyView(state: state, reduceMotion: reduceMotion),
-      LumiRenderer.rive =>
-        _LumiRiveAdapter(state: state, reduceMotion: reduceMotion, size: size),
+      LumiRenderer.dummy => LumiDummyView(
+        state: state,
+        reduceMotion: reduceMotion,
+      ),
+      LumiRenderer.rive => _LumiRiveAdapter(
+        state: state,
+        reduceMotion: reduceMotion,
+        size: size,
+      ),
     };
   }
 }
@@ -46,8 +52,11 @@ class _LumiRiveAdapter extends StatefulWidget {
   final bool reduceMotion;
   final double size;
 
-  const _LumiRiveAdapter(
-      {required this.state, required this.reduceMotion, this.size = 240});
+  const _LumiRiveAdapter({
+    required this.state,
+    required this.reduceMotion,
+    this.size = 240,
+  });
 
   @override
   State<_LumiRiveAdapter> createState() => _LumiRiveAdapterState();
@@ -77,11 +86,17 @@ class _LumiRiveAdapterState extends State<_LumiRiveAdapter> {
       // 깨우기 (개정 2026-08-07): allDone 해제 + 기지개·미소 (wakeUpHappy)
       _event = GhostEvent.wakeUpHappy;
       _tick++;
-    } else if (s.eventTick != old.state.eventTick &&
-        s.event == LumiEvent.react &&
-        !s.isAsleep) {
-      _event = GhostEvent.checkOff;
-      _tick++;
+    } else if (s.eventTick != old.state.eventTick && !s.isAsleep) {
+      // 잠들어 있으면 어떤 이벤트도 전달하지 않는다 — 깨우지 않는다
+      final mapped = switch (s.event) {
+        LumiEvent.react => GhostEvent.checkOff,
+        LumiEvent.poke => GhostEvent.poke,
+        _ => null,
+      };
+      if (mapped != null) {
+        _event = mapped;
+        _tick++;
+      }
     }
   }
 

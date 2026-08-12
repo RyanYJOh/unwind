@@ -21,33 +21,39 @@ void main() {
           'kwh': 0.42,
           'lightsOut': i < 4, // 4일 밤 불을 껐다
           'sleepMinutes': i < 4 ? 450 : 0,
-        }
+        },
     ]);
-    await db.billDao.insertBill(WeeklyBillsCompanion.insert(
-      weekStart: '2026-07-27',
-      kwh: 2.94,
-      amount: 1180,
-      sleepMinutes: 1800,
-      generatedAt: DateTime(2026, 8, 3, 9),
-      isRead: false,
-      payload: payload,
-    ));
+    await db.billDao.insertBill(
+      WeeklyBillsCompanion.insert(
+        weekStart: '2026-07-27',
+        kwh: 2.94,
+        amount: 1180,
+        sleepMinutes: 1800,
+        generatedAt: DateTime(2026, 8, 3, 9),
+        isRead: false,
+        payload: payload,
+      ),
+    );
     final bill = (await db.billDao.getBill('2026-07-27'))!;
 
-    await tester.pumpWidget(ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(db)],
-      child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BillScreen(bill: bill),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: BillScreen(bill: bill),
+        ),
       ),
-    ));
+    );
     await tester.pump(const Duration(milliseconds: 100));
 
     // 주간 총액 (모노스페이스) + 일별 명세 + 서술형 문구
     expect(find.text('₩1,180'), findsOneWidget);
-    expect(find.text('You turned the lights out on 4 nights this week'),
-        findsOneWidget);
+    expect(
+      find.text('You turned the lights out on 4 nights this week'),
+      findsOneWidget,
+    );
     // 수면 평균 1800/7 ≈ 257분(4.3h) → '조금 뒤척였어요'
     expect(find.text('Lumi tossed and turned a little'), findsOneWidget);
     // 퍼센트·점수·등급 문자열이 없어야 한다 (§1.3)

@@ -53,35 +53,40 @@ class LumiPainter extends CustomPainter {
     if (glowStrength > 0.01) {
       final glowR = bodyW * (0.95 + 0.25 * glowStrength);
       final glowPaint = Paint()
-        ..shader = RadialGradient(colors: [
-          glowColor.withValues(alpha: 0.28 * glowStrength),
-          glowColor.withValues(alpha: 0.0),
-        ]).createShader(
-            Rect.fromCircle(center: Offset(cx, cy), radius: glowR));
+        ..shader = RadialGradient(
+          colors: [
+            glowColor.withValues(alpha: 0.28 * glowStrength),
+            glowColor.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: glowR));
       canvas.drawCircle(Offset(cx, cy), glowR, glowPaint);
     }
 
     // body — 위가 둥근 흰 타원 + hem 물결
     const bodyColor = Color(0xFFFDFCF8);
-    final body = Path()
-      ..moveTo(cx - bodyW / 2, bottom);
+    final body = Path()..moveTo(cx - bodyW / 2, bottom);
     // 왼쪽 변 위로
     body.lineTo(cx - bodyW / 2, top + bodyH * 0.38);
     // 둥근 머리
     body.quadraticBezierTo(cx - bodyW / 2, top, cx, top);
-    body.quadraticBezierTo(cx + bodyW / 2, top, cx + bodyW / 2, top + bodyH * 0.38);
+    body.quadraticBezierTo(
+      cx + bodyW / 2,
+      top,
+      cx + bodyW / 2,
+      top + bodyH * 0.38,
+    );
     body.lineTo(cx + bodyW / 2, bottom);
     // hem — 물결 곡선 4개 (오른쪽 → 왼쪽)
     const waves = 4;
     final waveW = bodyW / waves;
-    final amp = bodyH * 0.045 * hemAmplitude +
+    final amp =
+        bodyH * 0.045 * hemAmplitude +
         bodyH * 0.028 * math.sin(hemPhase) * hemAmplitude;
     for (var i = 0; i < waves; i++) {
       final x0 = cx + bodyW / 2 - waveW * i;
       final phase = hemPhase + i * 0.9;
       final dip = bodyH * 0.05 + amp * (0.6 + 0.4 * math.sin(phase));
-      body.quadraticBezierTo(
-          x0 - waveW / 2, bottom + dip, x0 - waveW, bottom);
+      body.quadraticBezierTo(x0 - waveW / 2, bottom + dip, x0 - waveW, bottom);
     }
     body.close();
     canvas.drawPath(body, Paint()..color = bodyColor);
@@ -96,9 +101,10 @@ class LumiPainter extends CustomPainter {
       if (open > 0.05) {
         canvas.drawOval(
           Rect.fromCenter(
-              center: Offset(cx + dx, eyeY),
-              width: eyeR * 2,
-              height: eyeR * 2 * open),
+            center: Offset(cx + dx, eyeY),
+            width: eyeR * 2,
+            height: eyeR * 2 * open,
+          ),
           eyePaint,
         );
       } else {

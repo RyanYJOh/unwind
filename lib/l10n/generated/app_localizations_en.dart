@@ -83,6 +83,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Lumi is asleep. This will go in tomorrow\'s room';
 
   @override
+  String get lumiPokeLabel => 'Lumi';
+
+  @override
+  String get toastTaskDeleted => 'Taken out of the room';
+
+  @override
+  String get undo => 'Undo';
+
+  @override
   String get toastTaskAdded => 'A new light is on';
 
   @override
@@ -96,6 +105,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chooseDate => 'Choose date';
+
+  @override
+  String get repeatSection => 'Repeat';
 
   @override
   String get repeatNone => 'No repeat';

@@ -107,6 +107,13 @@ class RecurrenceDao extends DatabaseAccessor<UnwindDatabase>
 
   /// 선택한 인스턴스부터 반복 전체 삭제.
   /// 해당 날짜 이후에는 완료 여부와 관계없이 이 규칙의 인스턴스를 남기지 않는다.
+  /// [deleteFrom]의 실행취소 — 규칙을 다시 켠다 (인스턴스는 따로 되살린다).
+  Future<void> setActive(String id, bool isActive) {
+    return (update(recurrences)..where((r) => r.id.equals(id))).write(
+      RecurrencesCompanion(isActive: Value(isActive)),
+    );
+  }
+
   Future<void> deleteFrom(String id, {required String fromDate}) async {
     await attachedDatabase.transaction(() async {
       await (update(recurrences)..where((r) => r.id.equals(id))).write(

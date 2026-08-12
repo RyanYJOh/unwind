@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Left Eye: 레퍼런스 그대로 솔리드 잉크 세로 타원 -->
+  <g id="EyeL">
+    <ellipse cx="214" cy="202" rx="10" ry="16" fill="#1E1A2E"/>
+  </g>
+</svg>

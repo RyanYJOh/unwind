@@ -242,6 +242,24 @@ abstract class AppLocalizations {
   /// **'Lumi is asleep. This will go in tomorrow\'s room'**
   String get lumiSleepingNotice;
 
+  /// No description provided for @lumiPokeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Lumi'**
+  String get lumiPokeLabel;
+
+  /// No description provided for @toastTaskDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken out of the room'**
+  String get toastTaskDeleted;
+
+  /// No description provided for @undo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get undo;
+
   /// No description provided for @toastTaskAdded.
   ///
   /// In en, this message translates to:
@@ -271,6 +289,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose date'**
   String get chooseDate;
+
+  /// No description provided for @repeatSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat'**
+  String get repeatSection;
 
   /// No description provided for @repeatNone.
   ///

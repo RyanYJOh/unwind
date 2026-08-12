@@ -26,10 +26,14 @@ class NightSkyPainter extends CustomPainter {
     if (opacity <= 0.001) return;
     final starPaint = Paint();
     for (final s in stars) {
-      starPaint.color =
-          const Color(0xFFEDE8F5).withValues(alpha: s.a * opacity);
+      starPaint.color = const Color(
+        0xFFEDE8F5,
+      ).withValues(alpha: s.a * opacity);
       canvas.drawCircle(
-          Offset(s.dx * size.width, s.dy * size.height), s.r, starPaint);
+        Offset(s.dx * size.width, s.dy * size.height),
+        s.r,
+        starPaint,
+      );
     }
 
     // 초승달 — 좌상단, 은은한 발광
@@ -39,23 +43,28 @@ class NightSkyPainter extends CustomPainter {
       moonC,
       moonR * 2.6,
       Paint()
-        ..shader = RadialGradient(colors: [
-          const Color(0xFFF5EBC8).withValues(alpha: 0.14 * opacity),
-          const Color(0x00F5EBC8),
-        ]).createShader(Rect.fromCircle(center: moonC, radius: moonR * 2.6)),
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFFF5EBC8).withValues(alpha: 0.14 * opacity),
+            const Color(0x00F5EBC8),
+          ],
+        ).createShader(Rect.fromCircle(center: moonC, radius: moonR * 2.6)),
     );
     final moon = Path.combine(
       PathOperation.difference,
       Path()..addOval(Rect.fromCircle(center: moonC, radius: moonR)),
-      Path()
-        ..addOval(Rect.fromCircle(
-            center: moonC.translate(moonR * 0.45, -moonR * 0.18),
-            radius: moonR * 0.86)),
+      Path()..addOval(
+        Rect.fromCircle(
+          center: moonC.translate(moonR * 0.45, -moonR * 0.18),
+          radius: moonR * 0.86,
+        ),
+      ),
     );
     canvas.drawPath(
-        moon,
-        Paint()
-          ..color = const Color(0xFFF0E6C6).withValues(alpha: 0.85 * opacity));
+      moon,
+      Paint()
+        ..color = const Color(0xFFF0E6C6).withValues(alpha: 0.85 * opacity),
+    );
   }
 
   @override

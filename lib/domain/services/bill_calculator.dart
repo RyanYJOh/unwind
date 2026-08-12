@@ -28,18 +28,18 @@ class DayBill {
   });
 
   Map<String, dynamic> toJson() => {
-        'date': date,
-        'kwh': kwh,
-        'lightsOut': lightsOut,
-        'sleepMinutes': sleepMinutes,
-      };
+    'date': date,
+    'kwh': kwh,
+    'lightsOut': lightsOut,
+    'sleepMinutes': sleepMinutes,
+  };
 
   factory DayBill.fromJson(Map<String, dynamic> json) => DayBill(
-        date: json['date'] as String,
-        kwh: (json['kwh'] as num).toDouble(),
-        lightsOut: json['lightsOut'] as bool,
-        sleepMinutes: json['sleepMinutes'] as int,
-      );
+    date: json['date'] as String,
+    kwh: (json['kwh'] as num).toDouble(),
+    lightsOut: json['lightsOut'] as bool,
+    sleepMinutes: json['sleepMinutes'] as int,
+  );
 }
 
 /// 주간 청구서 계산 결과
@@ -74,9 +74,12 @@ class BillCalculator {
     DateTime? lightsOutAt,
   }) {
     final sixAm = DateTime(
-        dayStart.year, dayStart.month, dayStart.day, kDayStartHour);
-    final midnight =
-        DateTime(dayStart.year, dayStart.month, dayStart.day + 1);
+      dayStart.year,
+      dayStart.month,
+      dayStart.day,
+      kDayStartHour,
+    );
+    final midnight = DateTime(dayStart.year, dayStart.month, dayStart.day + 1);
 
     final start = createdAt.isAfter(sixAm) ? createdAt : sixAm;
     final end = completedAt ?? lightsOutAt ?? midnight;
@@ -108,9 +111,12 @@ class BillCalculator {
     final lightsOutAt = day?.lightsOutAt;
     if (lightsOutAt != null) {
       final wake = DateTime(
-          dayStart.year, dayStart.month, dayStart.day + 1, kDayStartHour);
-      sleepMinutes =
-          math.max(0, wake.difference(lightsOutAt).inMinutes);
+        dayStart.year,
+        dayStart.month,
+        dayStart.day + 1,
+        kDayStartHour,
+      );
+      sleepMinutes = math.max(0, wake.difference(lightsOutAt).inMinutes);
     }
 
     return DayBill(
@@ -132,11 +138,13 @@ class BillCalculator {
     final days = <DayBill>[];
     for (var i = 0; i < 7; i++) {
       final key = dayKey(addDays(monday, i));
-      days.add(calcDay(
-        dateKey: key,
-        todos: todosByDate[key] ?? const [],
-        day: daysByDate[key],
-      ));
+      days.add(
+        calcDay(
+          dateKey: key,
+          todos: todosByDate[key] ?? const [],
+          day: daysByDate[key],
+        ),
+      );
     }
     final kwh = days.fold(0.0, (sum, d) => sum + d.kwh);
     return WeekBillResult(

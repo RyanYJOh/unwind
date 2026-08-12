@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/widgets.dart';
 
+import '../../core/tokens/design_variant.dart';
 import '../../domain/models/lumi_state.dart' show LumiMode, LumiDayActivity;
 import 'ghost_contract.dart' show GhostEvent;
 
@@ -61,6 +64,11 @@ class _GhostPainterViewState extends State<GhostPainterView>
   late final AnimationController _happy; // 타임라인 F, 1.6s
   late final AnimationController _blink; // PRD §7.3 깜빡임 (180ms)
 
+  /// 사용자가 Lumi를 톡 건드렸을 때 (개편 2026-08-12).
+  /// 하나의 컨트롤러로 두 반응을 재생한다 — 어느 쪽인지는 [_pokeIsPeek].
+  late final AnimationController _poke;
+  bool _pokeIsPeek = false;
+
   Timer? _yawnTimer;
   Timer? _blinkTimer;
   DateTime _lastEventAt = DateTime.fromMillisecondsSinceEpoch(0);
@@ -68,6 +76,25 @@ class _GhostPainterViewState extends State<GhostPainterView>
   final _rng = math.Random();
 
   bool get _asleep => widget.event == GhostEvent.allDone;
+
+  /// 몸통 PNG (개편 2026-08-12, kLumiBodyStyle.image) — 앱 전역 1회 로드.
+  /// 로드 전에는 painted 몸통으로 그려 빈 몸을 보이지 않는다.
+  static ui.Image? _bodyImage;
+  static Future<ui.Image>? _bodyImageLoading;
+
+  void _ensureBodyImage() {
+    if (kLumiBodyStyle != LumiBodyStyle.image || _bodyImage != null) return;
+    _bodyImageLoading ??= () async {
+      final data = await rootBundle.load(kGhostBodyAsset);
+      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+      final frame = await codec.getNextFrame();
+      return frame.image;
+    }();
+    _bodyImageLoading!.then((img) {
+      _bodyImage = img;
+      if (mounted) setState(() {});
+    });
+  }
 
   /// 모드가 주어지면 시각·상황이 졸림을 결정한다 (개편 2026-08-08).
   /// - 낮: 말똥말똥 (rest 슬롯만 살짝 나른)
@@ -105,10 +132,12 @@ class _GhostPainterViewState extends State<GhostPainterView>
       vsync: this,
       duration: const Duration(milliseconds: 180),
     );
+    _poke = AnimationController(vsync: this, duration: _tickleDuration);
 
     _ticker = createTicker(_onTick);
     if (!widget.reduceMotion) _ticker.start();
     if (_asleep) _sleep.value = 1.0;
+    _ensureBodyImage();
 
     _startYawnTimer();
     _scheduleBlink();
@@ -184,6 +213,8 @@ class _GhostPainterViewState extends State<GhostPainterView>
           _bounce.forward(from: 0); // 통통 (브리프 D)
         case GhostEvent.wakeUpHappy:
           _happy.forward(from: 0);
+        case GhostEvent.poke:
+          _firePoke();
         case GhostEvent.allDone:
           break;
       }
@@ -200,7 +231,25 @@ class _GhostPainterViewState extends State<GhostPainterView>
     _sleep.dispose();
     _happy.dispose();
     _blink.dispose();
+    _poke.dispose();
     super.dispose();
+  }
+
+  static const _tickleDuration = Duration(milliseconds: 1300);
+  static const _peekDuration = Duration(milliseconds: 2200);
+
+  /// 톡 건드렸다 — 반응은 **지금 상태가 고른다**.
+  /// - 잠들었으면 아무것도 하지 않는다 (깨우지 않는 게 이 앱의 예의다)
+  /// - 졸린 밤이면 실눈을 겨우 떠 두리번거린다
+  /// - 그 외(낮·말똥말똥)엔 간지럼을 탄다
+  Future<void> _firePoke() async {
+    if (_asleep || widget.reduceMotion) return;
+    if (_poke.isAnimating) return; // 연타로 겹치지 않게
+    final peek = widget.mode == LumiMode.nightAwake || _effSleepiness >= 0.55;
+    _poke.duration = peek ? _peekDuration : _tickleDuration;
+    setState(() => _pokeIsPeek = peek);
+    await _poke.forward(from: 0);
+    if (mounted) _poke.value = 0;
   }
 
   static double _lerp(double a, double b, double t) => a + (b - a) * t;
@@ -209,7 +258,14 @@ class _GhostPainterViewState extends State<GhostPainterView>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: AnimatedBuilder(
-        animation: Listenable.merge([_yawn, _bounce, _sleep, _happy, _blink]),
+        animation: Listenable.merge([
+          _yawn,
+          _bounce,
+          _sleep,
+          _happy,
+          _blink,
+          _poke,
+        ]),
         builder: (context, _) {
           final t = _effSleepiness;
           final s = Curves.easeInOut.transform(_sleep.value);
@@ -233,6 +289,40 @@ class _GhostPainterViewState extends State<GhostPainterView>
           // 타임라인 F: 기지개 + 미소 + 하이라이트 반짝
           final hAmt = math.sin(_happy.value * math.pi);
 
+          // ── 톡 건드렸을 때 (개편 2026-08-12) ──────────────────
+          final pokeT = _poke.value;
+          // 간지럼: 확 놀랐다가 서서히 진정된다 (빠른 어택 · 긴 디케이)
+          final tickle = (_pokeIsPeek || pokeT <= 0 || pokeT >= 1)
+              ? 0.0
+              : pokeT < 0.12
+              ? Curves.easeOut.transform(pokeT / 0.12)
+              : 1.0 - Curves.easeInOutCubic.transform((pokeT - 0.12) / 0.88);
+          // 몸을 부르르 떤다 — 5.5주기, 진폭은 위 엔벨로프를 따른다
+          final shakeDeg = tickle <= 0
+              ? 0.0
+              : math.sin(pokeT * math.pi * 2 * 5.5) * tickle * 6.5;
+
+          // 실눈 두리번: 겨우 한쪽 눈을 뜨고 → 왼쪽 → 오른쪽 → 다시 감는다
+          final peekT = (!_pokeIsPeek || pokeT <= 0 || pokeT >= 1)
+              ? 0.0
+              : pokeT;
+          double peekOpen = 0, gazeX = 0;
+          if (peekT > 0) {
+            peekOpen = peekT < 0.18
+                ? Curves.easeOut.transform(peekT / 0.18)
+                : peekT < 0.86
+                ? 1.0
+                : 1.0 - Curves.easeIn.transform((peekT - 0.86) / 0.14);
+            if (peekT >= 0.20 && peekT < 0.44) {
+              gazeX = -Curves.easeInOut.transform((peekT - 0.20) / 0.24);
+            } else if (peekT >= 0.44 && peekT < 0.70) {
+              gazeX =
+                  -1 + 2 * Curves.easeInOut.transform((peekT - 0.44) / 0.26);
+            } else if (peekT >= 0.70 && peekT < 0.86) {
+              gazeX = 1 - Curves.easeInOut.transform((peekT - 0.70) / 0.16);
+            }
+          }
+
           // 눈꺼풀: 블렌드 0→3/4 (과장) + 하품/취침 시 완전 감김 + 깜빡임
           final lidBase = 0.75 * t;
           final lid = math.max(
@@ -246,6 +336,9 @@ class _GhostPainterViewState extends State<GhostPainterView>
               phase: _phase,
               sleepiness: t,
               asleepProgress: s,
+              bodyImage: kLumiBodyStyle == LumiBodyStyle.image
+                  ? _bodyImage
+                  : null,
               // 생활 레이어 (개편 2026-08-08) — 잠들면 활동·밤 연출 없음
               activity: widget.mode == LumiMode.day && s < 0.5
                   ? widget.activity
@@ -253,6 +346,10 @@ class _GhostPainterViewState extends State<GhostPainterView>
               nightDoze: widget.mode == LumiMode.nightAwake && s < 0.5,
               dazzle: widget.dazzle.clamp(0.0, 1.0),
               lidCover: lid.clamp(0.0, 1.0),
+              tickle: tickle.clamp(0.0, 1.0),
+              shakeDeg: shakeDeg,
+              gazeX: gazeX,
+              peekOpen: peekOpen,
               // 흰자는 항상 흰색 — 분홍 블렌드는 사용자 결정으로 제거
               scleraColor: const Color(0xFFFFFFFF),
               darkCircleOpacity: 0.35 * t * (1 - s * 0.5),
@@ -269,13 +366,14 @@ class _GhostPainterViewState extends State<GhostPainterView>
               bodyScale:
                   1.0 +
                   bounceScale +
+                  0.05 * math.sin(tickle.clamp(0.0, 1.0) * math.pi) +
                   0.05 * yawnAmt +
                   0.06 * hAmt +
                   (s > 0.99 && !widget.reduceMotion
                       ? math.sin(_phase * 2 * math.pi * 0.7) * 0.008
                       : 0.0),
               mouthOpen: yawnAmt,
-              smile: hAmt,
+              smile: math.max(hAmt, tickle.clamp(0.0, 1.0)),
               zzzOpacity: s,
             ),
           );
@@ -290,6 +388,9 @@ class _GhostPainter extends CustomPainter {
   final double sleepiness;
   final double asleepProgress;
 
+  /// 몸통 PNG (null이면 painted 몸통으로 그린다)
+  final ui.Image? bodyImage;
+
   /// 낮 일과 (null = 없음). 소품·모션은 본체와 분리된 레이어로 그린다.
   final LumiDayActivity? activity;
 
@@ -300,6 +401,18 @@ class _GhostPainter extends CustomPainter {
   final double dazzle;
 
   final double lidCover;
+
+  /// 간지럼 (0~1). 몸을 떨고, 눈이 ^ ^로 접히고, 입이 활짝 벌어진다.
+  final double tickle;
+
+  /// 간지럼 떨림 각도(도)
+  final double shakeDeg;
+
+  /// 실눈 두리번의 시선 (-1 왼쪽 ~ +1 오른쪽)
+  final double gazeX;
+
+  /// 실눈 두리번에서 한쪽 눈이 열린 정도 (0~1)
+  final double peekOpen;
   final Color scleraColor;
   final double darkCircleOpacity;
   final double pupilScale;
@@ -316,10 +429,15 @@ class _GhostPainter extends CustomPainter {
     required this.phase,
     required this.sleepiness,
     required this.asleepProgress,
+    this.bodyImage,
     this.activity,
     this.nightDoze = false,
     this.dazzle = 0.0,
     required this.lidCover,
+    this.tickle = 0.0,
+    this.shakeDeg = 0.0,
+    this.gazeX = 0.0,
+    this.peekOpen = 0.0,
     required this.scleraColor,
     required this.darkCircleOpacity,
     required this.pupilScale,
@@ -367,11 +485,19 @@ class _GhostPainter extends CustomPainter {
       leanDeg = math.sin(phase * 2 * math.pi * 0.5) * 2.4;
     }
 
-    // 레퍼런스 비율: 둥근 머리는 비교적 좁고, 아래로 갈수록 몸이 넓어진다.
-    final bodyW = 154.0 * u;
-    final bodyH = 168.0 * u;
-    final top = cy - bodyH / 2;
-    final bottom = cy + bodyH / 2 - 8 * u; // 물결이 아래로 부풀 여백
+    // Rive SVG 파츠(assets/rive/svg, viewBox 500)와 동일 지오메트리
+    // (개정 2026-08-09). k = SVG 좌표 → 캔버스 배율, 1.25는 화면 크기감 보정.
+    // k = SVG 좌표 → 캔버스 배율. 세로 기준점 252는 캐릭터 중심(261)보다
+    // 위라서 캐릭터가 그만큼 아래로 내려가 **상단 여백**이 생긴다 —
+    // 통통·하품으로 bodyScale이 커질 때 피벗(캐릭터 하단 0.72)에서 멀어지는
+    // 머리가 캔버스 밖으로 나가 잘리던 문제를 막는다 (개정 2026-08-12).
+    final k = size.width / 500 * 1.20;
+    double px(double x) => cx + (x - 250) * k;
+    double py(double y) => cy + (y - 252) * k;
+    final top = py(102);
+    final bottom = py(398);
+    final bodyW = 220.0 * k; // 돔 폭 (SVG 140~360)
+    final bodyH = bottom - top;
 
     // ── glow — 졸릴수록 은은하게 (PRD §7.1, RadialGradient만) ──
     final glowStrength =
@@ -392,7 +518,10 @@ class _GhostPainter extends CustomPainter {
     // ── 몸통 스케일 (통통·기지개·하품·취침 호흡) + 기울기/스트레칭 ──
     canvas.save();
     canvas.translate(cx, cy + bodyH * 0.3);
-    if (leanDeg != 0) canvas.rotate(leanDeg * math.pi / 180);
+    // 간지럼 떨림은 몸통 그룹에 얹는다 — 얼굴·소품까지 함께 흔들린다
+    if (leanDeg != 0 || shakeDeg != 0) {
+      canvas.rotate((leanDeg + shakeDeg) * math.pi / 180);
+    }
     canvas.scale(bodyScale);
     if (activity == LumiDayActivity.stretch) {
       // 아침 스트레칭 (06~08시): 위로 쭉 — 세로 늘어남
@@ -401,76 +530,158 @@ class _GhostPainter extends CustomPainter {
     }
     canvas.translate(-cx, -(cy + bodyH * 0.3));
 
-    // ── 손 (개정 2026-08-09, 첨부 레퍼런스):
-    //    타원이 아니라 몸 옆에서 자연스럽게 솟는 짧은 플리퍼 실루엣.
-    //    활동 모션은 유지하되 평상시 크기와 돌출량을 작게 제한한다.
-    final armSway = math.sin(phase * 2 * math.pi + 1.2) * 4 * hemAmp;
-    final armRaise = smile * 20;
-    // 활동별 손 자세 — 좌우가 다르게 움직일 수 있다
-    double activityRaise(int dir) {
-      switch (activity) {
-        case LumiDayActivity.stretch:
-          // 만세 스트레칭 — 좌우 번갈아 위로 쭉
-          final st = math.sin(phase * 2 * math.pi * 0.45);
-          return (dir == -1 ? math.max(0.0, st) : math.max(0.0, -st)) * 38.0;
-        case LumiDayActivity.coffee:
-          return dir == 1 ? 14.0 : 0.0; // 오른손이 잔 쪽으로
-        case LumiDayActivity.read:
-          return -12.0; // 두 손이 책 쪽으로 내려온다
-        case LumiDayActivity.hum:
-          // 리듬 타기 — 박자에 맞춰 들썩
-          return 6.0 * math.sin(phase * 2 * math.pi * 0.5 + dir * 0.9);
-        case LumiDayActivity.snack:
-          return dir == 1 ? 12.0 : -4.0; // 오른손이 쿠키 쪽으로
-        default:
-          return 0.0;
+    // ── 몸통 (개정 2026-08-09, Rive SVG 정합):
+    //    팔까지 하나로 이어진 실루엣 — 레퍼런스처럼 아웃라인이 끊기지 않는다.
+    //    (별도 손 셰이프 제거. 팔 모션은 Rive 이관 후 본으로 처리)
+    // 재측정 3차 (2026-08-09, 레퍼런스 정합): 캡슐형 팔(두께 38, 수평),
+    // 트럼펫처럼 벌어지는 스커트, 옆선이 코너 스캘럽으로 감아 도는 밑단.
+    // assets/rive/svg/body.svg와 동일 좌표.
+    if (bodyImage != null) {
+      // ── 몸통 PNG (개편 2026-08-12, kLumiBodyStyle.image):
+      //    실루엣·음영·아웃라인은 ghost_body.png가 담당하고, 얼굴·소품은
+      //    아래 코드가 그대로 그린다. 세로(py 98~425)에 균등 스케일로
+      //    맞추고 가로 중앙 정렬 — px/py 좌표계와 정합된다.
+      const src = Rect.fromLTRB(
+        kGhostBodySrcL,
+        kGhostBodySrcT,
+        kGhostBodySrcR,
+        kGhostBodySrcB,
+      );
+      final destTop = py(98);
+      final destH = py(425) - destTop;
+      final scale = destH / src.height;
+      final destW = src.width * scale;
+      final dest = Rect.fromLTWH(cx - destW / 2, destTop, destW, destH);
+      canvas.drawImageRect(
+        bodyImage!,
+        src,
+        dest,
+        Paint()..filterQuality = FilterQuality.medium,
+      );
+    } else {
+      final body = Path()..moveTo(px(100), py(382));
+      // 왼쪽 스커트 — 머리부터 일정한 넓은 각으로 떨어지며 밑단에서 펼쳐진다
+      body.cubicTo(px(112), py(350), px(126), py(308), px(136), py(266));
+      // 왼팔 — 옆선에서 살짝 아래로 기울어 튀어나오는 캡슐
+      body.cubicTo(px(126), py(268.5), px(114), py(270), px(103), py(269));
+      body.cubicTo(px(93), py(268), px(83), py(262), px(82), py(252));
+      body.cubicTo(px(81), py(241), px(89), py(232), px(99), py(231));
+      body.cubicTo(px(112), py(228), px(126), py(225), px(138), py(223));
+      body.cubicTo(px(139), py(221.5), px(140), py(220), px(140), py(218));
+      // 돔 — 반원, 이마는 살짝 봉긋 (개정: apex 106→102)
+      body.cubicTo(px(140), py(152), px(188), py(102), px(250), py(102));
+      body.cubicTo(px(312), py(102), px(360), py(152), px(360), py(218));
+      // 오른팔 (미러)
+      body.cubicTo(px(360), py(220), px(361), py(221.5), px(362), py(223));
+      body.cubicTo(px(374), py(225), px(388), py(228), px(401), py(231));
+      body.cubicTo(px(411), py(232), px(419), py(241), px(418), py(252));
+      body.cubicTo(px(417), py(262), px(407), py(268), px(397), py(269));
+      body.cubicTo(px(386), py(270), px(374), py(268.5), px(364), py(266));
+      body.cubicTo(px(374), py(308), px(388), py(350), px(400), py(382));
+      // 오른쪽 코너 스캘럽 — 큰 반경으로 감아 돈다 (개정: 굵은 웨이브 4개)
+      body.cubicTo(px(403), py(398), px(397), py(413), px(382), py(416));
+      body.cubicTo(px(369), py(418), px(352), py(405), px(342), py(398));
+      // 가운데 스캘럽 2개 — 이 구간만 살아 있는 물결 (애니메이션)
+      final amp = 3.0 * k * hemAmp * math.sin(phase * 2 * math.pi * 1.5);
+      const valleys = [342.0, 250.0, 158.0];
+      const mids = [296.0, 204.0];
+      for (var i = 0; i < 2; i++) {
+        final sx = valleys[i];
+        final ex = valleys[i + 1];
+        final mx = mids[i];
+        final dipY =
+            py(421) +
+            amp * (0.6 + 0.4 * math.sin(phase * 2 * math.pi * 1.5 + i * 0.9));
+        body
+          ..cubicTo(px(sx - 15), py(398), px(mx + 16), dipY, px(mx), dipY)
+          ..cubicTo(px(mx - 16), dipY, px(ex + 15), py(398), px(ex), py(398));
       }
-    }
+      // 왼쪽 코너 스캘럽
+      body.cubicTo(px(148), py(405), px(131), py(418), px(118), py(416));
+      body.cubicTo(px(103), py(413), px(97), py(398), px(100), py(382));
+      body.close();
+      final w2 = bodyW / 2; // 음영 배치용
 
-    bool showBaseArm(int dir) {
-      return switch (activity) {
-        // 오른팔은 소품까지 이어지는 전용 팔로 대체한다.
-        LumiDayActivity.coffee || LumiDayActivity.snack => dir == -1,
-        // 책 아래에 양팔을 새로 그리므로 바깥 기본 팔은 모두 숨긴다.
-        LumiDayActivity.read => false,
-        _ => true,
-      };
-    }
-
-    for (final dir in [-1, 1]) {
-      if (!showBaseArm(dir)) continue;
-      canvas.save();
-      final armX = cx + dir * bodyW * 0.46;
-      final armY = cy - bodyH * 0.03;
-      canvas.translate(armX, armY);
-      canvas.scale(dir.toDouble(), 1); // 좌우 미러
-      final upDeg = 18.0 + armSway + armRaise + activityRaise(dir);
-      final deg = upDeg * (1 - asleepProgress) - 30.0 * asleepProgress;
-      canvas.rotate(-deg * math.pi / 180);
-      final hand = Path()
-        ..moveTo(-8 * u, 10 * u)
-        ..cubicTo(-2 * u, -2 * u, 6 * u, -12 * u, 15 * u, -12 * u)
-        ..cubicTo(25 * u, -12 * u, 29 * u, -4 * u, 27 * u, 4 * u)
-        ..cubicTo(24 * u, 14 * u, 14 * u, 22 * u, 2 * u, 25 * u)
-        ..cubicTo(-3 * u, 22 * u, -7 * u, 17 * u, -8 * u, 10 * u)
-        ..close();
-      final handBounds = hand.getBounds();
+      // 채움: 흰 돔에서 라벤더빛 하단으로 이어지는 부드러운 입체감.
+      final bodyBounds = body.getBounds();
       canvas.drawPath(
-        hand,
+        body,
         Paint()
           ..shader = LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: const [
               Color(0xFFFFFFFF),
+              Color(0xFFFFFEFF),
               Color(0xFFF8F7FC),
-              Color(0xFFE8E7F3),
+              Color(0xFFE8E7F4),
             ],
-            stops: const [0.0, 0.55, 1.0],
-          ).createShader(handBounds),
+            stops: const [0.0, 0.44, 0.72, 1.0],
+          ).createShader(bodyBounds),
       );
+      canvas.save();
+      canvas.clipPath(body);
+      // 좌하단 라벤더 음영 — 레퍼런스처럼 밑단 굴곡을 따라 진해진다.
+      final shL = Offset(cx - w2 * 0.42, bottom + 3 * u);
+      canvas.drawCircle(
+        shL,
+        w2 * 1.05,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFC9C8E8).withValues(alpha: 0.46),
+              const Color(0xFFD9D6E4).withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromCircle(center: shL, radius: w2 * 1.05)),
+      );
+      // 우하단은 푸른 라벤더로 옅게 받쳐 좌우 볼륨을 분리한다.
+      final shR = Offset(cx + w2 * 0.48, bottom + 1 * u);
+      canvas.drawCircle(
+        shR,
+        w2 * 0.72,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFD9DAF3).withValues(alpha: 0.34),
+              const Color(0xFFD9DAF3).withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromCircle(center: shR, radius: w2 * 0.72)),
+      );
+      // 중앙의 옅은 흰 광택과 정수리 하이라이트(블러 없이 gradient).
+      final centerLight = Offset(cx, top + bodyH * 0.48);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: centerLight,
+          width: bodyW * 0.72,
+          height: bodyH * 0.72,
+        ),
+        Paint()
+          ..shader =
+              RadialGradient(
+                colors: [
+                  const Color(0xFFFFFFFF).withValues(alpha: 0.38),
+                  const Color(0xFFFFFFFF).withValues(alpha: 0.0),
+                ],
+              ).createShader(
+                Rect.fromCircle(center: centerLight, radius: bodyW * 0.48),
+              ),
+      );
+      final hlC = Offset(cx - bodyW * 0.14, top + bodyH * 0.14);
+      canvas.drawCircle(
+        hlC,
+        bodyW * 0.40,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFFFFFFF).withValues(alpha: 0.6),
+              const Color(0xFFFFFFFF).withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromCircle(center: hlC, radius: bodyW * 0.40)),
+      );
+      canvas.restore();
+      // 레퍼런스의 둥글고 짙은 네이비 외곽선.
       canvas.drawPath(
-        hand,
+        body,
         Paint()
           ..color = _inkColor
           ..style = PaintingStyle.stroke
@@ -478,161 +689,7 @@ class _GhostPainter extends CustomPainter {
           ..strokeJoin = StrokeJoin.round
           ..strokeCap = StrokeCap.round,
       );
-      canvas.restore();
-    }
-
-    // ── 몸통 (개정 2026-08-09, 첨부 레퍼런스 재현):
-    //    머리는 정확한 반원에 가까운 돔. 좁은 어깨에서 시작한 옆선이
-    //    아래로 갈수록 계속 넓어져 통통한 하단과 연결된다.
-    final w2 = bodyW / 2;
-    final domeR = w2 * 0.79; // 머리 폭 < 하단 폭
-    final domeBaseY = top + domeR; // 반원이 옆선과 만나는 높이
-    final hemHalf = w2 * 0.98;
-    const waves = 4;
-    final segW = hemHalf * 2 / waves;
-    final body = Path()..moveTo(cx - hemHalf, bottom);
-    // 왼쪽 옆선: 밑단에서는 수평, 돔에서는 수직 접선으로 연결한다.
-    // 양 끝의 접선 방향을 맞춰 머리·몸통·밑단 사이 꺾임을 없앤다.
-    body.cubicTo(
-      cx - hemHalf - segW * 0.18,
-      bottom,
-      cx - domeR,
-      domeBaseY + bodyH * 0.28,
-      cx - domeR,
-      domeBaseY,
-    );
-    // 돔: 정확한 반원 호
-    body.arcToPoint(
-      Offset(cx + domeR, domeBaseY),
-      radius: Radius.circular(domeR),
-      clockwise: true,
-    );
-    // 오른쪽 옆선 (미러)
-    body.cubicTo(
-      cx + domeR,
-      domeBaseY + bodyH * 0.28,
-      cx + hemHalf + segW * 0.18,
-      bottom,
-      cx + hemHalf,
-      bottom,
-    );
-    // 물결 밑단 — 봉우리와 골 모두 수평 접선을 갖는 낮고 둥근 스캘럽.
-    // quadratic 한 개로 그릴 때 생기던 봉우리의 뾰족한 cusp를 제거한다.
-    final amp = bodyH * 0.018 * hemAmp * math.sin(phase * 2 * math.pi * 1.5);
-    for (var i = 0; i < waves; i++) {
-      final startX = cx + hemHalf - segW * i;
-      final endX = cx + hemHalf - segW * (i + 1);
-      final midX = (startX + endX) / 2;
-      final dip =
-          bodyH * 0.062 +
-          amp * (0.6 + 0.4 * math.sin(phase * 2 * math.pi * 1.5 + i * 0.9));
-      body
-        ..cubicTo(
-          startX - segW * 0.22,
-          bottom,
-          midX + segW * 0.22,
-          bottom + dip,
-          midX,
-          bottom + dip,
-        )
-        ..cubicTo(
-          midX - segW * 0.22,
-          bottom + dip,
-          endX + segW * 0.22,
-          bottom,
-          endX,
-          bottom,
-        );
-    }
-    body.close();
-
-    // 채움: 흰 돔에서 라벤더빛 하단으로 이어지는 부드러운 입체감.
-    final bodyBounds = body.getBounds();
-    canvas.drawPath(
-      body,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: const [
-            Color(0xFFFFFFFF),
-            Color(0xFFFFFEFF),
-            Color(0xFFF8F7FC),
-            Color(0xFFE8E7F4),
-          ],
-          stops: const [0.0, 0.44, 0.72, 1.0],
-        ).createShader(bodyBounds),
-    );
-    canvas.save();
-    canvas.clipPath(body);
-    // 좌하단 라벤더 음영 — 레퍼런스처럼 밑단 굴곡을 따라 진해진다.
-    final shL = Offset(cx - w2 * 0.42, bottom + 3 * u);
-    canvas.drawCircle(
-      shL,
-      w2 * 1.05,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFFC9C8E8).withValues(alpha: 0.46),
-            const Color(0xFFD9D6E4).withValues(alpha: 0.0),
-          ],
-        ).createShader(Rect.fromCircle(center: shL, radius: w2 * 1.05)),
-    );
-    // 우하단은 푸른 라벤더로 옅게 받쳐 좌우 볼륨을 분리한다.
-    final shR = Offset(cx + w2 * 0.48, bottom + 1 * u);
-    canvas.drawCircle(
-      shR,
-      w2 * 0.72,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFFD9DAF3).withValues(alpha: 0.34),
-            const Color(0xFFD9DAF3).withValues(alpha: 0.0),
-          ],
-        ).createShader(Rect.fromCircle(center: shR, radius: w2 * 0.72)),
-    );
-    // 중앙의 옅은 흰 광택과 정수리 하이라이트(블러 없이 gradient).
-    final centerLight = Offset(cx, top + bodyH * 0.48);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: centerLight,
-        width: bodyW * 0.72,
-        height: bodyH * 0.72,
-      ),
-      Paint()
-        ..shader =
-            RadialGradient(
-              colors: [
-                const Color(0xFFFFFFFF).withValues(alpha: 0.38),
-                const Color(0xFFFFFFFF).withValues(alpha: 0.0),
-              ],
-            ).createShader(
-              Rect.fromCircle(center: centerLight, radius: bodyW * 0.48),
-            ),
-    );
-    final hlC = Offset(cx - bodyW * 0.14, top + bodyH * 0.14);
-    canvas.drawCircle(
-      hlC,
-      bodyW * 0.40,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFFFFFFFF).withValues(alpha: 0.6),
-            const Color(0xFFFFFFFF).withValues(alpha: 0.0),
-          ],
-        ).createShader(Rect.fromCircle(center: hlC, radius: bodyW * 0.40)),
-    );
-    canvas.restore();
-    // 레퍼런스의 둥글고 짙은 네이비 외곽선.
-    canvas.drawPath(
-      body,
-      Paint()
-        ..color = _inkColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4.2 * u
-        ..strokeJoin = StrokeJoin.round
-        ..strokeCap = StrokeCap.round,
-    );
+    } // painted 몸통 끝
 
     // ── 꾸벅꾸벅 (밤, 개편 2026-08-08) — 고개가 천천히 떨어지다 화들짝
     //    되돌아오는 사이클. 눈부실수록(dazzle↑) 잠이 달아나 덜 존다.
@@ -650,26 +707,55 @@ class _GhostPainter extends CustomPainter {
 
     // ── 머리 그룹 (꾸벅 기울기 — 눈·볼·입이 함께 회전) ──
     final headCx = cx;
-    final headCy = top + bodyH * 0.42;
+    // SVG 파츠의 눈 중심(y=202)과 동일 (개정 2026-08-09)
+    final headCy = py(202);
     canvas.save();
     canvas.translate(headCx, headCy);
-    canvas.rotate((headTiltDeg + doze * 13.0) * math.pi / 180);
+    // 두리번거릴 때 고개도 시선을 살짝 따라간다
+    canvas.rotate((headTiltDeg + doze * 13.0 + gazeX * 3.0) * math.pi / 180);
     canvas.translate(-headCx, -headCy + doze * 5 * u);
 
-    // 졸리면 눈 전체가 살짝 작아지고 홍채도 수축한다.
+    // 졸리면 눈이 살짝 작아진다. SVG 파츠(eye_*, 10×16 @ ±36)와 동일 비율
+    // (개정 2026-08-09: 강조 배율 제거 — 레퍼런스처럼 작은 눈 + 얼굴 여백).
     final eyeScale = 0.85 + 0.15 * pupilScale;
     // 눈부심 (개정 2026-08-08): 소품 없이 표정으로 — 눈을 가늘게 찡그린다
     final squint = nightDoze ? ((dazzle - 0.45) / 0.55).clamp(0.0, 1.0) : 0.0;
-    // 졸림 변화가 작은 홈 크기에서도 읽히도록 레퍼런스보다 눈을 약 15% 강조.
-    final eyeDx = 26.0 * u;
-    final eyeRx = 13.5 * u * eyeScale;
-    final eyeRy = 18.0 * u * eyeScale * (1 - 0.68 * squint);
+    final eyeDx = 36.0 * k;
+    final eyeRx = 10.0 * k * eyeScale;
+    final eyeRy = 16.0 * k * eyeScale * (1 - 0.68 * squint);
 
     // 독서 (10~12시): 시선이 책으로 — 눈이 살짝 아래로 내려온다
     final eyeYOff = activity == LumiDayActivity.read ? 3.0 * u : 0.0;
 
+    // 두리번 — 눈(솔리드 타원)이 얼굴 안에서 좌우로 옮겨 다닌다.
+    // 홍채가 없는 디자인이라 이게 곧 시선이다.
+    final gazeShift = gazeX * 5.5 * u;
+
     for (final dir in [-1, 1]) {
-      final ec = Offset(headCx + dir * eyeDx, headCy + eyeYOff);
+      final ec = Offset(headCx + dir * eyeDx + gazeShift, headCy + eyeYOff);
+
+      // 간지럼 — 웃느라 눈이 ∩ 모양으로 접힌다.
+      // 문턱을 낮게 잡아 반응 대부분의 구간에서 웃는 눈이 보이게 한다.
+      if (tickle > 0.12) {
+        final f = ((tickle - 0.12) / 0.88).clamp(0.0, 1.0);
+        final arc = Path()
+          ..moveTo(ec.dx - eyeRx * 1.15, ec.dy + eyeRy * 0.30)
+          ..quadraticBezierTo(
+            ec.dx,
+            ec.dy - eyeRy * (0.35 + 0.55 * f),
+            ec.dx + eyeRx * 1.15,
+            ec.dy + eyeRy * 0.30,
+          );
+        canvas.drawPath(
+          arc,
+          Paint()
+            ..color = _pupilColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3.4 * u
+            ..strokeCap = StrokeCap.round,
+        );
+        continue;
+      }
 
       if (asleepProgress > 0.95) {
         // 완전히 잠듦 — 감은 눈 곡선 한 줄
@@ -692,196 +778,69 @@ class _GhostPainter extends CustomPainter {
         continue;
       }
 
-      // 눈 — 세미리얼 구조: 입체적인 흰자 + 홍채 + 동공 + 캐치라이트.
-      // 세로형 비율은 레퍼런스의 귀여움을 유지하고 내부 구조만 실제 눈처럼 만든다.
+      // 눈 — Rive SVG 파츠와 동일: 솔리드 잉크 세로 타원 (레퍼런스).
       final eyeRect = Rect.fromCenter(
         center: ec,
         width: eyeRx * 2,
         height: eyeRy * 2,
       );
-      canvas.drawOval(
-        eyeRect,
-        Paint()
-          ..shader = const RadialGradient(
-            center: Alignment(-0.25, -0.35),
-            radius: 0.9,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF9FAFF), Color(0xFFD8DCEB)],
-            stops: [0.0, 0.62, 1.0],
-          ).createShader(eyeRect),
-      );
+      canvas.drawOval(eyeRect, Paint()..color = _pupilColor);
 
-      // 홍채는 정면을 보되 독서 중에는 책을 향해 조금 내려간다.
-      final gazeY = activity == LumiDayActivity.read ? 2.2 * u : 0.4 * u;
-      final irisCenter = ec.translate(0, gazeY);
-      final irisRect = Rect.fromCenter(
-        center: irisCenter,
-        width: eyeRx * 1.18 * pupilScale,
-        height: eyeRy * 1.28 * pupilScale,
-      );
-      canvas.drawOval(
-        irisRect,
-        Paint()
-          ..shader = const RadialGradient(
-            center: Alignment(-0.25, -0.30),
-            radius: 0.82,
-            colors: [Color(0xFF66739C), Color(0xFF303853), Color(0xFF111425)],
-            stops: [0.0, 0.50, 1.0],
-          ).createShader(irisRect),
-      );
-      canvas.drawOval(
-        irisRect,
-        Paint()
-          ..color = _inkColor.withValues(alpha: 0.78)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4 * u,
-      );
-
-      final pupilRect = Rect.fromCenter(
-        center: irisCenter.translate(0, 0.8 * u),
-        width: eyeRx * 0.48 * pupilScale,
-        height: eyeRy * 0.70 * pupilScale,
-      );
-      canvas.drawOval(pupilRect, Paint()..color = const Color(0xFF080A14));
-
-      // 두 개의 반사광으로 촉촉한 눈의 깊이를 만든다. 졸릴수록 약해진다.
-      final catchlightAlpha = (0.62 + highlightOpacity * 0.38 + smile * 0.15)
-          .clamp(0.0, 1.0);
-      canvas.drawCircle(
-        irisCenter.translate(-eyeRx * 0.24, -eyeRy * 0.30),
-        2.5 * u,
-        Paint()
-          ..color = const Color(0xFFFFFFFF).withValues(alpha: catchlightAlpha),
-      );
-      canvas.drawCircle(
-        irisCenter.translate(eyeRx * 0.20, eyeRy * 0.23),
-        1.1 * u,
-        Paint()
-          ..color = const Color(
-            0xFFFFFFFF,
-          ).withValues(alpha: catchlightAlpha * 0.72),
-      );
-
-      // 눈의 외곽과 윗눈꺼풀을 분리해 실제 눈처럼 깊이감을 준다.
-      canvas.drawOval(
-        eyeRect,
-        Paint()
-          ..color = _inkColor.withValues(alpha: 0.92)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.0 * u,
-      );
-      final upperLid = Path()
-        ..moveTo(ec.dx - eyeRx * 0.86, ec.dy - eyeRy * 0.42)
-        ..quadraticBezierTo(
-          ec.dx,
-          ec.dy - eyeRy * 1.06,
-          ec.dx + eyeRx * 0.86,
-          ec.dy - eyeRy * 0.42,
+      // happy 반짝 — 기상 순간에만 작은 하이라이트
+      if (smile > 0.05) {
+        canvas.drawCircle(
+          ec.translate(-eyeRx * 0.3, -eyeRy * 0.35),
+          2.6 * u,
+          Paint()
+            ..color = const Color(
+              0xFFFFFFFF,
+            ).withValues(alpha: (smile * 0.9).clamp(0.0, 1.0)),
         );
-      canvas.drawPath(
-        upperLid,
-        Paint()
-          ..color = _inkColor.withValues(alpha: 0.68)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6 * u
-          ..strokeCap = StrokeCap.round,
-      );
+      }
 
-      // 실제 눈꺼풀처럼 위·아래 곡면이 홍채 위를 덮는다.
-      // 꾸벅일 때는 윗눈꺼풀이 무겁게 내려오고, 눈부실 때는 양쪽에서
-      // 조여져 가느다란 눈 틈만 남는다.
+      // 눈꺼풀 — SVG eyelid 규칙: 몸색 덮개가 위에서 내려오고,
+      // 아래 가장자리 ∪ 잉크 곡선은 충분히 감겼을 때만 보인다.
       final lidWithDoze = (lidCover + doze * 0.30).clamp(0.0, 1.0);
       final effLid = lidWithDoze < 0.10 ? 0.0 : (lidWithDoze - 0.10) / 0.90;
-      final upperCover = (effLid + squint * 0.50).clamp(0.0, 1.0);
-      final lowerCover = (squint * 0.42 + doze * 0.08).clamp(0.0, 0.48);
-      if (upperCover > 0.01 || lowerCover > 0.01) {
+      // 실눈 두리번 — 오른쪽 눈만 겨우 뜬다. 왼쪽은 거의 그대로 감긴 채.
+      final open = peekOpen * (dir > 0 ? 0.82 : 0.18);
+      final upperCover = ((effLid + squint * 0.45) * (1 - open)).clamp(
+        0.0,
+        1.0,
+      );
+      if (upperCover > 0.01) {
+        final edgeY = ec.dy - eyeRy + eyeRy * 2 * upperCover;
+        final sag = eyeRx * 0.30; // SVG ∪ 곡률 (Q +6 / 40폭)
         canvas.save();
-        canvas.clipPath(Path()..addOval(eyeRect));
-
-        final upperY = ec.dy - eyeRy + eyeRy * 2 * upperCover;
-        final upperCurve = eyeRy * (0.10 + 0.10 * upperCover);
-        final upperLidShape = Path()
+        canvas.clipPath(Path()..addOval(eyeRect.inflate(1.5 * u)));
+        final lid = Path()
           ..moveTo(ec.dx - eyeRx - 2 * u, ec.dy - eyeRy - 2 * u)
           ..lineTo(ec.dx + eyeRx + 2 * u, ec.dy - eyeRy - 2 * u)
-          ..lineTo(ec.dx + eyeRx + 2 * u, upperY - upperCurve)
+          ..lineTo(ec.dx + eyeRx + 2 * u, edgeY - sag * 0.3)
           ..quadraticBezierTo(
             ec.dx,
-            upperY + upperCurve,
+            edgeY + sag,
             ec.dx - eyeRx - 2 * u,
-            upperY - upperCurve,
+            edgeY - sag * 0.3,
           )
           ..close();
-        canvas.drawPath(
-          upperLidShape,
-          Paint()
-            ..shader = LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: const [Color(0xFFFFFFFF), Color(0xFFECEAF3)],
-            ).createShader(eyeRect),
-        );
-
-        if (lowerCover > 0.01) {
-          final lowerY = ec.dy + eyeRy - eyeRy * 2 * lowerCover;
-          final lowerCurve = eyeRy * (0.08 + 0.08 * lowerCover);
-          final lowerLidShape = Path()
-            ..moveTo(ec.dx - eyeRx - 2 * u, lowerY + lowerCurve)
-            ..quadraticBezierTo(
-              ec.dx,
-              lowerY - lowerCurve,
-              ec.dx + eyeRx + 2 * u,
-              lowerY + lowerCurve,
-            )
-            ..lineTo(ec.dx + eyeRx + 2 * u, ec.dy + eyeRy + 2 * u)
-            ..lineTo(ec.dx - eyeRx - 2 * u, ec.dy + eyeRy + 2 * u)
-            ..close();
-          canvas.drawPath(
-            lowerLidShape,
-            Paint()
-              ..shader = LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: const [Color(0xFFF4F2F8), Color(0xFFFFFFFF)],
-              ).createShader(eyeRect),
-          );
-        }
+        canvas.drawPath(lid, Paint()..color = const Color(0xFFFEFDFF));
         canvas.restore();
-
-        // 눈꺼풀 가장자리: 직선 대신 실제 눈처럼 완만한 곡선.
         if (upperCover > 0.12) {
-          final upperEdge = Path()
-            ..moveTo(ec.dx - eyeRx * 0.92, upperY - upperCurve * 0.85)
+          final edge = Path()
+            ..moveTo(ec.dx - eyeRx, edgeY - sag * 0.3)
             ..quadraticBezierTo(
               ec.dx,
-              upperY + upperCurve,
-              ec.dx + eyeRx * 0.92,
-              upperY - upperCurve * 0.85,
+              edgeY + sag,
+              ec.dx + eyeRx,
+              edgeY - sag * 0.3,
             );
           canvas.drawPath(
-            upperEdge,
+            edge,
             Paint()
-              ..color = _inkColor.withValues(alpha: 0.34 + squint * 0.46)
+              ..color = _inkColor.withValues(alpha: 0.55 + squint * 0.35)
               ..style = PaintingStyle.stroke
-              ..strokeWidth = (1.7 + squint * 0.9) * u
-              ..strokeCap = StrokeCap.round,
-          );
-        }
-        if (lowerCover > 0.08) {
-          final lowerY = ec.dy + eyeRy - eyeRy * 2 * lowerCover;
-          final lowerCurve = eyeRy * (0.08 + 0.08 * lowerCover);
-          final lowerEdge = Path()
-            ..moveTo(ec.dx - eyeRx * 0.88, lowerY + lowerCurve * 0.8)
-            ..quadraticBezierTo(
-              ec.dx,
-              lowerY - lowerCurve,
-              ec.dx + eyeRx * 0.88,
-              lowerY + lowerCurve * 0.8,
-            );
-          canvas.drawPath(
-            lowerEdge,
-            Paint()
-              ..color = _inkColor.withValues(alpha: 0.26 + squint * 0.38)
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.6 * u
+              ..strokeWidth = (2.0 + squint * 0.8) * u
               ..strokeCap = StrokeCap.round,
           );
         }
@@ -1036,13 +995,14 @@ class _GhostPainter extends CustomPainter {
 
     // ── 입 — 기본: 혀가 보이는 열린 미소 (레퍼런스).
     //    졸릴수록 작아지고, 하품 때 크게 열리고, 잠들면 감은 미소.
-    final mouthC = Offset(headCx, headCy + 27 * u);
+    // SVG 파츠의 입 중심(y=232)과 동일 (개정 2026-08-09)
+    final mouthC = Offset(headCx, py(232));
     final restSmile = activity == LumiDayActivity.rest && asleepProgress <= 0.6;
     if (mouthOpen > 0.08) {
-      // 하품 (개정 2026-08-09) — 웃는 입이 아니라 진짜 동그란 하품.
-      // 크게 벌어진 O + 아래쪽 작은 혀.
-      final yw = 10.5 * u * (0.55 + 0.45 * mouthOpen);
-      final yh = 14.5 * u * (0.30 + 0.70 * mouthOpen);
+      // 하품 (개정 2026-08-09) — 평소 입은 작지만 하품만은 과장되게 크다.
+      // 크게 벌어진 O + 아래쪽 작은 혀. (SVG mouth_yawn: 15×21)
+      final yw = 16.0 * k * (0.50 + 0.50 * mouthOpen);
+      final yh = 23.0 * k * (0.25 + 0.75 * mouthOpen);
       final yawnRect = Rect.fromCenter(
         center: mouthC.translate(0, yh * 0.15),
         width: yw * 2,
@@ -1114,9 +1074,10 @@ class _GhostPainter extends CustomPainter {
       final chew = activity == LumiDayActivity.snack
           ? 0.72 + 0.22 * math.sin(phase * 2 * math.pi * 1.15).abs()
           : 1.0;
-      final aw = 12.5 * u * shrink * (1 + 0.20 * smile + 0.30 * mouthOpen);
+      // SVG mouth_happy(30×20)와 동일 비율 (개정 2026-08-09: 축소)
+      final aw = 15.0 * k * shrink * (1 + 0.20 * smile + 0.30 * mouthOpen);
       final ah =
-          11.0 * u * shrink * chew * (1 + 0.45 * smile + 1.5 * mouthOpen);
+          13.0 * k * shrink * chew * (1 + 0.45 * smile + 1.5 * mouthOpen);
       canvas.save();
       canvas.translate(mouthC.dx, mouthC.dy);
       final mouth = Path()
@@ -1445,6 +1406,10 @@ class _GhostPainter extends CustomPainter {
       old.nightDoze != nightDoze ||
       old.dazzle != dazzle ||
       old.lidCover != lidCover ||
+      old.tickle != tickle ||
+      old.shakeDeg != shakeDeg ||
+      old.gazeX != gazeX ||
+      old.peekOpen != peekOpen ||
       old.scleraColor != scleraColor ||
       old.darkCircleOpacity != darkCircleOpacity ||
       old.pupilScale != pupilScale ||
@@ -1455,5 +1420,6 @@ class _GhostPainter extends CustomPainter {
       old.bodyScale != bodyScale ||
       old.mouthOpen != mouthOpen ||
       old.smile != smile ||
-      old.zzzOpacity != zzzOpacity;
+      old.zzzOpacity != zzzOpacity ||
+      old.bodyImage != bodyImage;
 }

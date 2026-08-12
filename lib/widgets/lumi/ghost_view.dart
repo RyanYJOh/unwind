@@ -5,8 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/widgets.dart';
 import 'package:rive/rive.dart' as rive;
 
-import '../../domain/models/lumi_state.dart'
-    show LumiMode, LumiDayActivity;
+import '../../domain/models/lumi_state.dart' show LumiMode, LumiDayActivity;
 import 'ghost_contract.dart';
 import 'ghost_painter_view.dart';
 
@@ -52,7 +51,6 @@ class GhostView extends StatefulWidget {
   @override
   State<GhostView> createState() => _GhostViewState();
 }
-
 
 class _GhostViewState extends State<GhostView> {
   rive.FileLoader? _fileLoader;
@@ -115,6 +113,8 @@ class _GhostViewState extends State<GhostView> {
     switch (event) {
       case GhostEvent.checkOff:
         _vmi?.trigger(GhostContract.vmCheckOff)?.trigger();
+      case GhostEvent.poke:
+        _vmi?.trigger(GhostContract.vmPoke)?.trigger();
       case GhostEvent.allDone:
         _vmi?.boolean(GhostContract.vmAllDone)?.value = true;
       case GhostEvent.wakeUpHappy:
@@ -152,15 +152,15 @@ class _GhostViewState extends State<GhostView> {
   }
 
   Widget _painterFallback() => GhostPainterView(
-        sleepiness: widget.sleepiness,
-        event: widget.event,
-        eventTick: widget.eventTick,
-        size: widget.size,
-        reduceMotion: widget.reduceMotion,
-        mode: widget.mode,
-        activity: widget.activity,
-        dazzle: widget.dazzle,
-      );
+    sleepiness: widget.sleepiness,
+    event: widget.event,
+    eventTick: widget.eventTick,
+    size: widget.size,
+    reduceMotion: widget.reduceMotion,
+    mode: widget.mode,
+    activity: widget.activity,
+    dazzle: widget.dazzle,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -178,10 +178,10 @@ class _GhostViewState extends State<GhostView> {
       height: widget.size,
       child: rive.RiveWidgetBuilder(
         fileLoader: loader,
-        artboardSelector:
-            rive.ArtboardSelector.byName(GhostContract.artboard),
-        stateMachineSelector:
-            rive.StateMachineSelector.byName(GhostContract.stateMachine),
+        artboardSelector: rive.ArtboardSelector.byName(GhostContract.artboard),
+        stateMachineSelector: rive.StateMachineSelector.byName(
+          GhostContract.stateMachine,
+        ),
         dataBind: rive.DataBind.byName(GhostContract.vmName),
         onLoaded: (state) {
           _vmi = state.viewModelInstance;
@@ -193,9 +193,9 @@ class _GhostViewState extends State<GhostView> {
         },
         builder: (context, state) => switch (state) {
           rive.RiveLoaded() => rive.RiveWidget(
-              controller: state.controller,
-              fit: rive.Fit.contain,
-            ),
+            controller: state.controller,
+            fit: rive.Fit.contain,
+          ),
           rive.RiveFailed() =>
             widget.fallbackBuilder?.call(context) ?? _painterFallback(),
           rive.RiveLoading() => const SizedBox.shrink(),

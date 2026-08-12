@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Left Eyelid: 몸색 덮개 + 아래 가장자리 잉크 곡선(∪).
+       기본(눈 뜸) 위치 = 가장자리가 눈 위(y≈180).
+       Y +40 이동 = 완전히 감김 → ∪ 곡선만 남아 "잠든 눈"이 된다.
+       중간값 = 졸린 단계. Rive 리깅:
+       - sleepiness → EyelidL translateY (0 → +40)
+       - lidEdge(잉크 곡선) opacity: 눈 뜬 상태 0 → 감기 시작하면 1
+         (뜬 상태에서 이마에 선이 보이지 않게) -->
+  <g id="EyelidL">
+    <path id="lidFillL" d="M 194 110 L 234 110 L 234 180 Q 214 186 194 180 Z"
+      fill="#FEFDFF"/>
+    <path id="lidEdgeL" d="M 194 180 Q 214 186 234 180"
+      fill="none" stroke="#1E1A2E" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>

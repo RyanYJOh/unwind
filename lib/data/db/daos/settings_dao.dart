@@ -12,8 +12,9 @@ class SettingsDao extends DatabaseAccessor<UnwindDatabase>
   SettingsDao(super.db);
 
   Future<String?> getValue(String key) async {
-    final row = await (select(settings)..where((s) => s.key.equals(key)))
-        .getSingleOrNull();
+    final row = await (select(
+      settings,
+    )..where((s) => s.key.equals(key))).getSingleOrNull();
     return row?.value;
   }
 
@@ -23,8 +24,9 @@ class SettingsDao extends DatabaseAccessor<UnwindDatabase>
           .map((row) => row?.value);
 
   Future<void> setValue(String key, String value) {
-    return into(settings).insertOnConflictUpdate(
-        SettingsCompanion.insert(key: key, value: value));
+    return into(
+      settings,
+    ).insertOnConflictUpdate(SettingsCompanion.insert(key: key, value: value));
   }
 
   // 기본값 헬퍼 (§4.5)

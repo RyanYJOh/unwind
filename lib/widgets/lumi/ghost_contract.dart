@@ -10,7 +10,8 @@ abstract final class GhostContract {
   static const vmCheckOff = 'checkOff'; // Trigger
   static const vmAllDone = 'allDone'; // Boolean
   static const vmHappy = 'happy'; // Boolean
+  static const vmPoke = 'poke'; // Trigger (개편 2026-08-12)
 }
 
 /// 브리프 §0 — 이산 이벤트
-enum GhostEvent { checkOff, allDone, wakeUpHappy }
+enum GhostEvent { checkOff, allDone, wakeUpHappy, poke }

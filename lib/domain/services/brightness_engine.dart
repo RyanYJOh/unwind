@@ -15,10 +15,10 @@ class BrightnessEngine {
 
   // 명명 인자는 private 필드 initializing formal을 쓸 수 없다.
   BrightnessEngine({double peakProgress = 0.0, bool lightsOut = false})
+    // ignore: prefer_initializing_formals
+    : _peakProgress = peakProgress,
       // ignore: prefer_initializing_formals
-      : _peakProgress = peakProgress,
-        // ignore: prefer_initializing_formals
-        _lightsOut = lightsOut;
+      _lightsOut = lightsOut;
 
   double get peakProgress => _peakProgress;
   bool get lightsOut => _lightsOut;
@@ -50,8 +50,7 @@ class BrightnessEngine {
 
   /// 완료 취소: peakProgress = raw (명시적 되돌리기이므로 하강 허용)
   void onItemUncompleted({required int doneCount, required int totalCount}) {
-    _peakProgress =
-        rawProgress(doneCount: doneCount, totalCount: totalCount);
+    _peakProgress = rawProgress(doneCount: doneCount, totalCount: totalCount);
   }
 
   /// 항목 삭제: peakProgress = max(peak, raw)

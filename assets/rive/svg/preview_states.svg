@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <!-- 검증용 조립 프리뷰 (Rive에는 넣지 않음).
+       좌상: 기쁨(눈꺼풀 에지 opacity 0 상태) / 우상: 졸림(눈꺼풀 +22, 처진 입)
+       좌하: 잠듦(눈꺼풀 +40, ∪미소) / 우하: 하품(눈꺼풀 +34, O입) -->
+  <defs>
+    <linearGradient id="bodyFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.62" stop-color="#FDFCFE"/>
+      <stop offset="1" stop-color="#F3F1F8"/>
+    </linearGradient>
+    <radialGradient id="blush" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F5A9B8" stop-opacity="0.85"/>
+      <stop offset="0.75" stop-color="#F5A9B8" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#F5A9B8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hemWash" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D6D0E5" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#D6D0E5" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#D6D0E5" stop-opacity="0.85"/>
+    </linearGradient>
+    <radialGradient id="lobeL" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#D8D3E6" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#D8D3E6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lobeR" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#DCD7E9" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#DCD7E9" stop-opacity="0"/>
+    </radialGradient>
+
+    <g id="ghostBase">
+      <path
+        d="M 100 382
+         C 112 350 126 308 136 266
+         C 126 268.5 114 270 103 269
+         C 93 268 83 262 82 252
+         C 81 241 89 232 99 231
+         C 112 228 126 225 138 223
+         C 139 221.5 140 220 140 218
+         C 140 152 188 102 250 102
+         C 312 102 360 152 360 218
+         C 360 220 361 221.5 362 223
+         C 374 225 388 228 401 231
+         C 411 232 419 241 418 252
+         C 417 262 407 268 397 269
+         C 386 270 374 268.5 364 266
+         C 374 308 388 350 400 382
+         C 403 398 397 413 382 416
+         C 369 418 352 405 342 398
+         C 327 398 312 421 296 421
+         C 280 421 265 398 250 398
+         C 235 398 220 421 204 421
+         C 188 421 173 398 158 398
+         C 148 405 131 418 118 416
+         C 103 413 97 398 100 382
+         Z"
+        fill="url(#bodyFill)" stroke="#1E1A2E" stroke-width="8"
+        stroke-linejoin="round" stroke-linecap="round"/>
+      <path
+        d="M 116 330
+         C 184 348 316 348 384 330
+         L 396 380
+         C 399 395 393 409 379 412
+         C 367 414 351 403 341 396
+         C 326 396 312 417 296 417
+         C 280 417 266 396 250 396
+         C 235 396 221 417 205 417
+         C 189 417 175 396 160 396
+         C 150 402 134 414 122 412
+         C 108 409 102 395 104 380
+         Z"
+        fill="url(#hemWash)"/>
+      <ellipse cx="162" cy="348" rx="50" ry="60" fill="url(#lobeL)"/>
+      <ellipse cx="340" cy="350" rx="46" ry="56" fill="url(#lobeR)"/>
+      <ellipse cx="192" cy="222" rx="14" ry="9.5" fill="url(#blush)"/>
+      <ellipse cx="308" cy="222" rx="14" ry="9.5" fill="url(#blush)"/>
+      <ellipse cx="214" cy="202" rx="10" ry="16" fill="#1E1A2E"/>
+      <ellipse cx="286" cy="202" rx="10" ry="16" fill="#1E1A2E"/>
+    </g>
+
+    <!-- 눈꺼풀: fill은 항상, 에지는 감길 때만 (opacity 리깅 시뮬레이션) -->
+    <g id="lidFills">
+      <path d="M 194 110 L 234 110 L 234 180 Q 214 186 194 180 Z" fill="#FEFDFF"/>
+      <path d="M 266 110 L 306 110 L 306 180 Q 286 186 266 180 Z" fill="#FEFDFF"/>
+    </g>
+    <g id="lidEdges">
+      <path d="M 194 180 Q 214 186 234 180" fill="none" stroke="#1E1A2E"
+        stroke-width="5" stroke-linecap="round"/>
+      <path d="M 266 180 Q 286 186 306 180" fill="none" stroke="#1E1A2E"
+        stroke-width="5" stroke-linecap="round"/>
+    </g>
+
+    <g id="mouthHappy">
+      <path d="M 235 222 Q 250 227 265 222
+               C 269.5 232 263.5 242 250 242
+               C 236.5 242 230.5 232 235 222 Z"
+        fill="#221C31" stroke="#1E1A2E" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M 241 233 Q 245.5 230 250 233 Q 254.5 230 259 233
+               C 257.5 240.5 242.5 240.5 241 233 Z" fill="#F0798C"/>
+    </g>
+    <g id="mouthYawn">
+      <ellipse cx="250" cy="234" rx="15" ry="21"
+        fill="#221C31" stroke="#1E1A2E" stroke-width="4"/>
+      <path d="M 239.5 245 C 242.5 252.5 257.5 252.5 260.5 245
+               Q 250 238.5 239.5 245 Z" fill="#F0798C"/>
+    </g>
+    <g id="mouthSleep">
+      <path d="M 238 226 Q 250 236 262 226" fill="none" stroke="#1E1A2E"
+        stroke-width="5.5" stroke-linecap="round"/>
+    </g>
+    <g id="mouthTired">
+      <path d="M 240 231 Q 250 225 260 231" fill="none" stroke="#1E1A2E"
+        stroke-width="5" stroke-linecap="round"/>
+    </g>
+  </defs>
+
+  <rect width="1000" height="1000" fill="#F4F1EA"/>
+
+  <!-- 기쁨 (기본 — 에지 숨김) -->
+  <g>
+    <use href="#ghostBase"/>
+    <use href="#mouthHappy"/>
+  </g>
+  <!-- 졸림 -->
+  <g transform="translate(500 0)">
+    <use href="#ghostBase"/>
+    <use href="#lidFills" transform="translate(0 22)"/>
+    <use href="#lidEdges" transform="translate(0 22)"/>
+    <use href="#mouthTired"/>
+  </g>
+  <!-- 잠듦 -->
+  <g transform="translate(0 500)">
+    <use href="#ghostBase"/>
+    <use href="#lidFills" transform="translate(0 40)"/>
+    <use href="#lidEdges" transform="translate(0 40)"/>
+    <use href="#mouthSleep"/>
+  </g>
+  <!-- 하품 -->
+  <g transform="translate(500 500)">
+    <use href="#ghostBase"/>
+    <use href="#lidFills" transform="translate(0 34)"/>
+    <use href="#lidEdges" transform="translate(0 34)"/>
+    <use href="#mouthYawn"/>
+  </g>
+</svg>

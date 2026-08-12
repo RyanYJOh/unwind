@@ -3,10 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/haptics/haptics.dart';
+import 'core/tokens/palette.dart';
 import 'core/tokens/typography.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'features/onboarding/onboarding_flow.dart';
 import 'features/settings/settings_controller.dart';
+import 'features/today/providers.dart';
 import 'features/today/today_screen.dart';
 
 void main() {
@@ -20,16 +23,38 @@ class UnwindApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // §6.6 온보딩 — 완료 전에는 온보딩으로 (로딩 중에는 빈 화면 대신 홈 유지)
-    final onboarded = ref.watch(settingsControllerProvider
-        .select((s) => s.value?.onboardingCompleted));
+    final onboarded = ref.watch(
+      settingsControllerProvider.select((s) => s.value?.onboardingCompleted),
+    );
     // 기본 영어 — 설정에서 변경 (지원 언어는 l10n/*.arb 추가로 확장)
-    final languageCode = ref.watch(settingsControllerProvider
-            .select((s) => s.value?.languageCode)) ??
+    final languageCode =
+        ref.watch(
+          settingsControllerProvider.select((s) => s.value?.languageCode),
+        ) ??
         'en';
+    // 설정과 연동된 햅틱 인스턴스를 트리 전체에 흘려보낸다 —
+    // lib/ui/ 컴포넌트는 이 스코프에서 꺼내 쓴다 (Riverpod을 모른다).
+    final haptics = ref.watch(hapticsProvider);
+
     return MaterialApp(
       title: 'Unwind',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(fontFamily: UnwindType.fontFamily),
+      // 앱은 항상 다크다 (디자인 시스템 v2). Material 위젯(TextField·
+      // 다이얼로그 등)이 밝은 기본값으로 새는 것을 여기서 막는다.
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        fontFamily: UnwindType.fontFamily,
+        scaffoldBackgroundColor: UnwindColors.ink,
+        canvasColor: UnwindColors.ink,
+        splashColor: const Color(0x00000000),
+        highlightColor: const Color(0x00000000),
+        colorScheme: const ColorScheme.dark(
+          surface: UnwindColors.surface,
+          primary: UnwindColors.accent,
+          onPrimary: UnwindColors.onAccent,
+          error: UnwindColors.danger,
+        ),
+      ),
       locale: Locale(languageCode),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -37,17 +62,17 @@ class UnwindApp extends ConsumerWidget {
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         final scale = math.min(
-            mq.textScaler.scale(16) / 16, UnwindType.maxTextScale);
+          mq.textScaler.scale(16) / 16,
+          UnwindType.maxTextScale,
+        );
         return MediaQuery(
           data: mq.copyWith(textScaler: TextScaler.linear(scale)),
-          child: child!,
+          child: UnwindHapticsScope(haptics: haptics, child: child!),
         );
       },
       // M0 감각 프로토타입은 lib/features/today/m0_prototype_screen.dart에 유지
       // (실기기 감각 검증용 — §13 M0 승인 전까지 보존)
-      home: onboarded == false
-          ? const OnboardingFlow()
-          : const TodayScreen(),
+      home: onboarded == false ? const OnboardingFlow() : const TodayScreen(),
     );
   }
 }

@@ -3,8 +3,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../core/theme/unwind_theme.dart';
 import '../../core/tokens/motion.dart';
+import '../../core/tokens/palette.dart';
 import '../../domain/models/lumi_state.dart';
 import 'lumi_parts.dart';
 
@@ -18,13 +18,18 @@ class LumiDummyView extends StatefulWidget {
   /// Reduce Motion (§9.5) — 부유·물결·호흡 정지
   final bool reduceMotion;
 
-  const LumiDummyView({super.key, required this.state, this.reduceMotion = false});
+  const LumiDummyView({
+    super.key,
+    required this.state,
+    this.reduceMotion = false,
+  });
 
   @override
   State<LumiDummyView> createState() => _LumiDummyViewState();
 }
 
-class _LumiDummyViewState extends State<LumiDummyView> with TickerProviderStateMixin {
+class _LumiDummyViewState extends State<LumiDummyView>
+    with TickerProviderStateMixin {
   late final AnimationController _idle; // 부유 + hem 위상 공용 틱
   late final AnimationController _blink; // 깜빡임 (내려갔다 올라옴)
   late final AnimationController _yawn;
@@ -39,20 +44,30 @@ class _LumiDummyViewState extends State<LumiDummyView> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _idle = AnimationController(vsync: this, duration: const Duration(seconds: 6))
-      ..repeat();
+    _idle = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
     _blink = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 180));
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
     _yawn = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1600));
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
     _react = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: UnwindMotion.lumiReactMs));
+      vsync: this,
+      duration: const Duration(milliseconds: UnwindMotion.lumiReactMs),
+    );
     _doze = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1100));
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
     _sleep = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: UnwindMotion.lumiFallAsleepMs));
+      vsync: this,
+      duration: const Duration(milliseconds: UnwindMotion.lumiFallAsleepMs),
+    );
     _scheduleBehavior();
   }
 
@@ -71,7 +86,8 @@ class _LumiDummyViewState extends State<LumiDummyView> with TickerProviderStateM
     }
     if (widget.reduceMotion && _idle.isAnimating) {
       _idle.stop();
-    } else if (!widget.reduceMotion && !_idle.isAnimating &&
+    } else if (!widget.reduceMotion &&
+        !_idle.isAnimating &&
         !widget.state.isAsleep) {
       _idle.repeat();
     }
@@ -88,21 +104,27 @@ class _LumiDummyViewState extends State<LumiDummyView> with TickerProviderStateM
     if (b < 0.3) {
       // 눈 뜨고 있음, 가끔 깜빡임 4~8초
       next = Duration(
-          milliseconds: (UnwindMotion.lumiBlinkMinS * 1000 +
-                  _rng.nextInt((UnwindMotion.lumiBlinkMaxS -
-                          UnwindMotion.lumiBlinkMinS) *
-                      1000))
-              .toInt());
+        milliseconds:
+            (UnwindMotion.lumiBlinkMinS * 1000 +
+                    _rng.nextInt(
+                      (UnwindMotion.lumiBlinkMaxS -
+                              UnwindMotion.lumiBlinkMinS) *
+                          1000,
+                    ))
+                .toInt(),
+      );
       action = _doBlink;
     } else if (b < 0.6) {
       // 하품 시작 12~20초 (사이사이 깜빡임)
       final yawnNow = _rng.nextBool();
       if (yawnNow) {
         next = Duration(
-            milliseconds: UnwindMotion.lumiYawnMinS * 1000 +
-                _rng.nextInt((UnwindMotion.lumiYawnMaxS -
-                        UnwindMotion.lumiYawnMinS) *
-                    1000));
+          milliseconds:
+              UnwindMotion.lumiYawnMinS * 1000 +
+              _rng.nextInt(
+                (UnwindMotion.lumiYawnMaxS - UnwindMotion.lumiYawnMinS) * 1000,
+              ),
+        );
         action = _doYawn;
       } else {
         next = Duration(milliseconds: 4000 + _rng.nextInt(4000));
@@ -154,13 +176,18 @@ class _LumiDummyViewState extends State<LumiDummyView> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final colors = UnwindTheme.of(context);
     final b = widget.state.brightness;
 
     return RepaintBoundary(
       child: AnimatedBuilder(
-        animation: Listenable.merge(
-            [_idle, _blink, _yawn, _react, _doze, _sleep]),
+        animation: Listenable.merge([
+          _idle,
+          _blink,
+          _yawn,
+          _react,
+          _doze,
+          _sleep,
+        ]),
         builder: (context, _) {
           final asleepP = _sleep.value; // 0 → 1 잠드는 진행
           final isAsleep = widget.state.isAsleep;
@@ -177,8 +204,10 @@ class _LumiDummyViewState extends State<LumiDummyView> with TickerProviderStateM
               : (1 - Curves.easeOutBack.transform((dozeT - 0.75) / 0.25)) * 7.0;
 
           // §7.1 lid: 조도에 비례해 감김. 취침 시퀀스가 나머지를 마저 감는다.
-          final lidClose =
-              (b * 0.85 + asleepP * (1 - b * 0.85)).clamp(0.0, 1.0);
+          final lidClose = (b * 0.85 + asleepP * (1 - b * 0.85)).clamp(
+            0.0,
+            1.0,
+          );
           final blinkClose = _blink.value; // 깜빡임 순간 감김
           final eyeOpen = isAsleep && asleepP == 1
               ? 0.0
@@ -188,7 +217,8 @@ class _LumiDummyViewState extends State<LumiDummyView> with TickerProviderStateM
           final yawnP = math.sin(_yawn.value * math.pi);
 
           // 체크 반응: 0.03 커졌다 돌아옴 (§7.3)
-          final reactScale = 1.0 +
+          final reactScale =
+              1.0 +
               math.sin(_react.value * math.pi) * UnwindMotion.lumiReactScale;
 
           // 취침 시 아주 느린 호흡만 (§7.3)
@@ -210,11 +240,10 @@ class _LumiDummyViewState extends State<LumiDummyView> with TickerProviderStateM
                   // 물결: 조도가 낮을수록 진폭·속도 감소, 취침 시 정지 (§7.1)
                   hemAmplitude: widget.reduceMotion || isAsleep
                       ? 0.0
-                      : (1 - b) .clamp(0.15, 1.0),
+                      : (1 - b).clamp(0.15, 1.0),
                   droop: b * 8.0, // 조도에 따라 아래로 쳐짐
-                  glowStrength:
-                      (0.25 + 0.75 * b) * (isAsleep ? 0.7 : 1.0),
-                  glowColor: colors.lamp,
+                  glowStrength: (0.25 + 0.75 * b) * (isAsleep ? 0.7 : 1.0),
+                  glowColor: UnwindColors.accent,
                 ),
               ),
             ),

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/models/lumi_state.dart'
-    show LumiMode, LumiDayActivity;
+import '../../domain/models/lumi_state.dart' show LumiMode, LumiDayActivity;
 import '../../widgets/lumi/ghost_view.dart';
 
 /// Rive 브리프 §6.4 — 검증용 데모 화면 (개발 전용, 배포 빌드에서 제거).
 /// 슬라이더로 sleepiness를 스크럽하고 트리거 4종을 발사한다.
 /// 이 화면이 동작하면 앱 본체 연결은 prop 배선뿐이다.
 Future<void> showGhostDemoScreen(BuildContext context) {
-  return Navigator.of(context, rootNavigator: true).push(
-    MaterialPageRoute(builder: (_) => const GhostDemoScreen()),
-  );
+  return Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push(MaterialPageRoute(builder: (_) => const GhostDemoScreen()));
 }
 
 class GhostDemoScreen extends StatefulWidget {
@@ -80,8 +80,7 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
                 for (final a in LumiDayActivity.values)
                   ChoiceChip(
                     label: Text(a.name),
-                    selected:
-                        _mode == LumiMode.day && _activity == a,
+                    selected: _mode == LumiMode.day && _activity == a,
                     onSelected: (_) => _setActivity(a),
                   ),
                 ChoiceChip(
@@ -97,8 +96,7 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
                 ),
                 ChoiceChip(
                   label: const Text('night 꾸벅'),
-                  selected:
-                      _mode == LumiMode.nightAwake && _dazzle <= 0.5,
+                  selected: _mode == LumiMode.nightAwake && _dazzle <= 0.5,
                   onSelected: (_) => setState(() {
                     _mode = LumiMode.nightAwake;
                     _activity = null;
@@ -159,6 +157,12 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
                 OutlinedButton(
                   onPressed: () => _fire(GhostEvent.wakeUpHappy),
                   child: const Text('happy'),
+                ),
+                // 톡 건드리기 (개편 2026-08-12) — 반응은 렌더러가 모드를 보고
+                // 고른다: 깨어있으면 간지럼, 졸리면 실눈 두리번, 자면 무반응.
+                OutlinedButton(
+                  onPressed: () => _fire(GhostEvent.poke),
+                  child: const Text('poke (톡)'),
                 ),
               ],
             ),

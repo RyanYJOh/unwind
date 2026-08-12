@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Shadow: 몸통 위에 얹는 라벤더 음영 레이어 (Body 위, 아웃라인은 침범하지
+       않도록 실루엣보다 안쪽으로 인셋 + 가장자리 페이드). 블러·마스크 없음 —
+       Rive 임포트 안전하게 그라데이션만 사용. -->
+  <defs>
+    <linearGradient id="hemWash" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D6D0E5" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#D6D0E5" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#D6D0E5" stop-opacity="0.85"/>
+    </linearGradient>
+    <radialGradient id="lobeL" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#D8D3E6" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#D8D3E6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lobeR" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#DCD7E9" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#DCD7E9" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g id="Shadow">
+    <path id="hem"
+      d="M 116 330
+         C 184 348 316 348 384 330
+         L 396 380
+         C 399 395 393 409 379 412
+         C 367 414 351 403 341 396
+         C 326 396 312 417 296 417
+         C 280 417 266 396 250 396
+         C 235 396 221 417 205 417
+         C 189 417 175 396 160 396
+         C 150 402 134 414 122 412
+         C 108 409 102 395 104 380
+         Z"
+      fill="url(#hemWash)"/>
+    <ellipse id="shadeL" cx="162" cy="348" rx="50" ry="60" fill="url(#lobeL)"/>
+    <ellipse id="shadeR" cx="340" cy="350" rx="46" ry="56" fill="url(#lobeR)"/>
+  </g>
+</svg>

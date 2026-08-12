@@ -81,6 +81,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get lumiSleepingNotice => 'Lumi가 자고 있어요. 내일 방에 놓아둘게요';
 
   @override
+  String get lumiPokeLabel => '루미';
+
+  @override
+  String get toastTaskDeleted => '방에서 치웠어요';
+
+  @override
+  String get undo => '되돌리기';
+
+  @override
   String get toastTaskAdded => '새 불이 켜졌어요';
 
   @override
@@ -94,6 +103,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get chooseDate => '날짜 선택';
+
+  @override
+  String get repeatSection => '반복';
 
   @override
   String get repeatNone => '반복 없음';

@@ -1,27 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart'
-    show
-        Checkbox,
-        Icons,
-        InputBorder,
-        InputDecoration,
-        Material,
-        MaterialLocalizations,
-        MaterialType,
-        TextField,
-        TimeOfDay;
+    show Icons, MaterialLocalizations, TimeOfDay;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/unwind_theme.dart';
-import '../../core/tokens/color_ramp.dart';
-import '../../core/tokens/design_variant.dart';
-import '../../core/tokens/motion.dart';
+import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../core/utils/dates.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
-import '../../widgets/top_toast.dart';
+import '../../ui/ui.dart';
 import '../today/providers.dart';
 import 'date_bar.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -36,45 +24,10 @@ Future<void> showComposeSheet(
   Todo? existing,
   String? initialDate,
 }) {
-  return Navigator.of(
+  return showUnwindSheet<void>(
     context,
-    rootNavigator: true,
-  ).push(_ComposeSheetRoute(existing: existing, initialDate: initialDate));
-}
-
-/// 커스텀 모달 라우트 — Material 바텀시트 대신 §9.4 시트 모션(320ms, theme)
-class _ComposeSheetRoute extends PopupRoute<void> {
-  final Todo? existing;
-  final String? initialDate;
-  _ComposeSheetRoute({this.existing, this.initialDate});
-
-  @override
-  Color? get barrierColor => const Color(0x66000000);
-
-  @override
-  bool get barrierDismissible => true;
-
-  @override
-  String? get barrierLabel => '닫기';
-
-  @override
-  Duration get transitionDuration =>
-      const Duration(milliseconds: UnwindMotion.sheetMs);
-
-  @override
-  Widget buildPage(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-  ) {
-    return SlideTransition(
-      position: Tween(
-        begin: const Offset(0, 1),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(parent: animation, curve: UnwindMotion.theme)),
-      child: ComposeSheet(existing: existing, initialDate: initialDate),
-    );
-  }
+    builder: (_) => ComposeSheet(existing: existing, initialDate: initialDate),
+  );
 }
 
 class ComposeSheet extends ConsumerStatefulWidget {
@@ -96,6 +49,9 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
   bool _autoDefer = false;
   int? _scheduledTimeMinutes;
   bool _timeOpen = false;
+
+  /// 저장 CTA 활성 여부 — 제목이 비면 누를 수 없다
+  bool _canSave = false;
 
   /// §6.3 반복 (접힌 상태). null = 반복 없음.
   RecurrenceRule? _rule;
@@ -140,10 +96,18 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
           widget.existing!.recurrenceId == null && widget.existing!.autoDefer;
       _scheduledTimeMinutes = widget.existing!.scheduledTimeMinutes;
     }
+    _canSave = _titleController.text.trim().isNotEmpty;
+    _titleController.addListener(_onTitleChanged);
+  }
+
+  void _onTitleChanged() {
+    final can = _titleController.text.trim().isNotEmpty;
+    if (can != _canSave && mounted) setState(() => _canSave = can);
   }
 
   @override
   void dispose() {
+    _titleController.removeListener(_onTitleChanged);
     _titleController.dispose();
     _memoController.dispose();
     _titleFocus.dispose();
@@ -212,428 +176,273 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
       );
     }
 
-    // 추가 확인 토스트 — 푸시 알림 형태, 상단 (개편 2026-08-08)
+    // 저장하면 키보드와 함께 시트도 닫힌다 (개정 2026-08-12).
+    // 확인 토스트는 없앴다 — 방에 등이 하나 늘어난 것이 곧 피드백이다.
     if (mounted) {
-      showTopToast(
-        context,
-        title: title,
-        body: AppLocalizations.of(context).toastTaskAdded,
-      );
+      ref.read(hapticsProvider).success();
+      Navigator.of(context).pop();
     }
-
-    // 저장 후 시트는 유지하되 키보드는 닫는다.
-    _titleController.clear();
-    _memoController.clear();
-    setState(() {
-      _memoOpen = false;
-      _calendarOpen = false;
-      _rule = null;
-      _autoDefer = false;
-      _scheduledTimeMinutes = null;
-      _timeOpen = false;
-    });
   }
+
+  String _timeText(BuildContext context) =>
+      MaterialLocalizations.of(context).formatTimeOfDay(
+        TimeOfDay(
+          hour: _scheduledTimeMinutes! ~/ 60,
+          minute: _scheduledTimeMinutes! % 60,
+        ),
+        alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final t = ref.watch(brightnessProvider);
-    final colors = kRoomDesign == RoomDesign.darkGlow
-        ? lerpRamp(1.0)
-        : lerpRamp(t);
     final l10n = AppLocalizations.of(context);
     final todayKey = ref.watch(todayKeyProvider);
     final asleep = ref.watch(isAsleepProvider);
-    final haptics = ref.watch(hapticsProvider);
+    final recurring = _rule != null || widget.existing?.recurrenceId != null;
 
-    // §6.3 함정 2: viewInsets를 직접 읽어 Padding에 즉시 반영
-    // (AnimatedPadding을 쓰면 iOS 키보드 곡선과 어긋난다 — 실기기 검증 필요)
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return UnwindTheme(
-      colors: colors,
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: bottomInset),
-          child: Material(
-            type: MaterialType.transparency,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(UnwindRadius.lg),
+    return UnwindSheet(
+      showHandle: true,
+      padding: const EdgeInsets.fromLTRB(
+        UnwindSpacing.s20,
+        0,
+        UnwindSpacing.s20,
+        UnwindSpacing.s12,
+      ),
+      bottomBar: DateBar(
+        dateKey: _dateKey,
+        todayKey: todayKey,
+        onDateChanged: (d) => setState(() => _dateKey = d),
+        onCalendarTap: () => setState(() => _calendarOpen = !_calendarOpen),
+        onSave: _save,
+        canSave: _canSave,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (asleep && !_isEdit) ...[
+              Text(
+                l10n.lumiSleepingNotice,
+                style: UnwindType.caption.copyWith(
+                  color: UnwindColors.textSecondary,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.shadow,
-                    blurRadius: 24,
-                    offset: const Offset(0, -6),
-                  ),
-                ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (asleep && !_isEdit)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                left: UnwindSpacing.s24,
-                                right: UnwindSpacing.s24,
-                                top: UnwindSpacing.s16,
-                              ),
-                              child: Text(
-                                l10n.lumiSleepingNotice,
-                                style: UnwindType.caption.copyWith(
-                                  color: colors.textSecondary,
-                                  decoration: TextDecoration.none,
-                                ),
-                              ),
-                            ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              UnwindSpacing.s24,
-                              UnwindSpacing.s16,
-                              UnwindSpacing.s24,
-                              0,
-                            ),
-                            child: TextField(
-                              controller: _titleController,
-                              focusNode: _titleFocus,
-                              autofocus: true, // §6.3 키보드 즉시
-                              maxLength: 200,
-                              style: UnwindType.body.copyWith(
-                                color: colors.textPrimarySnap,
-                              ),
-                              cursorColor: colors.lamp,
-                              decoration: InputDecoration(
-                                hintText: l10n.taskHint,
-                                hintStyle: UnwindType.body.copyWith(
-                                  color: colors.textMuted,
-                                ),
-                                border: InputBorder.none,
-                                counterText: '',
-                              ),
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (_) => _save(),
-                              onEditingComplete: () {}, // 포커스 유지 (연속 입력)
-                            ),
-                          ),
-                          // 메모 (선택, 접힌 상태 — §6.3 구조)
-                          if (_memoOpen)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: UnwindSpacing.s24,
-                              ),
-                              child: TextField(
-                                controller: _memoController,
-                                maxLength: 2000,
-                                maxLines: 3,
-                                minLines: 1,
-                                style: UnwindType.label.copyWith(
-                                  color: colors.textSecondary,
-                                ),
-                                cursorColor: colors.lamp,
-                                decoration: InputDecoration(
-                                  hintText: l10n.memoHint,
-                                  hintStyle: UnwindType.label.copyWith(
-                                    color: colors.textMuted,
-                                  ),
-                                  border: InputBorder.none,
-                                  counterText: '',
-                                ),
-                              ),
-                            )
-                          else
-                            GestureDetector(
-                              onTap: () => setState(() => _memoOpen = true),
-                              behavior: HitTestBehavior.opaque,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: UnwindSpacing.s24,
-                                  vertical: UnwindSpacing.s8,
-                                ),
-                                child: Text(
-                                  l10n.addMemo,
-                                  style: UnwindType.caption.copyWith(
-                                    color: colors.textMuted,
-                                    decoration: TextDecoration.none,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: UnwindSpacing.s16,
-                              vertical: UnwindSpacing.s4,
-                            ),
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap:
-                                  (_rule != null ||
-                                      widget.existing?.recurrenceId != null)
-                                  ? null
-                                  : () => setState(() {
-                                      _autoDefer = !_autoDefer;
-                                      if (_autoDefer) _rule = null;
-                                    }),
-                              child: Row(
-                                children: [
-                                  Checkbox(
-                                    value: _autoDefer,
-                                    activeColor: colors.lamp,
-                                    checkColor: colors.textPrimaryDark,
-                                    side: BorderSide(color: colors.border),
-                                    onChanged:
-                                        (_rule != null ||
-                                            widget.existing?.recurrenceId !=
-                                                null)
-                                        ? null
-                                        : (value) => setState(() {
-                                            _autoDefer = value ?? false;
-                                            if (_autoDefer) _rule = null;
-                                          }),
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          l10n.autoDeferTitle,
-                                          style: UnwindType.label.copyWith(
-                                            color: colors.textPrimarySnap,
-                                            decoration: TextDecoration.none,
-                                          ),
-                                        ),
-                                        Text(
-                                          l10n.autoDeferSubtitle,
-                                          style: UnwindType.caption.copyWith(
-                                            color: colors.textMuted,
-                                            decoration: TextDecoration.none,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => setState(() {
-                              _timeOpen = !_timeOpen;
-                              _scheduledTimeMinutes ??= 9 * 60;
-                            }),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: UnwindSpacing.s24,
-                                vertical: UnwindSpacing.s12,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      l10n.taskTime,
-                                      style: UnwindType.label.copyWith(
-                                        color: colors.textSecondary,
-                                        decoration: TextDecoration.none,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    _scheduledTimeMinutes == null
-                                        ? l10n.taskTimeNone
-                                        : MaterialLocalizations.of(
-                                            context,
-                                          ).formatTimeOfDay(
-                                            TimeOfDay(
-                                              hour:
-                                                  _scheduledTimeMinutes! ~/ 60,
-                                              minute:
-                                                  _scheduledTimeMinutes! % 60,
-                                            ),
-                                            alwaysUse24HourFormat:
-                                                MediaQuery.alwaysUse24HourFormatOf(
-                                                  context,
-                                                ),
-                                          ),
-                                    style: UnwindType.label.copyWith(
-                                      color: _scheduledTimeMinutes == null
-                                          ? colors.textMuted
-                                          : colors.textPrimarySnap,
-                                      decoration: TextDecoration.none,
-                                    ),
-                                  ),
-                                  if (_scheduledTimeMinutes != null)
-                                    CupertinoButton(
-                                      padding: const EdgeInsets.only(
-                                        left: UnwindSpacing.s12,
-                                      ),
-                                      minimumSize: const Size(
-                                        UnwindTouch.minTarget,
-                                        UnwindTouch.minTarget,
-                                      ),
-                                      onPressed: () => setState(() {
-                                        _scheduledTimeMinutes = null;
-                                        _timeOpen = false;
-                                      }),
-                                      child: Icon(
-                                        Icons.close_rounded,
-                                        color: colors.textMuted,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (_timeOpen)
-                            SizedBox(
-                              height: 150,
-                              child: CupertinoDatePicker(
-                                mode: CupertinoDatePickerMode.time,
-                                use24hFormat:
-                                    MediaQuery.alwaysUse24HourFormatOf(context),
-                                initialDateTime: DateTime(
-                                  2000,
-                                  1,
-                                  1,
-                                  (_scheduledTimeMinutes ?? 9 * 60) ~/ 60,
-                                  (_scheduledTimeMinutes ?? 9 * 60) % 60,
-                                ),
-                                onDateTimeChanged: (value) => setState(() {
-                                  _scheduledTimeMinutes =
-                                      value.hour * 60 + value.minute;
-                                }),
-                              ),
-                            ),
-                          // 반복 (선택, 접힌 상태 — §6.3 구조). 편집 모드에서는 숨김.
-                          if (!_isEdit)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: UnwindSpacing.s24,
-                                vertical: UnwindSpacing.s4,
-                              ),
-                              child: Wrap(
-                                spacing: UnwindSpacing.s8,
-                                runSpacing: UnwindSpacing.s4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  for (final (label, rule) in [
-                                    (l10n.repeatNone, null),
-                                    (l10n.repeatDaily, RecurrenceRule.daily),
-                                    (
-                                      l10n.repeatWeekdays,
-                                      RecurrenceRule.weekdays,
-                                    ),
-                                    (_weeklyLabel(l10n), RecurrenceRule.weekly),
-                                    (
-                                      _monthlyLabel(context, l10n),
-                                      RecurrenceRule.monthly,
-                                    ),
-                                  ])
-                                    _RuleChip(
-                                      label: label,
-                                      selected: _rule == rule,
-                                      colors: colors,
-                                      onTap: () => setState(() {
-                                        _rule = rule;
-                                        if (rule != null) _autoDefer = false;
-                                      }),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          if (_calendarOpen)
-                            SizedBox(
-                              height: 180,
-                              child: CupertinoDatePicker(
-                                mode: CupertinoDatePickerMode.date,
-                                initialDateTime: parseDayKey(_dateKey),
-                                minimumDate: parseDayKey(todayKey),
-                                maximumDate: parseDayKey(
-                                  todayKey,
-                                ).add(const Duration(days: 365)),
-                                onDateTimeChanged: (d) =>
-                                    setState(() => _dateKey = dayKey(d)),
-                              ),
-                            ),
-                        ],
+              const SizedBox(height: UnwindSpacing.s16),
+            ],
+            // ── 무엇을 ─────────────────────────────────────────
+            // 주 입력 — 시트의 주인공이라 테두리 없이 크게
+            UnwindTextField(
+              controller: _titleController,
+              focusNode: _titleFocus,
+              hint: l10n.taskHint,
+              autofocus: true, // §6.3 키보드 즉시
+              maxLength: 200,
+              bare: true,
+              textStyle: UnwindType.headline,
+              onSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: UnwindSpacing.s12),
+            if (_memoOpen)
+              UnwindTextField(
+                controller: _memoController,
+                hint: l10n.memoHint,
+                maxLength: 2000,
+                minLines: 1,
+                maxLines: 3,
+                bare: true,
+                textStyle: UnwindType.body,
+              )
+            else
+              // 제목과 같은 세로선에서 시작해야 한다 — 좌우 패딩 0
+              UnwindPressable(
+                onTap: () => setState(() => _memoOpen = true),
+                depth: 0,
+                pressScale: 0.98,
+                semanticLabel: l10n.addMemo,
+                child: SizedBox(
+                  height: UnwindTouch.minTarget,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      l10n.addMemo,
+                      style: UnwindType.body.copyWith(
+                        color: UnwindColors.textMuted,
                       ),
                     ),
                   ),
-                  // 플로팅 날짜 바 — 키보드 바로 위 (§6.3)
-                  DateBar(
-                    dateKey: _dateKey,
-                    todayKey: todayKey,
-                    haptics: haptics,
-                    onDateChanged: (d) => setState(() => _dateKey = d),
-                    onCalendarTap: () =>
-                        setState(() => _calendarOpen = !_calendarOpen),
-                    onSave: _save,
+                ),
+              ),
+
+            // ── 언제 ───────────────────────────────────────────
+            const _SectionGap(),
+            UnwindListRow(
+              label: l10n.taskTime,
+              padding: _rowPadding,
+              onTap: () => setState(() {
+                _timeOpen = !_timeOpen;
+                if (_timeOpen) _scheduledTimeMinutes ??= 9 * 60;
+              }),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _scheduledTimeMinutes == null
+                        ? l10n.taskTimeNone
+                        : _timeText(context),
+                    style: UnwindType.label.copyWith(
+                      color: _scheduledTimeMinutes == null
+                          ? UnwindColors.textMuted
+                          : UnwindColors.accent,
+                    ),
                   ),
+                  if (_scheduledTimeMinutes != null)
+                    UnwindIconButton(
+                      icon: Icons.close_rounded,
+                      iconSize: 18,
+                      size: UnwindTouch.minTarget - UnwindSpacing.s8,
+                      semanticLabel: l10n.taskTimeNone,
+                      onPressed: () => setState(() {
+                        _scheduledTimeMinutes = null;
+                        _timeOpen = false;
+                      }),
+                    )
+                  else
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 22,
+                      color: UnwindColors.textMuted,
+                    ),
                 ],
               ),
             ),
-          ),
+            if (_timeOpen)
+              _PickerBox(
+                height: 150,
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  use24hFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+                  initialDateTime: DateTime(
+                    2000,
+                    1,
+                    1,
+                    (_scheduledTimeMinutes ?? 9 * 60) ~/ 60,
+                    (_scheduledTimeMinutes ?? 9 * 60) % 60,
+                  ),
+                  onDateTimeChanged: (value) => setState(() {
+                    _scheduledTimeMinutes = value.hour * 60 + value.minute;
+                  }),
+                ),
+              ),
+            if (_calendarOpen)
+              _PickerBox(
+                height: 180,
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.date,
+                  initialDateTime: parseDayKey(_dateKey),
+                  minimumDate: parseDayKey(todayKey),
+                  maximumDate: parseDayKey(
+                    todayKey,
+                  ).add(const Duration(days: 365)),
+                  onDateTimeChanged: (d) =>
+                      setState(() => _dateKey = dayKey(d)),
+                ),
+              ),
+
+            // ── 못 끝내면 ──────────────────────────────────────
+            const _SectionGap(),
+            UnwindListRow.toggle(
+              label: l10n.autoDeferTitle,
+              caption: l10n.autoDeferSubtitle,
+              padding: _rowPadding,
+              value: _autoDefer,
+              onChanged: recurring
+                  ? null
+                  : (v) => setState(() {
+                      _autoDefer = v;
+                      if (_autoDefer) _rule = null;
+                    }),
+            ),
+
+            // ── 반복 ───────────────────────────────────────────
+            if (!_isEdit) ...[
+              const _SectionGap(),
+              UnwindSectionLabel(
+                l10n.repeatSection,
+                padding: const EdgeInsets.only(bottom: UnwindSpacing.s12),
+              ),
+              Wrap(
+                spacing: UnwindSpacing.s8,
+                runSpacing: UnwindSpacing.s8,
+                children: [
+                  for (final (label, rule) in [
+                    (l10n.repeatNone, null),
+                    (l10n.repeatDaily, RecurrenceRule.daily),
+                    (l10n.repeatWeekdays, RecurrenceRule.weekdays),
+                    (_weeklyLabel(l10n), RecurrenceRule.weekly),
+                    (_monthlyLabel(context, l10n), RecurrenceRule.monthly),
+                  ])
+                    UnwindChip(
+                      label: label,
+                      selected: _rule == rule,
+                      onTap: () => setState(() {
+                        _rule = _rule == rule ? null : rule;
+                        if (_rule != null) _autoDefer = false;
+                      }),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: UnwindSpacing.s16),
+          ],
         ),
       ),
     );
   }
 }
 
-/// 반복 선택 칩 — 액센트는 lamp 하나뿐 (§8.1)
-class _RuleChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final UnwindColors colors;
-  final VoidCallback onTap;
+/// 시트 안의 행은 좌우 여백을 시트가 이미 갖고 있어 0으로 둔다.
+const _rowPadding = EdgeInsets.symmetric(vertical: UnwindSpacing.s8);
 
-  const _RuleChip({
-    required this.label,
-    required this.selected,
-    required this.colors,
-    required this.onTap,
-  });
+/// 영역 구분 — 여백 + 얇은 선 + 여백. 기능 묶음이 섞여 보이지 않게 한다.
+class _SectionGap extends StatelessWidget {
+  const _SectionGap();
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: selected
-              ? colors.lamp.withValues(alpha: 0.22)
-              : colors.surfaceRaised,
-          borderRadius: BorderRadius.circular(UnwindRadius.pill),
-          border: Border.all(
-            color: selected ? colors.lamp : colors.border,
-            width: 1,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: UnwindSpacing.s12,
-            vertical: UnwindSpacing.s4,
-          ),
-          child: Text(
-            label,
-            style: UnwindType.caption.copyWith(
-              color: selected ? colors.textPrimarySnap : colors.textSecondary,
-              decoration: TextDecoration.none,
-            ),
-          ),
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(vertical: UnwindSpacing.s20),
+    child: UnwindDivider(indent: 0),
+  );
+}
+
+/// Cupertino 피커를 다크 팔레트 안에 앉힌다.
+class _PickerBox extends StatelessWidget {
+  final double height;
+  final Widget child;
+
+  const _PickerBox({required this.height, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: UnwindSpacing.s12),
+    child: Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: UnwindColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(UnwindRadius.md),
+        border: Border.all(
+          color: UnwindColors.border,
+          width: UnwindStroke.base,
         ),
       ),
-    );
-  }
+      clipBehavior: Clip.antiAlias,
+      child: CupertinoTheme(
+        data: const CupertinoThemeData(
+          brightness: Brightness.dark,
+          primaryColor: UnwindColors.accent,
+        ),
+        child: child,
+      ),
+    ),
+  );
 }

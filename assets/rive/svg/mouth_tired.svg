@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Mouth / tired: 살짝 처진 곡선 — 밤에 못 자는 입 (웃음 금지) -->
+  <g id="MouthTired">
+    <path d="M 240 231 Q 250 225 260 231"
+      fill="none" stroke="#1E1A2E" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>
