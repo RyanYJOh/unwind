@@ -513,7 +513,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                             ),
                           ],
                         ),
-                        const SizedBox(height: UnwindSpacing.s4),
+                        // FAB가 스트립에 붙지 않게 한 칸 띄운다
+                        const SizedBox(height: UnwindSpacing.s12),
                         AnimatedBuilder(
                           animation: _theme,
                           builder: (context, _) =>
