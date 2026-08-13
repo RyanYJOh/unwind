@@ -40,6 +40,10 @@ abstract final class UnwindColors {
   /// 3D 압출면 — **blur 0**의 오프셋 그림자 전용 (§11)
   static const solid = Color(0xFF060B12);
 
+  /// 작은 중립 알약의 압출면 — [solid]는 [ink]와 명도 차가 거의 없어
+  /// 그림자가 보이지 않는다. 알약 채움(surfaceHigh)보다 확실히 어둡다.
+  static const pillDeep = Color(0xFF101B26);
+
   /// 모달 배리어
   static const scrim = Color(0x8C000000);
 

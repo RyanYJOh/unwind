@@ -14,6 +14,9 @@ import 'unwind_switch.dart';
 ///
 /// - 타일 탭 = 편집, 롱프레스 = 메뉴, 스위치 탭 = 토글
 /// - 완료 항목은 삭선 + 가라앉은 면
+/// - [readOnlySwitch]면 우측에 **아무것도 그리지 않는다**. 켜짐/꺼짐은
+///   테두리 색으로만 구분한다 — 앰버 표시를 남겨 두면 "누르면 체크된다"로
+///   오인된다 (개정 2026-08-13). 체크는 오직 오늘의 방에서만 한다 (§6.2).
 class UnwindTodoTile extends StatelessWidget {
   final String title;
   final String? timeLabel;
@@ -35,6 +38,9 @@ class UnwindTodoTile extends StatelessWidget {
   final String switchSemanticsOn;
   final String switchSemanticsOff;
 
+  /// 스위치를 조작할 수 없는 자리(주간 뷰). 우측이 비고, 상태는 테두리로만.
+  final bool readOnlySwitch;
+
   const UnwindTodoTile({
     super.key,
     required this.title,
@@ -47,6 +53,7 @@ class UnwindTodoTile extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.lit = 1.0,
+    this.readOnlySwitch = false,
   });
 
   @override
@@ -64,7 +71,12 @@ class UnwindTodoTile extends StatelessWidget {
         onLongPress: onLongPress,
         depth: UnwindDepth.base,
         borderRadius: br,
-        semanticLabel: [?timeLabel, title].join(' '),
+        // 스위치가 없으면 상태를 읽어 줄 것이 테두리뿐이라 라벨에 싣는다
+        semanticLabel: [
+          ?timeLabel,
+          title,
+          if (readOnlySwitch) isOn ? switchSemanticsOn : switchSemanticsOff,
+        ].join(' '),
         isButton: onTap != null,
         child: AnimatedContainer(
           duration: dur,
@@ -120,14 +132,16 @@ class UnwindTodoTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: UnwindSpacing.s8),
-              UnwindLampSwitch(
-                isOn: isOn,
-                lit: lit,
-                onTap: onToggle,
-                semanticsOn: switchSemanticsOn,
-                semanticsOff: switchSemanticsOff,
-              ),
+              if (!readOnlySwitch) ...[
+                const SizedBox(width: UnwindSpacing.s8),
+                UnwindLampSwitch(
+                  isOn: isOn,
+                  lit: lit,
+                  onTap: onToggle,
+                  semanticsOn: switchSemanticsOn,
+                  semanticsOff: switchSemanticsOff,
+                ),
+              ],
             ],
           ),
         ),

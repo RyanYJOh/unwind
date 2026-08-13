@@ -55,17 +55,27 @@ class UnwindScreen extends StatelessWidget {
 /// 화면 상단 바 — 제목 + 좌/우 액션. 듀오링고식으로 제목이 굵다.
 class UnwindHeader extends StatelessWidget {
   final String title;
+
+  /// 좌측 끝에 놓을 임의 위젯. 주면 [leadingIcon]보다 우선한다
+  /// (홈은 여기에 청구서 버튼을 둔다).
+  final Widget? leading;
   final IconData? leadingIcon;
   final VoidCallback? onLeading;
   final String? leadingLabel;
+
+  /// 제목 **바로 옆**에 붙는 것 (주간 뷰 알약처럼 제목에 딸린 보조 액션).
+  /// 우측 끝의 [trailing]과 달리 제목의 일부처럼 읽힌다.
+  final Widget? titleTrailing;
   final Widget? trailing;
 
   const UnwindHeader({
     super.key,
     required this.title,
+    this.leading,
     this.leadingIcon,
     this.onLeading,
     this.leadingLabel,
+    this.titleTrailing,
     this.trailing,
   });
 
@@ -80,7 +90,9 @@ class UnwindHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (leadingIcon != null)
+          if (leading != null)
+            leading!
+          else if (leadingIcon != null)
             UnwindIconButton(
               icon: leadingIcon!,
               onPressed: onLeading,
@@ -89,7 +101,7 @@ class UnwindHeader extends StatelessWidget {
           else
             const SizedBox(width: UnwindSpacing.s8),
           const SizedBox(width: UnwindSpacing.s4),
-          Expanded(
+          Flexible(
             child: Text(
               title,
               style: UnwindType.title.copyWith(color: UnwindColors.textPrimary),
@@ -97,6 +109,11 @@ class UnwindHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (titleTrailing != null) ...[
+            const SizedBox(width: UnwindSpacing.s8),
+            titleTrailing!,
+          ],
+          const Spacer(),
           ?trailing,
         ],
       ),

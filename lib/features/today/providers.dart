@@ -267,12 +267,16 @@ String weekSundayKey(String todayKey) {
   return dayKey(addDays(d, 7 - d.weekday));
 }
 
-final weekTodosProvider = StreamProvider<List<Todo>>((ref) {
+/// 임의의 주(월요일 기준)의 할 일 — 주간 뷰가 과거·미래 주를 열 수 있다
+/// (개편 2026-08-13).
+final weekTodosForProvider = StreamProvider.family<List<Todo>, String>((
+  ref,
+  mondayKey,
+) {
   final db = ref.watch(databaseProvider);
-  final todayKey = ref.watch(todayKeyProvider);
   return db.todoDao.watchRange(
-    weekMondayKey(todayKey),
-    weekSundayKey(todayKey),
+    mondayKey,
+    dayKey(addDays(parseDayKey(mondayKey), 6)),
   );
 });
 
@@ -281,6 +285,9 @@ class WindowInfo {
   final String dateKey;
   final bool isToday;
   final bool isPast;
+
+  /// 아직 오지 않은 날 — 캄캄한 빈 창으로만 그린다 (얼굴 없음)
+  final bool isFuture;
 
   /// 지난 날: finalT (없으면 null → 캄캄), 오늘: 실시간 t는 화면에서 주입
   final double? finalT;
@@ -292,48 +299,74 @@ class WindowInfo {
     required this.dateKey,
     required this.isToday,
     required this.isPast,
+    this.isFuture = false,
     this.finalT,
     this.hasPreheat = false,
   });
 }
 
-/// 스트립이 훑는 구간 — 오늘 포함 최근 [kStripDays]일 (개편 2026-08-09).
-/// 맨 오른쪽이 오늘이고 왼쪽으로 갈수록 과거다. 7일만 보이면 화면에 다
-/// 들어가 스크롤할 것이 없어서, 한 달치를 스크롤로 거슬러 올라가게 한다.
-const kStripDays = 30;
+/// 스트립이 훑는 범위 — 이번 주 기준 앞뒤 각 [kStripWeeksBack]/[kStripWeeksAhead]주
+/// (개편 2026-08-13: 일 단위 30일 → **주 단위 페이징**).
+/// 미래 상한 1년은 발주자 결정 — 그보다 먼 빈 주를 넘기는 건 의미가 없다.
+const kStripWeeksBack = 52;
+const kStripWeeksAhead = 52;
 
-String stripStartKey(String todayKey) =>
-    dayKey(addDays(parseDayKey(todayKey), -(kStripDays - 1)));
+/// 이번 주에서 [weekOffset]주 떨어진 주의 월요일 (0 = 이번 주, -1 = 지난 주)
+String stripMondayKey(String todayKey, int weekOffset) =>
+    dayKey(addDays(parseDayKey(weekMondayKey(todayKey)), weekOffset * 7));
 
 final stripDayRowsProvider = StreamProvider<List<Day>>((ref) {
   final db = ref.watch(databaseProvider);
   final todayKey = ref.watch(todayKeyProvider);
-  return db.dayDao.watchRange(stripStartKey(todayKey), todayKey);
+  final from = stripMondayKey(todayKey, -kStripWeeksBack);
+  final to = dayKey(
+    addDays(parseDayKey(stripMondayKey(todayKey, kStripWeeksAhead)), 6),
+  );
+  return db.dayDao.watchRange(from, to);
 });
 
-final weekWindowsProvider = Provider<List<WindowInfo>>((ref) {
-  final todayKey = ref.watch(todayKeyProvider);
-  final dayRows = ref.watch(stripDayRowsProvider).value ?? const <Day>[];
+/// 날짜별 days 행 — 스트립이 한 주씩 꺼내 쓴다
+final stripDaysByKeyProvider = Provider<Map<String, Day>>((ref) {
+  final rows = ref.watch(stripDayRowsProvider).value ?? const <Day>[];
+  return {for (final d in rows) d.date: d};
+});
 
-  final byDate = {for (final d in dayRows) d.date: d};
-  final start = parseDayKey(stripStartKey(todayKey));
+/// 스트립이 지금 보고 있는 주 (0 = 이번 주). 좌하단 칩 라벨이 이걸 따라간다.
+final stripWeekOffsetProvider = NotifierProvider<StripWeekOffsetNotifier, int>(
+  StripWeekOffsetNotifier.new,
+);
 
-  // 최근 kStripDays일: 왼쪽(과거) → 오른쪽(오늘). 미래는 포함하지 않는다.
+class StripWeekOffsetNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void set(int offset) => state = offset;
+}
+
+/// 한 주(월~일)의 창문 7칸. 미래 날은 아직 오지 않은 밤이라 얼굴을 그리지 않는다.
+List<WindowInfo> weekWindows({
+  required String mondayKey,
+  required String todayKey,
+  required Map<String, Day> byDate,
+}) {
+  final monday = parseDayKey(mondayKey);
+  final today = parseDayKey(todayKey);
   return [
-    for (var i = 0; i < kStripDays; i++)
+    for (var i = 0; i < 7; i++)
       () {
-        final day = addDays(start, i);
+        final day = addDays(monday, i);
         final key = dayKey(day);
         final isToday = key == todayKey;
         return WindowInfo(
           dateKey: key,
           isToday: isToday,
-          isPast: !isToday,
+          isPast: day.isBefore(today),
+          isFuture: day.isAfter(today),
           finalT: byDate[key]?.finalT,
         );
       }(),
   ];
-});
+}
 
 // ── 알림 (§10) ──────────────────────────────────────────────
 

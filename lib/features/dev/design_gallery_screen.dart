@@ -110,6 +110,19 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
             ],
           ),
 
+          const UnwindSectionLabel('Pills', padding: _labelPad),
+          Row(
+            children: [
+              UnwindPill(label: 'Week 33', onTap: () {}),
+              const SizedBox(width: UnwindSpacing.s12),
+              UnwindPill(
+                label: 'Bill',
+                tone: UnwindPillTone.accent,
+                onTap: () {},
+              ),
+            ],
+          ),
+
           const UnwindSectionLabel('Todo tile', padding: _labelPad),
           Column(
             children: [
@@ -129,6 +142,15 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
                 switchSemanticsOn: 'On',
                 switchSemanticsOff: 'Off',
                 onToggle: () {},
+                onTap: () {},
+              ),
+              // 읽기 전용 (주간 뷰) — 우측이 비고 테두리로만 구분
+              UnwindTodoTile(
+                title: '주간 뷰: 테두리로만 구분',
+                isOn: true,
+                readOnlySwitch: true,
+                switchSemanticsOn: 'On',
+                switchSemanticsOff: 'Off',
                 onTap: () {},
               ),
             ],

@@ -12,7 +12,6 @@ import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
-import '../../data/repositories/todo_repository.dart';
 import '../../domain/models/lumi_state.dart';
 import '../../ui/ui.dart';
 import '../../widgets/corner_glow.dart';
@@ -23,11 +22,12 @@ import '../../core/utils/dates.dart';
 import '../../domain/services/bill_calculator.dart';
 import '../bill/bill_screen.dart';
 import '../compose/compose_sheet.dart';
-import '../settings/settings_controller.dart';
 import '../settings/settings_screen.dart';
+import '../week/week_label.dart';
 import '../week/week_screen.dart';
 import '../week/weekly_strip.dart';
 import 'providers.dart';
+import 'todo_actions.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// §6.1 홈 — 오늘의 방. DB 스트림 구독 (§3.2), 조도는 brightnessProvider 단일값.
@@ -322,64 +322,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     if (mounted) setState(() => _dominoRunning = false);
   }
 
-  // ── 삭제 (§6.1) — 롱프레스와 스와이프가 같은 경로를 쓴다 ───────
-  //
-  // 반복 항목은 **어느 경로로 지우든** 범위를 먼저 묻는다
-  // (개정 2026-08-12: 스와이프가 이 확인을 건너뛰던 버그).
-  // 지운 뒤에는 되돌리기가 붙은 상단 토스트를 띄운다.
-  Future<bool> _delete(Todo todo, {required bool confirmSingle}) async {
-    final l10n = AppLocalizations.of(context);
-    final repo = ref.read(todoRepositoryProvider);
-
-    if (todo.recurrenceId != null) {
-      final deleteFuture = await showUnwindActions<bool>(
-        context,
-        title: todo.title,
-        cancelLabel: l10n.close,
-        actions: [
-          UnwindAction(
-            label: l10n.deleteThisTask,
-            value: false,
-            destructive: true,
-          ),
-          UnwindAction(
-            label: l10n.deleteFutureRecurring,
-            value: true,
-            destructive: true,
-          ),
-        ],
-      );
-      if (deleteFuture == null || !mounted) return false;
-      final undo = deleteFuture
-          ? await repo.removeRecurringFrom(todo)
-          : await repo.remove(todo);
-      _showDeletedToast(todo, undo);
-      return true;
-    }
-
-    if (confirmSingle) {
-      final ok = await showUnwindConfirm(
-        context,
-        title: todo.title,
-        confirmLabel: l10n.delete,
-        cancelLabel: l10n.close,
-      );
-      if (!ok || !mounted) return false;
-    }
-    final undo = await repo.remove(todo);
-    _showDeletedToast(todo, undo);
-    return true;
-  }
-
-  void _showDeletedToast(Todo todo, TodoUndo undo) {
-    if (!mounted) return;
-    showUnwindToast(
-      context,
-      title: todo.title,
-      body: AppLocalizations.of(context).toastTaskDeleted,
-      actionLabel: AppLocalizations.of(context).undo,
-      onAction: () => undo(),
-    );
+  // ── 삭제 (§6.1) ────────────────────────────────────────────
+  // 규칙은 features/today/todo_actions.dart 한 곳에만 있다 — 주간 뷰와 공유.
+  Future<bool> _delete(Todo todo, {required bool confirmSingle}) {
+    if (_dominoRunning) return Future.value(false);
+    return deleteTodoWithUndo(context, ref, todo, confirmSingle: confirmSingle);
   }
 
   @override
@@ -476,6 +423,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                   _TopBar(
                     onSettings: () => showSettingsScreen(context),
                     onBill: (bill) => showBillScreen(context, bill),
+                    onOpenBill: _openDummyBill,
                   ),
                   // 유령 영역 — 고정 높이로 체크리스트와의 간격 축소.
                   // 탭하면 Lumi가 반응한다 (잠들었을 땐 무반응).
@@ -517,14 +465,15 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                         : ListView.builder(
                             padding: const EdgeInsets.only(
                               top: UnwindSpacing.s4,
-                              bottom: UnwindSpacing.s48 * 2 + UnwindSpacing.s24,
+                              bottom: UnwindSpacing.s16,
                             ),
                             itemCount: todos.length,
                             itemBuilder: (context, i) =>
                                 _buildRow(context, l10n, todos[i], asleep),
                           ),
                   ),
-                  // 최근 30일 스트립 + Bill 버튼
+                  // 하단 — 주 칩 + 이번 주 스트립 (개편 2026-08-13).
+                  // Bill이 상단으로 갔으니 스트립이 너비를 다 쓴다.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
                       UnwindSpacing.s16,
@@ -532,28 +481,43 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                       UnwindSpacing.s16,
                       UnwindSpacing.s8,
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: AnimatedBuilder(
-                            animation: _theme,
-                            builder: (context, _) =>
-                                WeeklyStrip(currentT: _displayTStatic),
-                          ),
+                        // 주 칩과 FAB는 같은 줄에 앉는다 (개정 2026-08-13) —
+                        // FAB가 떠 있으면 칩이 그만큼 밀려 올라간다.
+                        Row(
+                          children: [
+                            const _WeekPill(),
+                            const Spacer(),
+                            Opacity(
+                              opacity: asleep ? 0.55 : 1.0,
+                              child: UnwindIconButton(
+                                icon: Icons.add_rounded,
+                                iconSize: 32,
+                                size: 64,
+                                style: UnwindIconButtonStyle.accent,
+                                semanticLabel: l10n.addTaskLabel,
+                                onPressed: () {
+                                  // 과거 날짜 열람 중엔 그 날짜로 추가
+                                  final viewed = ref.read(viewedDayKeyProvider);
+                                  final today = ref.read(todayKeyProvider);
+                                  showComposeSheet(
+                                    context,
+                                    initialDate: viewed != today
+                                        ? viewed
+                                        : null,
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: UnwindSpacing.s12),
-                        // Bill — 이미지 그대로, 감싸는 컨테이너·패딩 없음
-                        UnwindPressable(
-                          onTap: _openDummyBill,
-                          depth: 0,
-                          semanticLabel: l10n.billBadge,
-                          child: Image.asset(
-                            'assets/images/bill.png',
-                            width: 65,
-                            height: 65,
-                            fit: BoxFit.contain,
-                          ),
+                        const SizedBox(height: UnwindSpacing.s4),
+                        AnimatedBuilder(
+                          animation: _theme,
+                          builder: (context, _) =>
+                              WeeklyStrip(currentT: _displayTStatic),
                         ),
                       ],
                     ),
@@ -571,61 +535,6 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                   haptics: haptics,
                   onPull: _runLightsOut,
                 ),
-              ),
-            ),
-            // FAB (§6.1) — 방에 등을 하나 더 놓는다.
-            Positioned(
-              right: UnwindSpacing.s20,
-              bottom: UnwindSpacing.s8 + 70,
-              child: SafeArea(
-                child: Opacity(
-                  opacity: asleep ? 0.55 : 1.0,
-                  child: UnwindIconButton(
-                    icon: Icons.add_rounded,
-                    iconSize: 32,
-                    size: 64,
-                    style: UnwindIconButtonStyle.accent,
-                    semanticLabel: l10n.addTaskLabel,
-                    onPressed: () {
-                      // 과거 날짜 열람 중엔 그 날짜로 추가
-                      final viewed = ref.read(viewedDayKeyProvider);
-                      final today = ref.read(todayKeyProvider);
-                      showComposeSheet(
-                        context,
-                        initialDate: viewed != today ? viewed : null,
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-            // 주간 뷰 오버레이 — 토글 + 영속 (§6.2 개정). 현재 진입점 없음.
-            Positioned.fill(
-              child: Consumer(
-                builder: (context, ref, _) {
-                  final weekOpen =
-                      ref.watch(
-                        settingsControllerProvider.select(
-                          (s) => s.value?.weekViewOpen,
-                        ),
-                      ) ??
-                      false;
-                  return IgnorePointer(
-                    ignoring: !weekOpen,
-                    child: AnimatedSlide(
-                      offset: weekOpen ? Offset.zero : const Offset(0, -1.1),
-                      duration: const Duration(
-                        milliseconds: UnwindMotion.weekExpandMs,
-                      ),
-                      curve: UnwindMotion.settle,
-                      child: WeekScreen(
-                        onCollapse: () => ref
-                            .read(settingsControllerProvider.notifier)
-                            .setWeekViewOpen(false),
-                      ),
-                    ),
-                  );
-                },
               ),
             ),
           ],
@@ -712,7 +621,14 @@ class _TopBar extends ConsumerWidget {
   final VoidCallback onSettings;
   final void Function(WeeklyBill) onBill;
 
-  const _TopBar({required this.onSettings, required this.onBill});
+  /// 청구서 화면 열기 (현재는 개발용 더미)
+  final VoidCallback onOpenBill;
+
+  const _TopBar({
+    required this.onSettings,
+    required this.onBill,
+    required this.onOpenBill,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -733,36 +649,62 @@ class _TopBar extends ConsumerWidget {
       title = l10n.today;
     }
 
+    // 개편 2026-08-13: 청구서가 좌측 끝(이전 설정 자리)으로, 설정은 제목
+    // 오른쪽으로 작게. 미확인 배지는 청구서 바로 옆에 **코랄**로 — 앰버는
+    // 앱 전체가 쓰는 색이라 알림으로 읽히지 않는다.
     return UnwindHeader(
       title: title,
-      leadingIcon: Icons.settings_outlined,
-      leadingLabel: l10n.settingsTitle,
-      onLeading: onSettings,
-      trailing: unread.isEmpty
-          ? null
-          : UnwindPressable(
-              onTap: () => onBill(unread.first),
-              depth: 0,
-              semanticLabel: l10n.notifBillArrived,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: UnwindSpacing.s12,
-                  vertical: UnwindSpacing.s8,
-                ),
-                // 배지는 코너 글로우가 가장 밝은 자리에 앉는다 —
-                // 반투명 채움은 눈부신 배경에 묻히므로 불투명 앰버로.
-                decoration: BoxDecoration(
-                  color: UnwindColors.accent,
-                  borderRadius: BorderRadius.circular(UnwindRadius.pill),
-                ),
-                child: Text(
-                  l10n.billBadge,
-                  style: UnwindType.label.copyWith(
-                    color: UnwindColors.onAccent,
-                  ),
-                ),
-              ),
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          UnwindPressable(
+            onTap: onOpenBill,
+            depth: 0,
+            semanticLabel: l10n.billBadge,
+            child: Image.asset(
+              'assets/images/bill.png',
+              width: 40,
+              height: 40,
+              fit: BoxFit.contain,
             ),
+          ),
+          if (unread.isNotEmpty) ...[
+            const SizedBox(width: UnwindSpacing.s4),
+            UnwindPill(
+              label: l10n.billBadge,
+              tone: UnwindPillTone.danger,
+              semanticLabel: l10n.notifBillArrived,
+              onTap: () => onBill(unread.first),
+            ),
+          ],
+        ],
+      ),
+      titleTrailing: UnwindIconButton(
+        icon: Icons.settings_outlined,
+        iconSize: 18,
+        size: 32,
+        semanticLabel: l10n.settingsTitle,
+        onPressed: onSettings,
+      ),
+    );
+  }
+}
+
+/// 스트립이 보고 있는 주로 들어가는 알약 (개편 2026-08-13).
+/// 스트립을 넘기면 라벨이 따라 바뀌고, 누르면 **그 주의** 주간 뷰가 열린다.
+class _WeekPill extends ConsumerWidget {
+  const _WeekPill();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final todayKey = ref.watch(todayKeyProvider);
+    final mondayKey = stripMondayKey(
+      todayKey,
+      ref.watch(stripWeekOffsetProvider),
+    );
+    return UnwindPill(
+      label: weekLabel(context, mondayKey: mondayKey, todayKey: todayKey),
+      onTap: () => showWeekScreen(context, mondayKey: mondayKey),
     );
   }
 }

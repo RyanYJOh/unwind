@@ -20,6 +20,7 @@ export 'unwind_dialog.dart';
 export 'unwind_field.dart';
 export 'unwind_icon_button.dart';
 export 'unwind_list_row.dart';
+export 'unwind_pill.dart';
 export 'unwind_pressable.dart';
 export 'unwind_screen.dart';
 export 'unwind_sheet.dart';

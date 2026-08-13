@@ -12,7 +12,10 @@
 
 - 방의 **남은 빛**은 조도 **t** 하나가 정한다 (0.0 = 빛이 가득, 1.0 = 소등).
   단, v2부터 t는 색이 아니라 **빛의 양**만 몬다 — 팔레트는 고정 다크다 (§5.1).
-- 진행률·퍼센트·개수·체크마크 같은 생산성 어휘를 UI에 쓰지 않는다.
+- **생산성 어휘 정책 (완화 2026-08-13)**: 진행률·퍼센트·개수 표시를 쓸 수
+  있다. 단 **홈(오늘의 방)은 여전히 은유로만 말한다** — 방의 빛이 곧 남은
+  할 일이고, 거기에 숫자를 얹지 않는다. 계획을 훑는 자리(주간 뷰 등)에서는
+  진행 표시가 더 잘 읽히므로 허용한다.
 - 사용자를 다그치지 않는다 — 빈 방은 사과가 아니라 초대의 문구.
 - 주간 청구서(전기요금 은유): 남긴 불빛이 얼마나 전기를 썼는지 영수증으로.
 
@@ -24,7 +27,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 91개 통과가 기준선
+flutter analyze && flutter test                           # 98개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
 ```
@@ -50,7 +53,9 @@ lib/
   domain/models/     lumi_state.dart — LumiState/LumiMode/LumiDayActivity (렌더러 계약)
   features/
     today/           providers.dart(앱 상태의 중심) + today_screen.dart(홈)
-    week/            weekly_strip.dart(하단 최근 30일 스트립), week_screen.dart(주간 뷰)
+                     + todo_actions.dart(편집·삭제 공용 — 주간 뷰와 공유)
+    week/            weekly_strip.dart(하단 주 단위 스트립) · week_screen.dart
+                     (주간 뷰) · week_label.dart(주 이름 — 칩과 제목이 공유)
     compose/         입력 시트 + date_bar
     bill/            주간 청구서 (영수증 렌더 + 이미지 공유)
     settings/        설정 + ghost_demo_screen(dev)
@@ -80,7 +85,9 @@ lib/
 ### 주요 파생 프로바이더
 - `isAsleepProvider` — 열람 날짜의 lightsOutAt 존재 여부 (방 취침 상태)
 - `pullCordEnabledProvider` — 오늘 열람 + 항목 있음 + 아직 안 당김
-- `weekWindowsProvider` — 하단 스트립 데이터 (오늘 포함 최근 `kStripDays`=30일)
+- `stripDaysByKeyProvider` — 하단 스트립용 days 행 (이번 주 ±52주)
+- `stripWeekOffsetProvider` — 스트립이 보고 있는 주 (0=이번 주). 좌하단 칩이 따라감
+- `weekTodosForProvider(mondayKey)` — 임의의 주의 할 일 (주간 뷰가 아무 주나 연다)
 - `lumiModeProvider` — Lumi 생활 모드 (아래 §6)
 - `clockProvider` — 1분 시계 (시간대 전환 감지)
 
@@ -150,10 +157,11 @@ lib/
 | `UnwindButton` | primary/secondary/danger/ghost · CTA 56pt, small 44pt |
 | `UnwindIconButton` | plain/filled/accent — 항상 44pt 이상 |
 | `UnwindCard` · `UnwindSectionLabel` · `UnwindDivider` | 면과 구분 |
-| `UnwindTodoTile` | 할 일 하나 = 등 하나 (타일 + 벽 스위치) |
+| `UnwindTodoTile` | 할 일 하나 = 등 하나 (타일 + 벽 스위치). `readOnlySwitch`면 우측이 비고 테두리로만 구분 |
 | `UnwindLampSwitch` / `UnwindToggle` | 세로 벽 로커 / 가로 설정 토글 |
 | `UnwindTextField` | 포커스 시 테두리가 앰버로 |
-| `UnwindChip` | 선택 알약 (반복·시간·자동 미루기) |
+| `UnwindChip` | **선택** 알약 (반복 등 상호배타 선택 전용) |
+| `UnwindPill` | **이동·알림** 알약 (주 칩, 청구서 배지). 칩과 역할이 다르다. 압출 4pt · neutral/accent/danger. 중립 압출면은 `pillDeep` — `solid`는 `ink`와 명도 차가 없어 그림자가 안 보인다 |
 | `UnwindSheet` + `showUnwindSheet` | 바텀시트 (§9.4 320ms) |
 | `showUnwindConfirm` / `showUnwindActions` | 확인·선택 (Cupertino 시트 대체) |
 | `showUnwindToast` | 상단 푸시형 토스트 (`actionLabel`/`onAction`으로 되돌리기) |
@@ -234,7 +242,9 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
 
 ## 7. 홈 화면 구성 (today_screen.dart, 위→아래)
 
-1. 설정 아이콘 + 날짜 타이틀("Today" / 과거면 "Aug 7") + 미확인 청구서 배지
+1. 상단 (개편 2026-08-13): **좌측 끝 청구서 버튼** + 미확인 배지(**코랄** —
+   앰버는 앱 전체가 쓰는 색이라 알림으로 안 읽힌다) + 날짜 타이틀
+   ("Today" / 과거면 "Aug 7") + **작은 설정 아이콘**(제목 오른쪽, 32pt)
 2. Lumi (고정 높이 136pt, size 118) — **탭하면 반응한다** (§6 톡 건드리기)
 3. 체크리스트 — `UnwindTodoTile`: 좌 텍스트(완료 시 삭선), 우 벽 로커 스위치.
    켜진 등은 **앰버 테두리**로만 구분한다 (타일이 빛을 흉내내지 않는다 — 빛의
@@ -250,12 +260,21 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
    `TodoRepository.remove/removeRecurringFrom`이 `TodoUndo` 콜백을 돌려주고
    (삭제 방식마다 되돌리는 법이 달라 지식을 저장소에 가둔다), peak까지 삭제
    직전 값으로 복원한다.
-4. 하단 행 — 좌: **최근 30일 스트립**(가로 스크롤, reverse라 오늘이 항상 오른쪽
-   끝), 우: **Bill 버튼**(`assets/images/bill.png`, 래퍼 없음). 스트립 셀 =
-   정방형 창(그날의 조도 색) + 그날 밤 Lumi의 눈(밝을수록 졸린 실눈 / 소등이면
-   감은 눈, **기록 있는 완주 날엔 스마일**). 라벨 "8.2"(월.일). 탭 = 날짜 열람.
-5. FAB — 앰버 라운드 스퀘어 `UnwindIconButton(accent)`. 과거 열람 중엔 그
-   날짜로 추가.
+4. 하단 (개편 2026-08-13) — **주 칩 + 주간 스트립**이 너비를 다 쓴다
+   (Bill이 상단으로 갔다).
+   - **스트립은 주 단위 페이징**이다: 한 페이지 = 월~일 한 주, 가로로 넘기면
+     주가 바뀐다(이번 주 ±52주, 미래 1년 상한). 셀 라벨은 날짜가 아니라
+     **요일**(Mon·Tue…). 셀 = 정방형 창(그날의 조도 색) + 그날 밤 Lumi의
+     눈(밝을수록 졸린 실눈 / 소등이면 감은 눈, 기록 있는 완주 날엔 스마일).
+     **아직 오지 않은 날은 얼굴을 그리지 않는다** — 감은 눈은 "잘 잤다"는
+     뜻이라 미래에 그리면 거짓말이 된다. 셀 탭 = 그 날짜 열람.
+   - 스트립 바로 위 줄에 **좌: 주 칩 / 우: FAB**. 둘은 **같은 줄**에 앉는다
+     (개정 2026-08-13) — FAB가 떠 있으면 칩이 그만큼 밀려 올라간다.
+     칩 라벨은 "이번 주 / 지난주 / 다음주 / Jul 27 – Aug 2"
+     (`week_label.dart`)이고, 스트립을 넘기면 함께 바뀐다. 탭하면 **그 주의**
+     주간 뷰가 열린다.
+5. FAB — 앰버 라운드 스퀘어 `UnwindIconButton(accent)`, **주 칩과 같은 줄**
+   (더 이상 떠 있지 않다). 과거 열람 중엔 그 날짜로 추가.
 6. 전등 줄(PullCord, 우측 상단에서 늘어짐) — 당기면 70ms 도미노 소등 시퀀스
    (§9.3: 절대 동시에 끄지 않는다, 마지막 등 후 500ms 정적). 히트 영역은
    painter.hitTest로 제한(리스트 가림 방지).
@@ -270,8 +289,31 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
 7. 상단 토스트(`showUnwindToast`)는 **삭제 되돌리기**에만 쓴다. 항목 추가
    토스트는 2026-08-12에 제거했다 — 시트가 닫히고 등이 하나 늘어나는 것이
    이미 피드백이다.
-8. 주간 뷰(WeekScreen)는 오버레이로 남아 있으나 **현재 진입점 없음** (스트립이
-   날짜 선택으로 바뀌면서). 붙이거나 제거할지 미정.
+8. 주간 뷰 → 아래 §7.1.
+
+## 7.1 주간 뷰 (features/week/week_screen.dart, 전면 재작성 2026-08-13)
+
+홈의 `Week n` 알약(ISO 8601 주차)으로 들어가는 **라우트**다. 이전의
+오버레이 토글(`weekViewOpen` 설정)은 진입점 없이 죽어 있어 제거했다.
+
+- **아무 주나 연다** — `WeekScreen(mondayKey:)`. 하단 스트립이 넘긴 주를
+  그대로 받는다. 제목은 칩과 **같은 라벨**(`weekLabel`)을 쓴다 — 칩엔
+  "지난주"인데 제목이 "Week 32"면 어느 주인지 헷갈린다.
+- 최상단 **진행 바** — 이번 주에 **끝낸 만큼 차오른다** (§1 완화 반영,
+  개정 2026-08-13). 숫자는 얹지 않고 막대와 한 줄 캡션으로만.
+- 월→일 7개 요일 섹션. 오늘 요일은 앰버.
+  **`›`는 날짜 바로 옆**(그 날짜의 방으로 이동 — 홈이 그날을 열람하도록
+  바꾸고 주간 뷰를 닫는다), **`+`는 우측 끝**(그 날짜로 입력 시트).
+  둘을 나란히 두면 무엇이 무엇인지 헷갈린다 (개정 2026-08-13).
+  할 일이 없는 날은 조용한 선 하나로만 표시해 한 주가 한 화면에 들어온다.
+- **여기서는 체크할 수 없다** — 등을 끄는 건 오늘의 방의 몫이다. 타일은
+  `readOnlySwitch: true`로 그리고, 완료 여부는 **테두리 색으로만** 구분한다.
+  우측에 앰버 표시를 남기면 "누르면 체크된다"로 오인된다 (개정 2026-08-13).
+- 추가·편집(행 탭)·삭제(롱프레스·왼쪽 스와이프)는 홈과 **완전히 같다** —
+  `features/today/todo_actions.dart`의 `deleteTodoWithUndo`/`editTodo`를
+  양쪽이 공유한다. 화면마다 따로 구현하면 반드시 갈라진다(스와이프가 반복
+  범위를 묻지 않던 버그가 그렇게 생겼다).
+- **조명 연출 금지** (§6.2) — CornerGlow·조도는 오늘의 방의 독점 권한이다.
 
 ## 8. 도메인 규칙 요약
 
@@ -292,6 +334,10 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
   `No repeat` 포함). 구획은 `UnwindDivider`와 넉넉한 여백으로 구분한다.
   칩은 **상호배타 선택**에만 쓴다 — 켜고 끄는 값에 칩을 쓰면 체크박스처럼
   보여서 역할이 흐려진다.
+  **높이는 계속 짧게 유지해야 한다** (개정 2026-08-13): 키보드까지 올라오면
+  시트가 화면을 넘긴다. 반복 칩은 여러 줄로 접지 말고 **가로 스크롤 한 줄**로,
+  구획 여백은 `_SectionGap` s12를 넘기지 말 것. 현재 시트 ≈417pt + 키보드
+  ≈336pt = 753pt로 iPhone 17(874pt)에 여유가 있다.
   키보드 위 바는 좌 달력 아이콘 / 중앙 날짜 이동 / 우 **화살표 저장 CTA**
   (제목이 비면 비활성). **저장하면 키보드와 함께 시트도 닫힌다** — 확인
   토스트는 없앴다(방에 등이 하나 늘어난 것이 곧 피드백). `showUnwindToast`는
@@ -313,9 +359,9 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **91개** 전부 통과가 기준선 (v2에서 램프 테스트 5개를
+2. `flutter test` — **98개** 전부 통과가 기준선 (v2에서 램프 테스트 5개를
    팔레트 대비 7개 + 컴포넌트 계약 8개 + 삭제/되돌리기 2개 + 전등 줄 물리
-   4개 + Lumi 반응 1개로 교체). UI 변경 시 위젯 테스트가 히트
+   4개 + Lumi 반응 1개 + 주간 뷰·스트립 7개로 교체). UI 변경 시 위젯 테스트가 히트
    영역 겹침·오버플로 같은 실제 버그를 잡아 온 전적이 있다.
    시트/오버레이를 여는 위젯 테스트는 `pump()` 한 번 뒤에 `pump(duration)`을
    해야 한다 (누름 상태 setState가 첫 프레임을 먹는다).

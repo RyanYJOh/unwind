@@ -8,21 +8,45 @@ import '../../ui/ui.dart';
 import '../today/providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 
-/// §6.2 최근 30일 스트립 — 골목에서 이웃집 창을 보는 은유.
+/// §6.2 하단 주간 스트립 — 골목에서 이웃집 창을 보는 은유.
 /// 각 날은 작은 창문: 그날 남은 빛 + 그날 밤 Lumi의 눈.
 ///   - 불이 남은 밝은 창 = 못 자고 크게 졸린 눈
 ///   - 꺼진 캄캄한 창 = 만족스럽게 감긴 눈
-/// 날짜를 탭하면 오늘 화면이 그 날짜의 방으로 전환된다 (주간 뷰 아님).
-class WeeklyStrip extends ConsumerWidget {
+///   - 아직 오지 않은 날 = 빈 창 (얼굴 없음)
+///
+/// 개편 2026-08-13: 일 단위 30일 스크롤 → **주 단위 페이징**.
+/// 한 페이지가 월~일 한 주이고, 가로로 넘기면 주가 바뀐다. 넘긴 주는
+/// [stripWeekOffsetProvider]에 실려 좌상단 칩 라벨이 따라간다.
+/// 셀 위 라벨은 날짜가 아니라 요일(Mon·Tue…)이다.
+class WeeklyStrip extends ConsumerStatefulWidget {
   /// 오늘 창에 반영할 실시간 t (화면의 표시값과 동기)
   final double currentT;
 
   const WeeklyStrip({super.key, required this.currentT});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WeeklyStrip> createState() => _WeeklyStripState();
+}
+
+class _WeeklyStripState extends ConsumerState<WeeklyStrip> {
+  /// 이번 주가 놓이는 페이지 번호 (앞쪽은 과거, 뒤쪽은 미래)
+  static const _thisWeekPage = kStripWeeksBack;
+
+  late final PageController _controller = PageController(
+    initialPage: _thisWeekPage,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final windows = ref.watch(weekWindowsProvider);
+    final todayKey = ref.watch(todayKeyProvider);
+    final byDate = ref.watch(stripDaysByKeyProvider);
     final viewedKey = ref.watch(viewedDayKeyProvider);
 
     return DecoratedBox(
@@ -35,34 +59,46 @@ class WeeklyStrip extends ConsumerWidget {
         ),
       ),
       child: SizedBox(
-        height: 68,
+        height: 72,
         child: Semantics(
           label: l10n.thisWeekLabel,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            // reverse: 오늘(맨 오른쪽)이 처음부터 보이도록 오른쪽 정렬
-            reverse: true,
-            padding: const EdgeInsets.symmetric(
-              horizontal: UnwindSpacing.s12,
-              vertical: UnwindSpacing.s4,
-            ),
-            children: [
-              for (final w in windows.reversed)
-                Padding(
-                  padding: const EdgeInsets.only(left: UnwindSpacing.s8),
-                  child: _DayCell(
-                    info: w,
-                    currentT: currentT,
-                    selected: w.dateKey == viewedKey,
-                    onTap: () {
-                      // 오늘을 고르면 null — 롤오버 시 자동으로 따라간다
-                      ref
-                          .read(selectedDateProvider.notifier)
-                          .select(w.isToday ? null : w.dateKey);
-                    },
-                  ),
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: kStripWeeksBack + kStripWeeksAhead + 1,
+            onPageChanged: (page) => ref
+                .read(stripWeekOffsetProvider.notifier)
+                .set(page - _thisWeekPage),
+            itemBuilder: (context, page) {
+              final windows = weekWindows(
+                mondayKey: stripMondayKey(todayKey, page - _thisWeekPage),
+                todayKey: todayKey,
+                byDate: byDate,
+              );
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: UnwindSpacing.s8,
+                  vertical: UnwindSpacing.s8,
                 ),
-            ],
+                child: Row(
+                  children: [
+                    for (final w in windows)
+                      Expanded(
+                        child: _DayCell(
+                          info: w,
+                          currentT: widget.currentT,
+                          selected: w.dateKey == viewedKey,
+                          onTap: () {
+                            // 오늘을 고르면 null — 롤오버 시 자동으로 따라간다
+                            ref
+                                .read(selectedDateProvider.notifier)
+                                .select(w.isToday ? null : w.dateKey);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -77,12 +113,6 @@ int parseWeekday(String dateKey) {
 
 /// dateKey(yyyy-MM-dd)의 일(day)
 int parseDayOfMonth(String dateKey) => int.parse(dateKey.split('-')[2]);
-
-/// "월.일" 최소 표기 — 좁은 셀용 (예: 8.2)
-String _compactDate(String dateKey) {
-  final p = dateKey.split('-');
-  return '${int.parse(p[1])}.${int.parse(p[2])}';
-}
 
 class _DayCell extends StatelessWidget {
   final WindowInfo info;
@@ -99,6 +129,13 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    // 라벨은 날짜가 아니라 요일 (개편 2026-08-13) — 한 주가 한 화면이라
+    // 며칠인지보다 무슨 요일인지가 먼저 읽힌다.
+    final weekday = l10n.weekdaysShort.split(
+      ',',
+    )[parseWeekday(info.dateKey) - 1];
+
     return UnwindPressable(
       onTap: onTap,
       depth: 0,
@@ -110,10 +147,12 @@ class _DayCell extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            _compactDate(info.dateKey),
+            weekday,
             style: UnwindType.caption.copyWith(
               fontSize: 10,
-              color: selected ? UnwindColors.accent : UnwindColors.textMuted,
+              color: info.isToday
+                  ? UnwindColors.accent
+                  : UnwindColors.textMuted,
             ),
           ),
           const SizedBox(height: 3),
@@ -163,9 +202,13 @@ class _Window extends StatelessWidget {
           width: selected ? UnwindStroke.base : UnwindStroke.hair,
         ),
       ),
-      child: CustomPaint(
-        painter: _WindowFacePainter(light: light, satisfied: satisfied),
-      ),
+      // 아직 오지 않은 밤에는 얼굴이 없다 — 감은 눈은 "잘 잤다"는 뜻이라
+      // 미래 날에 그리면 거짓말이 된다.
+      child: info.isFuture
+          ? null
+          : CustomPaint(
+              painter: _WindowFacePainter(light: light, satisfied: satisfied),
+            ),
     );
   }
 }

@@ -184,6 +184,17 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
     }
   }
 
+  List<(String, RecurrenceRule?)> _repeatOptions(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) => [
+    (l10n.repeatNone, null),
+    (l10n.repeatDaily, RecurrenceRule.daily),
+    (l10n.repeatWeekdays, RecurrenceRule.weekdays),
+    (_weeklyLabel(l10n), RecurrenceRule.weekly),
+    (_monthlyLabel(context, l10n), RecurrenceRule.monthly),
+  ];
+
   String _timeText(BuildContext context) =>
       MaterialLocalizations.of(context).formatTimeOfDay(
         TimeOfDay(
@@ -206,7 +217,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
         UnwindSpacing.s20,
         0,
         UnwindSpacing.s20,
-        UnwindSpacing.s12,
+        UnwindSpacing.s8,
       ),
       bottomBar: DateBar(
         dateKey: _dateKey,
@@ -242,7 +253,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
               textStyle: UnwindType.headline,
               onSubmitted: (_) => _save(),
             ),
-            const SizedBox(height: UnwindSpacing.s12),
+            const SizedBox(height: UnwindSpacing.s4),
             if (_memoOpen)
               UnwindTextField(
                 controller: _memoController,
@@ -261,7 +272,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
                 pressScale: 0.98,
                 semanticLabel: l10n.addMemo,
                 child: SizedBox(
-                  height: UnwindTouch.minTarget,
+                  height: 40,
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -369,31 +380,32 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
               const _SectionGap(),
               UnwindSectionLabel(
                 l10n.repeatSection,
-                padding: const EdgeInsets.only(bottom: UnwindSpacing.s12),
+                padding: const EdgeInsets.only(bottom: UnwindSpacing.s8),
               ),
-              Wrap(
-                spacing: UnwindSpacing.s8,
-                runSpacing: UnwindSpacing.s8,
-                children: [
-                  for (final (label, rule) in [
-                    (l10n.repeatNone, null),
-                    (l10n.repeatDaily, RecurrenceRule.daily),
-                    (l10n.repeatWeekdays, RecurrenceRule.weekdays),
-                    (_weeklyLabel(l10n), RecurrenceRule.weekly),
-                    (_monthlyLabel(context, l10n), RecurrenceRule.monthly),
-                  ])
-                    UnwindChip(
+              // 한 줄로만 늘어놓고 가로로 넘긴다 (개정 2026-08-13) —
+              // 여러 줄로 접히면 키보드까지 올라왔을 때 시트가 화면을 넘긴다.
+              SizedBox(
+                height: 38,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _repeatOptions(context, l10n).length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(width: UnwindSpacing.s8),
+                  itemBuilder: (context, i) {
+                    final (label, rule) = _repeatOptions(context, l10n)[i];
+                    return UnwindChip(
                       label: label,
                       selected: _rule == rule,
                       onTap: () => setState(() {
                         _rule = _rule == rule ? null : rule;
                         if (_rule != null) _autoDefer = false;
                       }),
-                    ),
-                ],
+                    );
+                  },
+                ),
               ),
             ],
-            const SizedBox(height: UnwindSpacing.s16),
+            const SizedBox(height: UnwindSpacing.s8),
           ],
         ),
       ),
@@ -402,15 +414,16 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
 }
 
 /// 시트 안의 행은 좌우 여백을 시트가 이미 갖고 있어 0으로 둔다.
-const _rowPadding = EdgeInsets.symmetric(vertical: UnwindSpacing.s8);
+const _rowPadding = EdgeInsets.symmetric(vertical: UnwindSpacing.s4);
 
 /// 영역 구분 — 여백 + 얇은 선 + 여백. 기능 묶음이 섞여 보이지 않게 한다.
+/// 키보드까지 올라오면 시트가 화면을 넘겨서 s20 → s12로 줄였다 (2026-08-13).
 class _SectionGap extends StatelessWidget {
   const _SectionGap();
 
   @override
   Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: UnwindSpacing.s20),
+    padding: EdgeInsets.symmetric(vertical: UnwindSpacing.s12),
     child: UnwindDivider(indent: 0),
   );
 }
@@ -424,7 +437,7 @@ class _PickerBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: UnwindSpacing.s12),
+    padding: const EdgeInsets.only(top: UnwindSpacing.s8),
     child: Container(
       height: height,
       decoration: BoxDecoration(

@@ -146,6 +146,60 @@ abstract class AppLocalizations {
   /// **'Off'**
   String get lampOff;
 
+  /// No description provided for @weekNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Week {n}'**
+  String weekNumber(int n);
+
+  /// No description provided for @weekProgressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'This week\'s progress'**
+  String get weekProgressLabel;
+
+  /// No description provided for @weekAllDone.
+  ///
+  /// In en, this message translates to:
+  /// **'All done this week'**
+  String get weekAllDone;
+
+  /// No description provided for @weekEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing planned this week yet'**
+  String get weekEmpty;
+
+  /// No description provided for @addToDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to {day}'**
+  String addToDay(String day);
+
+  /// No description provided for @openDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {day}'**
+  String openDay(String day);
+
+  /// No description provided for @lastWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Last week'**
+  String get lastWeek;
+
+  /// No description provided for @nextWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Next week'**
+  String get nextWeek;
+
+  /// No description provided for @weekRange.
+  ///
+  /// In en, this message translates to:
+  /// **'{from} – {to}'**
+  String weekRange(String from, String to);
+
   /// No description provided for @thisWeek.
   ///
   /// In en, this message translates to:

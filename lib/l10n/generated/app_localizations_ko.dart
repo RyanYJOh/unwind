@@ -33,6 +33,41 @@ class AppLocalizationsKo extends AppLocalizations {
   String get lampOff => '꺼짐';
 
   @override
+  String weekNumber(int n) {
+    return '$n주차';
+  }
+
+  @override
+  String get weekProgressLabel => '이번 주 진행';
+
+  @override
+  String get weekAllDone => '이번 주 할 일을 다 했어요';
+
+  @override
+  String get weekEmpty => '이번 주엔 아직 계획이 없어요';
+
+  @override
+  String addToDay(String day) {
+    return '$day에 추가';
+  }
+
+  @override
+  String openDay(String day) {
+    return '$day 열기';
+  }
+
+  @override
+  String get lastWeek => '지난주';
+
+  @override
+  String get nextWeek => '다음주';
+
+  @override
+  String weekRange(String from, String to) {
+    return '$from ~ $to';
+  }
+
+  @override
   String get thisWeek => '이번 주';
 
   @override

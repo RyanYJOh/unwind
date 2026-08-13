@@ -34,6 +34,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lampOff => 'Off';
 
   @override
+  String weekNumber(int n) {
+    return 'Week $n';
+  }
+
+  @override
+  String get weekProgressLabel => 'This week\'s progress';
+
+  @override
+  String get weekAllDone => 'All done this week';
+
+  @override
+  String get weekEmpty => 'Nothing planned this week yet';
+
+  @override
+  String addToDay(String day) {
+    return 'Add to $day';
+  }
+
+  @override
+  String openDay(String day) {
+    return 'Open $day';
+  }
+
+  @override
+  String get lastWeek => 'Last week';
+
+  @override
+  String get nextWeek => 'Next week';
+
+  @override
+  String weekRange(String from, String to) {
+    return '$from – $to';
+  }
+
+  @override
   String get thisWeek => 'This week';
 
   @override

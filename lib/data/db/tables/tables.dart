@@ -111,5 +111,6 @@ abstract final class SettingKeys {
   static const onboardingCompleted = 'onboardingCompleted';
   static const dayStartHour = 'dayStartHour'; // 기본 6
   static const languageCode = 'languageCode'; // 기본 'en'
-  static const weekViewOpen = 'weekViewOpen'; // 주간 뷰 토글 상태 (개정 2026-08-07)
+  // weekViewOpen은 2026-08-13에 제거됐다 — 주간 뷰가 오버레이 토글에서
+  // 라우트로 바뀌면서 열림 상태를 영속할 이유가 사라졌다.
 }
