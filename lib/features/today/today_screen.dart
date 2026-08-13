@@ -484,9 +484,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // 주 칩과 FAB는 같은 줄에 앉는다 (개정 2026-08-13) —
-                        // FAB가 떠 있으면 칩이 그만큼 밀려 올라간다.
+                        // 주 칩과 FAB는 같은 줄에 앉고 **하단 라인을 맞춘다**
+                        // (개정 2026-08-13). 가운데 정렬하면 작은 칩이 위로
+                        // 떠서 스트립과 멀어진다.
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             const _WeekPill(),
                             const Spacer(),
@@ -684,6 +686,9 @@ class _TopBar extends ConsumerWidget {
         icon: Icons.settings_outlined,
         iconSize: 18,
         size: 32,
+        // 기본 textSecondary는 밝아진 코너 글로우 위에서 2.2:1까지 떨어진다
+        // (§12는 UI 요소에 3:1을 요구한다). 홈 헤더에서만 한 단 올린다.
+        color: UnwindColors.textPrimary,
         semanticLabel: l10n.settingsTitle,
         onPressed: onSettings,
       ),
