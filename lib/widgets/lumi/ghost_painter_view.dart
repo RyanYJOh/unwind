@@ -380,7 +380,7 @@ class _GhostPainterViewState extends State<GhostPainterView>
                   1.0 +
                   bounceScale +
                   0.05 * math.sin(tickle.clamp(0.0, 1.0) * math.pi) +
-                  0.05 * yawnAmt +
+                  0.07 * yawnAmt +
                   0.06 * hAmt +
                   (s > 0.99 && !widget.reduceMotion
                       ? math.sin(_phase * 2 * math.pi * 0.7) * 0.008
@@ -481,7 +481,7 @@ class _GhostPainter extends CustomPainter {
     final floatY = math.sin(phase * 2 * math.pi) * floatAmp;
     final cy = size.height / 2 + floatY + asleepProgress * 8 * u;
 
-    // ── 산책 (12~14시): 방 안을 이리저리 떠다닌다. 통통 튀는 걸음 보브 +
+    // ── 산책: 방 안을 이리저리 떠다닌다. 통통 튀는 걸음 보브 +
     //    진행 방향으로 살짝 기울기 — 전체(글로우 포함)가 함께 움직인다.
     canvas.save(); // 전체 이동 레이어
     double leanDeg = 0;
@@ -493,8 +493,21 @@ class _GhostPainter extends CustomPainter {
       leanDeg = math.cos(wp) * 8.0;
       canvas.translate(wanderX, -bob);
     } else if (activity == LumiDayActivity.hum) {
-      // 콧노래 (14~16시): 리듬 타는 좌우 스웨이
+      // 콧노래: 리듬 타는 좌우 스웨이
       leanDeg = math.sin(phase * 2 * math.pi * 0.5) * 2.4;
+    } else if (activity == LumiDayActivity.dance) {
+      // 춤 (신설 2026-08-15): 콧노래보다 크게 리듬을 탄다 —
+      // 좌우 스텝 + 빠른 통통 바운스 + 큰 기울기. 반짝이는 소품 레이어가 맡는다.
+      final dp = phase * 2 * math.pi * 0.55;
+      leanDeg = math.sin(dp * 2) * 8.5;
+      canvas.translate(
+        math.sin(dp) * 14 * u,
+        -math.sin(dp * 4).abs() * 4.5 * u,
+      );
+    } else if (nightDoze) {
+      // 졸려서 몸을 못 가눈다 (신설 2026-08-15) — 저주파 비틀비틀 스웨이.
+      // 눈부신 밤(dazzle↑)엔 잠이 달아나 있어 덜 흔들린다.
+      leanDeg = math.sin(phase * 2 * math.pi * 0.18) * 3.4 * (1 - dazzle * 0.6);
     }
 
     // Rive SVG 파츠(assets/rive/svg, viewBox 500)와 동일 지오메트리
@@ -536,7 +549,7 @@ class _GhostPainter extends CustomPainter {
     }
     canvas.scale(bodyScale);
     if (activity == LumiDayActivity.stretch) {
-      // 아침 스트레칭 (06~08시): 위로 쭉 — 세로 늘어남
+      // 아침 스트레칭: 위로 쭉 — 세로 늘어남
       final st = math.sin(phase * 2 * math.pi * 0.45).abs();
       canvas.scale(1.0 - 0.015 * st, 1.0 + 0.045 * st);
     }
@@ -723,9 +736,16 @@ class _GhostPainter extends CustomPainter {
     final headCy = py(202);
     canvas.save();
     canvas.translate(headCx, headCy);
-    // 두리번거릴 때 고개도 시선을 살짝 따라간다
-    canvas.rotate((headTiltDeg + doze * 13.0 + gazeX * 3.0) * math.pi / 180);
-    canvas.translate(-headCx, -headCy + doze * 5 * u);
+    // 두리번거릴 때 고개도 시선을 살짝 따라간다.
+    // 꾸벅꾸벅 (과장 2026-08-15): 기울기 13°→19°·낙폭 5→8u로 키우고,
+    // 떨어지는 동안 잔떨림을 얹어 "자기도 모르게 끄덕끄덕"이 크게 읽히게 한다.
+    final nodTremor = doze > 0.05
+        ? math.sin(phase * 2 * math.pi * 1.7) * 2.0 * doze
+        : 0.0;
+    canvas.rotate(
+      (headTiltDeg + doze * 19.0 + nodTremor + gazeX * 3.0) * math.pi / 180,
+    );
+    canvas.translate(-headCx, -headCy + doze * 8 * u);
 
     // 졸리면 눈이 살짝 작아진다. SVG 파츠(eye_*, 10×16 @ ±36)와 동일 비율
     // (개정 2026-08-09: 강조 배율 제거 — 레퍼런스처럼 작은 눈 + 얼굴 여백).
@@ -734,10 +754,15 @@ class _GhostPainter extends CustomPainter {
     final squint = nightDoze ? ((dazzle - 0.45) / 0.55).clamp(0.0, 1.0) : 0.0;
     final eyeDx = 36.0 * k;
     final eyeRx = 10.0 * k * eyeScale;
-    final eyeRy = 16.0 * k * eyeScale * (1 - 0.68 * squint);
+    // 눈부심 압착 (과장 2026-08-15): 0.68 → 0.82 — 거의 실선까지 짓눌린다
+    final eyeRy = 16.0 * k * eyeScale * (1 - 0.82 * squint);
 
-    // 독서 (10~12시): 시선이 책으로 — 눈이 살짝 아래로 내려온다
-    final eyeYOff = activity == LumiDayActivity.read ? 3.0 * u : 0.0;
+    // 독서·낙서: 시선이 책/종이로 — 눈이 살짝 아래로 내려온다
+    final eyeYOff =
+        (activity == LumiDayActivity.read ||
+            activity == LumiDayActivity.doodle)
+        ? 3.0 * u
+        : 0.0;
 
     // 두리번 — 눈(솔리드 타원)이 얼굴 안에서 좌우로 옮겨 다닌다.
     // 홍채가 없는 디자인이라 이게 곧 시선이다.
@@ -900,16 +925,19 @@ class _GhostPainter extends CustomPainter {
 
       // 강한 눈부심: 눈을 꽉 압착하고, 안쪽이 올라간 눈썹과 바깥 눈꼬리
       // 주름으로 화난 표정이 아닌 "빛 때문에 괴로운" 표정을 만든다.
+      // (과장 2026-08-15: 압력선을 더 깊고 굵게, 아래 눈꺼풀도 밀어 올려
+      //  ><로 짓눌린 인상 + 주름 3개 + 눈꼬리에 눈물이 찔끔 맺힌다 —
+      //  홈의 작은 캐릭터에서도 "괴롭다"가 한눈에 읽혀야 한다.)
       if (squint > 0.35) {
         final pain = ((squint - 0.35) / 0.65).clamp(0.0, 1.0);
 
-        // 꽉 감긴 윗눈꺼풀의 압력선.
+        // 꽉 감긴 윗눈꺼풀의 압력선 — 깊고 굵게.
         final pressureLid = Path()
-          ..moveTo(ec.dx - eyeRx * 0.98, ec.dy + eyeRy * 0.10)
+          ..moveTo(ec.dx - eyeRx * 1.05, ec.dy + eyeRy * 0.10)
           ..quadraticBezierTo(
             ec.dx,
-            ec.dy - eyeRy * (0.74 + pain * 0.18),
-            ec.dx + eyeRx * 0.98,
+            ec.dy - eyeRy * (0.80 + pain * 0.34),
+            ec.dx + eyeRx * 1.05,
             ec.dy + eyeRy * 0.10,
           );
         canvas.drawPath(
@@ -917,53 +945,92 @@ class _GhostPainter extends CustomPainter {
           Paint()
             ..color = _inkColor.withValues(alpha: 0.30 + pain * 0.62)
             ..style = PaintingStyle.stroke
-            ..strokeWidth = (2.0 + pain * 1.2) * u
+            ..strokeWidth = (2.4 + pain * 1.8) * u
+            ..strokeCap = StrokeCap.round,
+        );
+
+        // 아래 눈꺼풀도 밀어 올라온다 — 꽉 감은 ><의 아래 절반.
+        final lowerLid = Path()
+          ..moveTo(ec.dx - eyeRx * 0.82, ec.dy + eyeRy * 0.34)
+          ..quadraticBezierTo(
+            ec.dx,
+            ec.dy + eyeRy * (0.66 + pain * 0.14),
+            ec.dx + eyeRx * 0.82,
+            ec.dy + eyeRy * 0.34,
+          );
+        canvas.drawPath(
+          lowerLid,
+          Paint()
+            ..color = _inkColor.withValues(alpha: (0.18 + pain * 0.42))
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = (1.6 + pain * 1.0) * u
             ..strokeCap = StrokeCap.round,
         );
 
         // 안쪽이 들린 눈썹 — 고통·당황 신호, 중앙을 내리는 화난 눈썹과 반대.
         final outerBrow = Offset(
           ec.dx + dir * eyeRx * 0.92,
-          ec.dy - eyeRy * (1.20 + pain * 0.08),
+          ec.dy - eyeRy * (1.20 + pain * 0.10),
         );
         final innerBrow = Offset(
           ec.dx - dir * eyeRx * 0.72,
-          ec.dy - eyeRy * (1.46 + pain * 0.16),
+          ec.dy - eyeRy * (1.52 + pain * 0.26),
         );
         final brow = Path()
           ..moveTo(outerBrow.dx, outerBrow.dy)
           ..quadraticBezierTo(
             ec.dx,
-            ec.dy - eyeRy * (1.34 + pain * 0.12),
+            ec.dy - eyeRy * (1.36 + pain * 0.18),
             innerBrow.dx,
             innerBrow.dy,
           );
         canvas.drawPath(
           brow,
           Paint()
-            ..color = _inkColor.withValues(alpha: 0.24 + pain * 0.56)
+            ..color = _inkColor.withValues(alpha: 0.24 + pain * 0.60)
             ..style = PaintingStyle.stroke
-            ..strokeWidth = (1.5 + pain * 0.8) * u
+            ..strokeWidth = (1.7 + pain * 1.1) * u
             ..strokeCap = StrokeCap.round,
         );
 
-        // 바깥 눈꼬리의 짧은 수축 주름 두 개.
+        // 바깥 눈꼬리의 짧은 수축 주름 세 개 — 부챗살로 퍼진다.
         final corner = Offset(ec.dx + dir * eyeRx * 0.96, ec.dy + eyeRy * 0.02);
-        for (final yDir in [-1.0, 1.0]) {
+        for (final yDir in [-1.0, 0.0, 1.0]) {
           canvas.drawLine(
             corner,
             corner.translate(
-              dir * (3.5 + pain * 2.5) * u,
-              yDir * (2.0 + pain * 1.6) * u,
+              dir * (4.5 + pain * 3.5) * u,
+              yDir * (2.6 + pain * 2.0) * u,
             ),
             Paint()
               ..color = _inkColor.withValues(alpha: 0.18 + pain * 0.44)
-              ..strokeWidth = 1.4 * u
+              ..strokeWidth = 1.5 * u
               ..strokeCap = StrokeCap.round,
+          );
+        }
+
+        // 짓눌린 눈꼬리에 찔끔 맺힌 눈물 — 괴로움의 마침표.
+        if (pain > 0.4) {
+          _paintDrop(
+            canvas,
+            Offset(ec.dx + dir * eyeRx * 1.22, ec.dy + eyeRy * 0.62),
+            (1.8 + 1.4 * pain) * u,
+            (pain - 0.4) / 0.6 * 0.85,
           );
         }
       }
 
+      // 하품 눈물 (신설 2026-08-15) — 입이 크게 벌어진 정점에서
+      // 눈꼬리에 눈물이 그렁 맺힌다. 진짜 하품의 화룡점정.
+      if (mouthOpen > 0.55) {
+        final tw = ((mouthOpen - 0.55) / 0.45).clamp(0.0, 1.0);
+        _paintDrop(
+          canvas,
+          Offset(ec.dx + dir * eyeRx * 1.18, ec.dy + eyeRy * 0.45),
+          (2.0 + 1.8 * tw) * u,
+          tw * 0.9,
+        );
+      }
     }
 
     // ── 안경 (독서, 개정 2026-08-09) — 둥근 뿔테 + 은은한 렌즈 반사 ──
@@ -1030,10 +1097,11 @@ class _GhostPainter extends CustomPainter {
     final mouthC = Offset(headCx, py(232));
     final restSmile = activity == LumiDayActivity.rest && asleepProgress <= 0.6;
     if (mouthOpen > 0.08) {
-      // 하품 (개정 2026-08-09) — 평소 입은 작지만 하품만은 과장되게 크다.
-      // 크게 벌어진 O + 아래쪽 작은 혀. (SVG mouth_yawn: 15×21)
-      final yw = 16.0 * k * (0.50 + 0.50 * mouthOpen);
-      final yh = 23.0 * k * (0.25 + 0.75 * mouthOpen);
+      // 하품 (개정 2026-08-09 · 2차 과장 2026-08-15) — 평소 입은 작지만
+      // 하품만은 얼굴의 절반을 차지할 만큼 커야 "진짜 하품"이 읽힌다.
+      // 크게 벌어진 O + 아래쪽 작은 혀. (기존 16×23 → 20×31)
+      final yw = 20.0 * k * (0.50 + 0.50 * mouthOpen);
+      final yh = 31.0 * k * (0.25 + 0.75 * mouthOpen);
       final yawnRect = Rect.fromCenter(
         center: mouthC.translate(0, yh * 0.15),
         width: yw * 2,
@@ -1057,6 +1125,21 @@ class _GhostPainter extends CustomPainter {
           ..color = _inkColor
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.6 * u,
+      );
+    } else if (activity == LumiDayActivity.bubbles) {
+      // 비눗방울 (신설 2026-08-15) — 후- 하고 오므린 작은 O 입.
+      // 방울이 떠오르는 쪽(오른쪽)으로 살짝 치우친다. 숨결에 맞춰 오므림이
+      // 미세하게 커졌다 작아진다.
+      final r = (4.6 + 0.7 * math.sin(phase * 2 * math.pi * 0.44)) * u;
+      final oc = mouthC.translate(5 * u, 0);
+      canvas.drawCircle(oc, r, Paint()..color = _cavityColor);
+      canvas.drawCircle(
+        oc,
+        r,
+        Paint()
+          ..color = _inkColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4 * u,
       );
     } else if (asleepProgress > 0.6 || restSmile) {
       // 잠들었을 때/저녁 휴식 — 낮고 잔잔한 만족 곡선
@@ -1101,7 +1184,7 @@ class _GhostPainter extends CustomPainter {
       // 열린 미소 — 위 입술은 살짝 스마일 곡선, 아래는 둥근 주머니.
       // 크기: 졸리면 축소, happy·하품이면 확대
       final shrink = 1 - 0.40 * sleepiness * (1 - mouthOpen);
-      // 간식 (16~18시): 오물오물 — 입이 리듬에 맞춰 조였다 벌어진다
+      // 간식: 오물오물 — 입이 리듬에 맞춰 조였다 벌어진다
       final chew = activity == LumiDayActivity.snack
           ? 0.72 + 0.22 * math.sin(phase * 2 * math.pi * 1.15).abs()
           : 1.0;
@@ -1144,6 +1227,40 @@ class _GhostPainter extends CustomPainter {
       canvas.restore();
     }
 
+    // ── 콧물 방울 (신설 2026-08-15, 😪) — 꾸벅꾸벅 조는 동안 코끝에서
+    //    숨을 따라 부풀다가, 화들짝 깨는 순간(doze 급락) 훅 들이마셔진다.
+    //    눈부신 밤(dazzle↑)엔 잠이 얕아 doze 자체가 작으므로 거의 안 생긴다.
+    //    머리 그룹 안에서 그려 끄덕임을 따라 함께 기운다.
+    if (nightDoze && doze > 0.12) {
+      final bubbleT = ((doze - 0.12) / 0.88).clamp(0.0, 1.0);
+      final noseTip = Offset(headCx + 7 * u, py(222));
+      final r =
+          (2.2 + 6.0 * bubbleT) *
+          u *
+          (1 + 0.06 * math.sin(phase * 2 * math.pi * 2.2)); // 숨결 떨림
+      final bc = noseTip.translate(2.5 * u * bubbleT, r * 0.75);
+      canvas.drawCircle(
+        bc,
+        r,
+        Paint()
+          ..color = const Color(0xFFB5E0F5).withValues(alpha: 0.80 * bubbleT),
+      );
+      canvas.drawCircle(
+        bc,
+        r,
+        Paint()
+          ..color = _inkColor.withValues(alpha: 0.55 * bubbleT)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.8 * u,
+      );
+      canvas.drawCircle(
+        bc.translate(-r * 0.32, -r * 0.32),
+        r * 0.24,
+        Paint()
+          ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.85 * bubbleT),
+      );
+    }
+
     canvas.restore(); // 머리 그룹
 
     // ── 낮 일과 소품 (개편 2026-08-08) — 본체 디자인과 분리된 레이어.
@@ -1155,13 +1272,30 @@ class _GhostPainter extends CustomPainter {
         _paintCoffee(canvas, u, cx, cy, bodyH);
       case LumiDayActivity.snack:
         _paintCookie(canvas, u, cx, cy, bodyH);
+      case LumiDayActivity.doodle:
+        _paintDoodle(canvas, u, cx, cy, bodyH);
+      case LumiDayActivity.dance:
+        _paintSparkles(canvas, u, cx, cy, bodyW, bodyH);
       default:
         break;
     }
 
+    // ── 식은땀 (신설 2026-08-15) — 강한 눈부심에 괴로울 때 관자놀이에
+    //    땀방울이 맺혀 또르르 흘러내린다.
+    if (squint > 0.5) {
+      final sp = (phase * 0.45) % 1.0;
+      final a = ((squint - 0.5) * 2).clamp(0.0, 1.0) * math.sin(sp * math.pi);
+      _paintDrop(
+        canvas,
+        Offset(px(352), py(150) + sp * 30 * u),
+        (3.6 + 2.0 * squint) * u,
+        a * 0.9,
+      );
+    }
+
     canvas.restore(); // 몸통 스케일
 
-    // ── 콧노래 음표 (14~16시) — zzz와 같은 문법의 상승 루프 ──
+    // ── 콧노래 음표 — zzz와 같은 문법의 상승 루프 ──
     // 글리프는 폰트가 아니라 패스로 직접 그린다 (개정 2026-08-15):
     // 플랫폼 폰트 차이·위젯 스프라이트 추출 환경에 흔들리지 않고,
     // 라운드 스트로크가 카와이 톤과도 맞는다.
@@ -1179,6 +1313,50 @@ class _GhostPainter extends CustomPainter {
           (13.0 + i * 4) * u,
           const Color(0xFFA99BC9).withValues(alpha: alpha),
           eighthPair: i.isOdd,
+        );
+      }
+    }
+
+    // ── 비눗방울 (신설 2026-08-15) — 오므린 입에서 방울이 떠올라
+    //    흔들리며 올라가다 하나씩 사라진다. 유령다운 몽환적 놀이.
+    if (activity == LumiDayActivity.bubbles) {
+      for (var i = 0; i < 3; i++) {
+        final p = (phase * 0.22 + i / 3) % 1.0;
+        final alpha = (math.sin(p * math.pi) * 0.95).clamp(0.0, 1.0);
+        if (alpha <= 0.02) continue;
+        final r = (3.4 + i * 1.5 + p * 3.2) * u;
+        // 입에서 나와 곧장 오른쪽 대각선 바깥으로 — 초반에 빠르게 벗어나
+        // (sqrt 궤적) 얼굴·눈 위를 지나가지 않는다.
+        final bc = Offset(
+          cx +
+              (8 + 44 * math.sqrt(p)) * u +
+              math.sin(p * 2 * math.pi * 2 + i * 2.1) * 4 * u,
+          py(228) - p * 62 * u,
+        );
+        canvas.drawCircle(
+          bc,
+          r,
+          Paint()
+            ..color = const Color(0xFFBFE3F7).withValues(alpha: 0.25 * alpha),
+        );
+        canvas.drawCircle(
+          bc,
+          r,
+          Paint()
+            ..color = const Color(0xFF9FD4EF).withValues(alpha: 0.85 * alpha)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.8 * u,
+        );
+        canvas.drawArc(
+          Rect.fromCircle(center: bc, radius: r * 0.60),
+          -2.6,
+          1.1,
+          false,
+          Paint()
+            ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9 * alpha)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5 * u
+            ..strokeCap = StrokeCap.round,
         );
       }
     }
@@ -1304,11 +1482,171 @@ class _GhostPainter extends CustomPainter {
     }
   }
 
+  /// 물방울 — 위가 뾰족한 카와이 눈물/땀 방울 (신설 2026-08-15).
+  /// 하품 눈물·눈부심 눈물·식은땀이 같은 문법을 쓴다.
+  void _paintDrop(Canvas canvas, Offset c, double r, double alpha) {
+    if (alpha <= 0.02) return;
+    final a = alpha.clamp(0.0, 1.0);
+    final drop = Path()
+      ..moveTo(c.dx, c.dy - r * 1.45)
+      ..quadraticBezierTo(
+        c.dx + r * 0.95,
+        c.dy - r * 0.35,
+        c.dx + r * 0.92,
+        c.dy + r * 0.18,
+      )
+      ..cubicTo(
+        c.dx + r * 0.88,
+        c.dy + r * 0.95,
+        c.dx - r * 0.88,
+        c.dy + r * 0.95,
+        c.dx - r * 0.92,
+        c.dy + r * 0.18,
+      )
+      ..quadraticBezierTo(c.dx - r * 0.95, c.dy - r * 0.35, c.dx, c.dy - r * 1.45)
+      ..close();
+    canvas.drawPath(
+      drop,
+      Paint()..color = const Color(0xFF9FD4EF).withValues(alpha: 0.85 * a),
+    );
+    canvas.drawPath(
+      drop,
+      Paint()
+        ..color = _inkColor.withValues(alpha: 0.40 * a)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.20
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.drawCircle(
+      c.translate(-r * 0.28, 0),
+      r * 0.22,
+      Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9 * a),
+    );
+  }
+
+  /// 춤 (신설 2026-08-15): 스텝 주변에 앰버 반짝이 별들이 위상차로 깜빡인다.
+  /// 몸의 스텝·바운스는 본체 이동 레이어가 맡고, 여기는 반짝이만 그린다.
+  void _paintSparkles(
+    Canvas canvas,
+    double u,
+    double cx,
+    double cy,
+    double bodyW,
+    double bodyH,
+  ) {
+    const spots = [
+      Offset(-0.68, -0.52),
+      Offset(0.70, -0.28),
+      Offset(-0.55, 0.40),
+      Offset(0.60, 0.52),
+    ];
+    for (var i = 0; i < spots.length; i++) {
+      final p = (phase * 0.8 + i * 0.27) % 1.0;
+      final a = math.sin(p * math.pi);
+      if (a <= 0.05) continue;
+      final c = Offset(
+        cx + spots[i].dx * bodyW * 0.78,
+        cy + spots[i].dy * bodyH * 0.55,
+      );
+      final r = (2.6 + (i % 2) * 1.3) * u * (0.6 + 0.6 * a);
+      // 4갈래 다이아몬드 별 — 허리가 잘록해 반짝임으로 읽힌다
+      final star = Path()
+        ..moveTo(c.dx, c.dy - r * 1.9)
+        ..quadraticBezierTo(c.dx + r * 0.25, c.dy - r * 0.25, c.dx + r * 1.9, c.dy)
+        ..quadraticBezierTo(c.dx + r * 0.25, c.dy + r * 0.25, c.dx, c.dy + r * 1.9)
+        ..quadraticBezierTo(c.dx - r * 0.25, c.dy + r * 0.25, c.dx - r * 1.9, c.dy)
+        ..quadraticBezierTo(c.dx - r * 0.25, c.dy - r * 0.25, c.dx, c.dy - r * 1.9)
+        ..close();
+      canvas.drawPath(
+        star,
+        Paint()..color = const Color(0xFFFFC85C).withValues(alpha: 0.92 * a),
+      );
+    }
+  }
+
+  /// 낙서 (신설 2026-08-15): 몸 앞에 떠 있는 종이 위로 크레용이 고리
+  /// 낙서를 그려 나간다 — 다 그리면 새 종이로 넘어간다.
+  void _paintDoodle(
+    Canvas canvas,
+    double u,
+    double cx,
+    double cy,
+    double bodyH,
+  ) {
+    final y = cy + bodyH * 0.15 + math.sin(phase * 2 * math.pi + 0.9) * 1.5 * u;
+    final center = Offset(cx + 2 * u, y);
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(-0.06);
+    canvas.translate(-center.dx, -center.dy);
+    final paper = Rect.fromCenter(
+      center: center,
+      width: 64 * u,
+      height: 42 * u,
+    );
+    final rr = RRect.fromRectAndRadius(paper, Radius.circular(3 * u));
+    canvas.drawRRect(rr, Paint()..color = const Color(0xFFFBF5E6));
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..color = _inkColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.8 * u
+        ..strokeJoin = StrokeJoin.round,
+    );
+    // 낙서 곡선 — 고리 세 개. phase에 따라 앞에서부터 그려진다 (trim).
+    final squiggle = Path()..moveTo(paper.left + 9 * u, center.dy + 7 * u);
+    for (var i = 0; i < 3; i++) {
+      final x0 = paper.left + (9 + i * 15.5) * u;
+      squiggle.cubicTo(
+        x0 + 12 * u,
+        center.dy - 13 * u,
+        x0 + 19 * u,
+        center.dy + 9 * u,
+        x0 + 15.5 * u,
+        center.dy + 7 * u,
+      );
+    }
+    final metric = squiggle.computeMetrics().first;
+    // 최소 25%는 항상 그려져 있게 — 새 종이로 넘어가는 순간에도, 정지
+    // 프레임(위젯 스프라이트·Reduce Motion)에서도 빈 종이로 보이지 않는다.
+    final prog = 0.25 + 0.75 * ((phase * 0.12) % 1.0);
+    canvas.drawPath(
+      metric.extractPath(0, metric.length * prog),
+      Paint()
+        ..color = const Color(0xFFE8913D)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4 * u
+        ..strokeCap = StrokeCap.round,
+    );
+    // 크레용 — 낙서 끝점을 따라다닌다 (몸 앞에 둥둥 뜬 소품 문법 그대로).
+    final tip = metric.getTangentForOffset(metric.length * prog)?.position;
+    if (tip != null) {
+      canvas.save();
+      canvas.translate(tip.dx, tip.dy);
+      canvas.rotate(-0.55);
+      final crayon = RRect.fromRectAndRadius(
+        Rect.fromLTWH(-2.6 * u, -16 * u, 5.2 * u, 16 * u),
+        Radius.circular(2.4 * u),
+      );
+      canvas.drawRRect(crayon, Paint()..color = const Color(0xFFE8913D));
+      canvas.drawRRect(
+        crayon,
+        Paint()
+          ..color = _inkColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.8 * u,
+      );
+      canvas.restore();
+    }
+    canvas.restore();
+  }
+
   // ── 낮 일과 소품들 (개편 2026-08-08, 개정 2026-08-15: 손 제거) ──
   // 소품은 유령 몸 앞에 그냥 둥둥 떠 있다 — 몸통 위에 겹쳐 그리던 "쥔 손"은
   // 발주자 결정으로 제거했다 (몸 안에 손이 있는 것처럼 보였다).
 
-  /// 독서 (10~12시): 펼친 책 — 몸 앞에 둥둥 떠 있다.
+  /// 독서: 펼친 책 — 몸 앞에 둥둥 떠 있다.
   void _paintBook(Canvas canvas, double u, double cx, double cy, double bodyH) {
     final y =
         cy +
@@ -1345,7 +1683,7 @@ class _GhostPainter extends CustomPainter {
     }
   }
 
-  /// 커피 (08~10시): 김이 오르는 잔 — 몸 앞에 떠서 주기적으로 홀짝
+  /// 커피: 김이 오르는 잔 — 몸 앞에 떠서 주기적으로 홀짝
   /// 들어올려진다.
   void _paintCoffee(
     Canvas canvas,
@@ -1420,7 +1758,7 @@ class _GhostPainter extends CustomPainter {
     );
   }
 
-  /// 간식 (16~18시): 초코칩 쿠키 — 몸 앞에 둥둥. 한 입씩 사라졌다가
+  /// 간식: 초코칩 쿠키 — 몸 앞에 둥둥. 한 입씩 사라졌다가
   /// 새 쿠키로.
   void _paintCookie(
     Canvas canvas,

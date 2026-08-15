@@ -73,7 +73,7 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
               ),
             ),
           ),
-          // 생활 모드 프리뷰 — 낮 일과 7종 + 밤(눈부심/꾸벅) + 레거시
+          // 생활 모드 프리뷰 — 낮 일과 10종 + 밤(눈부심/꾸벅) + 레거시
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Wrap(

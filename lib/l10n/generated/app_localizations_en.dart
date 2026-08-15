@@ -339,14 +339,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get obNightBody =>
-      'But the lights are still on — far too bright to sleep in. Poor Lumi.';
-
-  @override
-  String get obLightsTitle => 'Each task is a lamp';
-
-  @override
-  String get obLightsBody =>
-      'Finish a task, flip its switch. Try turning them all off.';
+      'The lights are far too bright to sleep in. Flip a switch when a task is done — try turning them all off.';
 
   @override
   String get obLightsDone => 'All lights out — sweet dreams, Lumi';
@@ -425,9 +418,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get obNameHint => 'Your name';
-
-  @override
-  String get obSkip => 'Skip';
 
   @override
   String get obBegin => 'Let\'s begin';

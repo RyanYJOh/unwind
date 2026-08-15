@@ -329,13 +329,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obNightTitle => '밤이 되면 Lumi는 자야 해요';
 
   @override
-  String get obNightBody => '그런데 방의 불이 아직 켜져 있어요. 눈이 부셔서 도무지 잠들 수가 없어요.';
-
-  @override
-  String get obLightsTitle => '할 일 하나가 등 하나예요';
-
-  @override
-  String get obLightsBody => '끝낸 일의 스위치를 내리면 불이 꺼져요. 전부 꺼 보세요.';
+  String get obNightBody =>
+      '방의 불이 눈부셔서 도무지 잠들 수가 없어요. 끝낸 일의 스위치를 내리면 불이 꺼져요 — 전부 꺼 보세요.';
 
   @override
   String get obLightsDone => '모든 불이 꺼졌어요 — 잘 자요, Lumi';
@@ -411,9 +406,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get obNameHint => '이름';
-
-  @override
-  String get obSkip => '건너뛰기';
 
   @override
   String get obBegin => '시작하기';

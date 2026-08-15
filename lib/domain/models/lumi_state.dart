@@ -12,10 +12,25 @@ enum LumiEvent { blink, yawn, react, fallAsleep, poke }
 /// - [asleep]: 모든 체크 완료(시간 무관) / 소등 / 밤의 빈 방 — 만족스러운 잠.
 enum LumiMode { day, nightAwake, asleep }
 
-/// 낮 일과 — enum 순서가 곧 2시간 슬롯 순서다 (06시부터).
-/// stretch(06) → coffee(08) → read(10) → walk(12) → hum(14) →
-/// snack(16) → rest(18)
-enum LumiDayActivity { stretch, coffee, read, walk, hum, snack, rest }
+/// 낮 일과 — enum 순서가 곧 하루의 흐름이다 (기상 → 취침).
+/// 슬롯은 기상~취침 구간을 활동 개수로 **균등 분할**한다 (개정 2026-08-15:
+/// 활동이 10개가 되며 2시간 고정 슬롯으로는 하루에 다 담기지 않는다 —
+/// Lumi의 하루 길이에 맞춰 일과가 늘고 준다).
+/// 기본(05~22시) 기준: stretch(기지개) → coffee(커피) → read(독서) →
+/// doodle(낙서) → walk(산책) → hum(콧노래) → snack(간식) → dance(춤) →
+/// bubbles(비눗방울) → rest(취침 전 휴식)
+enum LumiDayActivity {
+  stretch,
+  coffee,
+  read,
+  doodle,
+  walk,
+  hum,
+  snack,
+  dance,
+  bubbles,
+  rest,
+}
 
 class LumiState {
   /// 0.0 ~ 1.0, 조도 엔진에서 주입

@@ -677,20 +677,8 @@ abstract class AppLocalizations {
   /// No description provided for @obNightBody.
   ///
   /// In en, this message translates to:
-  /// **'But the lights are still on — far too bright to sleep in. Poor Lumi.'**
+  /// **'The lights are far too bright to sleep in. Flip a switch when a task is done — try turning them all off.'**
   String get obNightBody;
-
-  /// No description provided for @obLightsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Each task is a lamp'**
-  String get obLightsTitle;
-
-  /// No description provided for @obLightsBody.
-  ///
-  /// In en, this message translates to:
-  /// **'Finish a task, flip its switch. Try turning them all off.'**
-  String get obLightsBody;
 
   /// No description provided for @obLightsDone.
   ///
@@ -829,12 +817,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your name'**
   String get obNameHint;
-
-  /// No description provided for @obSkip.
-  ///
-  /// In en, this message translates to:
-  /// **'Skip'**
-  String get obSkip;
 
   /// No description provided for @obBegin.
   ///

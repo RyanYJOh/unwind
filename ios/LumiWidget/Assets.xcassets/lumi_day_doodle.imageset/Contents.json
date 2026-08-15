@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "lumi_day_doodle.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

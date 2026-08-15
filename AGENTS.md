@@ -57,6 +57,7 @@ lib/
   data/db/           Drift 테이블·DAO (todos, days, recurrences, weekly_bills, settings)
   data/repositories/ todo_repository(setDone/wake/lightsOut...), bill_repository
   domain/services/   brightness_engine, bill_calculator(순수 계산, 테스트 필수),
+                     widget_snapshot_service(iOS 홈 위젯 스냅샷, §8.5),
                      recurrence_expander, day_rollover_service, notification_service
   domain/models/     lumi_state.dart — LumiState/LumiMode/LumiDayActivity (렌더러 계약)
   features/
@@ -68,7 +69,7 @@ lib/
     bill/            주간 청구서 (영수증 렌더 + 이미지 공유)
     settings/        설정 + ghost_demo_screen(dev)
     dev/             design_gallery_screen(dev) — 컴포넌트 전수 검증
-    onboarding/      11페이지 온보딩 (전면 개편 2026-08-15 — §8.5)
+    onboarding/      10페이지 온보딩 (전면 개편 2026-08-15 — §8.5)
   widgets/           pull_cord(전등 줄), corner_glow(핵심 조명), night_sky,
                      lumi/(캐릭터)
 ```
@@ -217,10 +218,17 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
 ### 생활 모드 (lumiModeProvider가 결정 · 취침/기상시간 반영 2026-08-15)
 1. **asleep** — 소등했거나 / 전부 체크(시간 무관) / 취침시간 이후의 빈 방 /
    과거 날짜의 완료된 밤. 감은 ∪눈 + 만족 미소 + zzz + 손 처짐.
-2. **day** (기상시간~취침시간, 기본 05~22시) — 행복한 펫. 기상시간부터
-   2시간 슬롯 일과 (enum 순서 = 슬롯): stretch(05) → coffee(07) → read(09)
-   → walk(11) → hum(13) → snack(15) → rest(17~취침). 소품(잔·책·안경·쿠키·
-   음표)은 본체와 분리된 레이어 — 외형을 바꿔도 소품 코드는 유지된다.
+2. **day** (기상시간~취침시간, 기본 05~22시) — 행복한 펫. 일과 10종
+   (개정 2026-08-15: doodle·dance·bubbles 신설). 슬롯은 **기상~취침을 활동
+   개수로 균등 분할**한다 (enum 순서 = 하루 흐름 — 활동이 10개가 되며
+   2시간 고정 슬롯으로는 하루에 다 담기지 않아 개정. iOS 위젯
+   `LumiWidget.swift`의 `daySlot`이 같은 공식을 미러링하므로 함께 고칠 것):
+   stretch → coffee → read → doodle(낙서: 종이 위로 크레용이 고리를 그려
+   나감, 시선 아래) → walk → hum → snack → dance(춤: 큰 스텝·바운스 +
+   앰버 반짝이 별) → bubbles(비눗방울: 오므린 O 입에서 방울이 오른쪽
+   대각선 위로 — 얼굴을 가로지르지 않게 sqrt 궤적) → rest. 소품(잔·책·
+   안경·쿠키·음표·종이/크레용·반짝이·비눗방울)은 본체와 분리된 레이어 —
+   외형을 바꿔도 소품 코드는 유지된다.
    **소품은 몸 앞에 그냥 둥둥 떠 있다** (개정 2026-08-15: 소품을 쥔 손
    제거 — 몸통 안에 손이 있는 것처럼 보였다). 독서는 안경을 함께 그린다.
 3. **nightAwake** (취침시간~, 미완 항목 존재) — 못 자는 밤. `dazzle = 1 - t`:
@@ -229,6 +237,14 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
    가장자리 선으로 표현하며, 강한 눈부심은 압착 눈꺼풀·안쪽이 들린 눈썹·
    눈꼬리 주름으로 괴로운 표정을 만든다. 입은 처진 곡선(웃음 금지),
    하품은 동그란 O.
+   **밤 디테일 과장 (개정 2026-08-15)**: ① 꾸벅꾸벅 졸 때 코끝에 **콧물
+   방울**(😪)이 숨을 따라 부풀다 화들짝 깨는 순간 들이마셔진다 (doze 값
+   연동, 눈부신 밤엔 거의 안 생김) ② 끄덕임은 13°→19°·낙폭 8u로 키우고
+   잔떨림을 얹었다 ③ 조는 동안 몸이 저주파로 **비틀비틀** 기운다 ④ 강한
+   눈부심은 눈을 거의 실선까지 압착(0.82) + 아래 눈꺼풀 역호(>< 인상) +
+   부챗살 주름 3개 + 관자놀이에 **식은땀**이 또르르 + 눈꼬리에 찔끔 눈물
+   ⑤ 하품 입은 20×31로 확대, 정점에서 눈꼬리에 **하품 눈물**이 맺힌다.
+   눈물·땀은 공용 `_paintDrop` 문법.
 
 ### 디자인 규칙 (2026-08-12 현행)
 - 실루엣(painted 모드 기준, image 모드는 PNG가 이 형태로 그려짐): 정원에
@@ -394,39 +410,79 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
 ## 8.5 온보딩 (전면 개편 2026-08-15, features/onboarding/onboarding_flow.dart)
 
 `onboardingCompleted` 플래그가 false면 main.dart가 홈 대신 온보딩을 띄운다.
-PageView 11페이지, 스와이프 금지(CTA로만 진행), 상단 진행 바 + 뒤로가기.
-CornerGlow는 플로우가 하나로 몰아 페이지 전환 때 빛이 이어진다.
+PageView **10페이지**(2차 개정 2026-08-15: 밤 안내와 소등 체험을 병합),
+스와이프 금지(CTA로만 진행), 상단 진행 바 + 뒤로가기. CornerGlow는 플로우가
+하나로 몰아 페이지 전환 때 빛이 이어진다. **Lumi는 크게 그린다**(hero
+200~210 — 130 수준으로 줄이지 말 것, 2차 개정).
 
 1. **환영** — "Get things done with Lumi", Lumi 크게(탭하면 간지럼).
-   CTA는 진입 1초 뒤 활성 (2페이지도 동일).
-2. **눈부신 밤** — 글로우 최대, Lumi nightAwake(찡그림·하품), 켜진 더미 등
-   3개(읽기 전용).
-3. **소등 체험** — 같은 더미 3개(물 2L·운동·30분 독서)를 직접 끈다.
-   끌수록 방이 어두워지고, **전부 꺼야만 다음으로** 넘어갈 수 있다.
-   다 끄면 Lumi가 잠들고 타이틀이 바뀐다.
-4. **청구서** — 청구서 아이콘을 탭하면 지그재그 절취선 영수증이 아래로
+   CTA는 진입 1초 뒤 활성.
+2. **눈부신 밤 + 소등 체험** (병합) — 글로우 최대, Lumi nightAwake(찡그림·
+   하품), 켜진 더미 등 3개(물 2L·운동·30분 독서)를 **바로** 끌 수 있다.
+   타일은 홈과 같은 폭(fullBleedContent). 끌수록 방이 어두워지고,
+   **전부 꺼야만 다음으로**. 다 끄면 Lumi가 잠들고 타이틀이 바뀐다.
+3. **청구서** — 청구서 아이콘을 탭하면 지그재그 절취선 영수증이 아래로
    인쇄되어 내려온다(한 번 눌러야 다음 활성).
-5. **질문 인트로** → 6. **매일 하는 일**(0개면 "아직 없어요"로 스킵, 커밋 시
-   디폴트 "물 2L 이상 마시기" 생성 — **매일 반복 규칙**으로 등록) →
-   7. **취침시각**(유저 -3h = Lumi 취침) → 8. **기상시각**(유저 -1h = Lumi
-   기상) — 피커 밑에 계산 결과가 라이브로 보인다. 매핑은
-   `lumiBedtimeFrom`/`lumiWakeFrom` (단위 테스트 있음). 계산값은 클램프
-   없이 그대로 저장(발주자 결정) — 설정 피커 범위를 그만큼 넓혀 뒀다
-   (기상 1~12시, 취침 16~새벽 2시).
-6. 9. **원형 타임테이블** — 24시간 링(자정이 위), 수면 호(슬레이트+달)·
+4. **질문 인트로** → 5. **매일 하는 일** — 입력을 시작하면 바로 "다음"이
+   열리고, "다음"은 쓰다 만 입력도 저장하고 넘어간다. `+`는 저장이 아니라
+   **여러 개 적을 때 줄 추가** 용도. 0개면 "아직 없어요"로 스킵(커밋 시
+   디폴트 "물 2L 이상 마시기" 생성) — 전부 **매일 반복 규칙**으로 등록 →
+   6. **취침시각**(유저 -3h = Lumi 취침) → 7. **기상시각**(유저 -1h = Lumi
+   기상) — 피커(224pt, 굴러갈 때 selection 햅틱) 밑에 계산 결과가 라이브로
+   보인다. 매핑은 `lumiBedtimeFrom`/`lumiWakeFrom` (단위 테스트 있음).
+   계산값은 클램프 없이 그대로 저장(발주자 결정) — 설정 피커 범위를 그만큼
+   넓혀 뒀다 (기상 1~12시, 취침 16~새벽 2시).
+5. 8. **원형 타임테이블** — 24시간 링(자정이 위), 수면 호(슬레이트+달)·
    활동 호(앰버+해), 중앙에 잠든 Lumi, 경계 점+시각 라벨.
-7. 10. **이름** — "What should Lumi call you?" (선택, 건너뛰기 가능,
-   `userName` 설정으로 저장) → 답변 일괄 커밋(플래그 제외).
-8. 11. **인사** — "만나서 반가워요, {이름}!" + 까르르. 2.1초 뒤
+6. 9. **이름** — "What should Lumi call you?" — **필수** (건너뛰기 없음,
+   2차 개정), `userName` 설정으로 저장 → 답변 일괄 커밋(플래그 제외).
+7. 10. **인사** — "만나서 반가워요, {이름}!" + 까르르. 2.1초 뒤
    onboardingCompleted 세우고 알림 권한 요청 후 홈으로 페이드.
    연출 타이머는 **플로우가 페이지 도착 시점에** 건다 (페이지 위젯 안에
    두면 PageView 프리빌드 순간 발동한다).
+- 제목은 진행 바에 붙지 않게 위에 s20 여유를 둔다 (2차 개정).
 - 커밋 순서 주의: 플래그를 먼저 세우면 main.dart의 home이 바뀌어 인사가
   잘린다. 설정·반복 커밋 → 인사 → 플래그 → 권한 → 홈.
 - `_ObPage` 공통 뼈대의 바깥 Column은 stretch — hero는 반드시 Center로
   감싼다 (아니면 CustomPaint가 화면 폭 기준으로 그려진다).
 - **개발 진입점**: 설정 > Onboarding (dev) — `OnboardingFlow(preview: true)`,
   아무것도 저장하지 않고 완주 후 pop.
+
+## 8.5 iOS 홈 위젯 (신설 2026-08-15, 발주자 컨펌)
+
+소형(2×2) 한 종, `ios/LumiWidget/`(WidgetKit·Swift). 시간에 따른 Lumi +
+남은 할 일 **숫자** — 위젯은 '흘끗 보는 자리'로 규정되어 숫자가 허용된다
+(§1 완화의 두 번째 적용, prd-amendments 2026-08-15).
+
+- **데이터**: 로컬 온리라 서버가 필요 없다. `widgetSyncProvider`(providers.dart,
+  TodayScreen이 watch)가 오늘 상태가 바뀔 때마다
+  `WidgetSnapshotService`(home_widget)로 App Group
+  (`group.com.unwindapp.unwind`) UserDefaults에 스냅샷을 쓰고 타임라인을
+  리로드한다. 키·의미는 `widget_snapshot_service.dart` ↔ `LumiWidget.swift`가
+  계약이다.
+- **Lumi 렌더**: 위젯 안에서는 Flutter가 안 돈다 — 앱 페인터로 **사전
+  렌더한 스프라이트 PNG**(모드 13종 × 다크서클 유무 = 26장)를 번들한다.
+  **캐릭터 외형을 바꾸면 반드시 재추출**:
+  `SPRITE_EXPORT=1 flutter test test/tools/widget_sprite_export_test.dart`
+  (출력이 곧 위젯 에셋 카탈로그. 평소 flutter test에서는 skip).
+- **모드 판정 미러**: `LumiWidget.swift`의 TimelineProvider가
+  `lumiModeProvider`(§4)의 규칙(기상~취침 균등 슬롯·취침 후 눈부심 0.45
+  분기·다크서클)을 Swift로 복제해 매시 엔트리를 예약한다 — 앱이 꺼져
+  있어도 표정이 바뀐다. **앱 쪽 규칙·`LumiDayActivity` 순서가 바뀌면 Swift도
+  함께 고칠 것** (배열 `daySlotNames`).
+- **새벽 공백**: 롤오버(자동 미루기·반복 전개)는 앱에서만 실행되므로,
+  기상시간이 지났는데 앱이 안 열렸으면(dayKey 불일치) **개수를 숨기고 아침
+  상태만** 보여준다. 어제 불을 남겼으면(미완+미소등) 다크서클은 추론해 얹는다.
+- **디자인**: 고정 다크 팔레트·앰버를 Swift 상수로 미러(`Palette` —
+  palette.dart가 바뀌면 함께 갱신). 코너 글로우는 우상단 radial gradient
+  (§11 블러 금지 준수), 개수는 듀오링고식 3D 압출 알약(blur 0 오프셋),
+  숫자는 SF Rounded heavy (Pretendard는 위젯에 번들하지 않는다 — 큰 숫자
+  중심이라 rounded가 톤에 더 맞고 폰트 등록 리스크가 없다).
+- **Xcode 배선**: 타깃 `LumiWidget`(iOS 17, appex)은 pbxproj에 직접
+  기록돼 있다(UUID 접두 `FAB1E5`). Runner가 임베드하며 버전은
+  Generated.xcconfig의 FLUTTER_BUILD_NAME/NUMBER를 그대로 써서 앱과 항상
+  일치한다. 양쪽 엔타이틀먼트(Runner.entitlements·LumiWidget.entitlements)의
+  App Group id가 서비스 상수와 일치해야 한다.
 
 ## 9. 개발용 기능 (배포 전 제거 대상)
 
@@ -464,4 +520,6 @@ CornerGlow는 플로우가 하나로 몰아 페이지 전환 때 빛이 이어�
   2026-08-12 트럼펫 스커트·캡슐 팔 재조정·눈/입 축소(하품만 과장)·
   `assets/rive/svg/` 소스 세트·몸통 PNG 하이브리드 렌더,
   **2026-08-12 디자인 시스템 v2** (조도 램프 폐기 → 고정 다크 팔레트,
-  듀오링고식 3D 물성, `lib/ui/` 컴포넌트 라이브러리, 전 인터랙션 햅틱).
+  듀오링고식 3D 물성, `lib/ui/` 컴포넌트 라이브러리, 전 인터랙션 햅틱),
+  **2026-08-15 iOS 홈 위젯** (§8.5 — WidgetKit 타깃·스프라이트 사전 렌더·
+  App Group 스냅샷. zzz·음표는 폰트 글리프 → 패스 드로잉으로 교체).

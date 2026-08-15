@@ -210,7 +210,8 @@ class LumiModeState {
 
 /// Lumi 생활 모드 (개편 2026-08-08 · 취침/기상시간 반영 2026-08-15):
 /// - 소등했거나, 전부 체크됐거나(시간 무관), 취침시간 이후의 빈 방 → 만족스러운 잠
-/// - 낮(기상시간~취침시간) → 행복한 일과. 2시간 슬롯마다 활동이 바뀐다
+/// - 낮(기상시간~취침시간) → 행복한 일과. 기상~취침을 균등 분할한 슬롯마다
+///   활동이 바뀐다 (개정 2026-08-15)
 /// - 취침시간 이후 + 미완 항목 → 못 자는 상태. 눈부심 = 방에 남은 빛(1 - t):
 ///   불이 많이 남았으면 눈부셔 못 자고, 몇 개 안 남았으면 꾸벅꾸벅 존다
 final lumiModeProvider = Provider<LumiModeState>((ref) {
@@ -249,8 +250,12 @@ final lumiModeProvider = Provider<LumiModeState>((ref) {
     return const LumiModeState(mode: LumiMode.asleep);
   }
   if (isDaytime) {
-    const acts = LumiDayActivity.values; // 순서 = 2시간 슬롯 (기상시간부터)
-    final slot = (sinceWake ~/ 2).clamp(0, acts.length - 1);
+    // 순서 = 하루의 흐름. 기상~취침을 활동 개수로 균등 분할한다
+    // (개정 2026-08-15 — 활동 10개는 2시간 고정 슬롯에 다 담기지 않는다).
+    // iOS 위젯(LumiWidget.swift)이 같은 공식을 미러링한다 — 함께 고칠 것.
+    const acts = LumiDayActivity.values;
+    final len = dayLength == 0 ? 24 : dayLength;
+    final slot = (sinceWake * acts.length ~/ len).clamp(0, acts.length - 1);
     return LumiModeState(mode: LumiMode.day, activity: acts[slot]);
   }
   return LumiModeState(

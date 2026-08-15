@@ -42,7 +42,7 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 }
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
-  static const _pageCount = 11;
+  static const _pageCount = 10;
 
   final _pageCtrl = PageController();
   int _page = 0;
@@ -69,11 +69,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   /// 페이지 전환 때 빛이 자연스럽게 이어진다.
   double get _glowTarget => switch (_page) {
     0 => 0.55, // 환영 — 밝은 낮의 방
-    1 => 1.0, // 눈부신 밤
-    2 => _lightsLight, // 체험 — 끄는 만큼 어두워진다
-    3 => 0.30,
-    8 => 0.22,
-    10 => 0.50,
+    1 => _lightsLight, // 눈부신 밤 + 소등 체험 — 끄는 만큼 어두워진다
+    2 => 0.30,
+    7 => 0.22,
+    9 => 0.50,
     _ => 0.32,
   };
 
@@ -225,7 +224,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     onPageChanged: _onPageChanged,
                     children: [
                       _WelcomePage(onNext: _next),
-                      _NightPage(onNext: _next),
+                      // 눈부신 밤 + 소등 체험 (병합 2026-08-15 2차) —
+                      // 안내만 하는 페이지 없이 바로 스위치를 만져 본다
                       _LightsPage(
                         onNext: _next,
                         onLightChanged: (light) =>
@@ -336,6 +336,10 @@ class _ObPage extends StatelessWidget {
   final VoidCallback onCta;
   final Widget? secondary;
 
+  /// 콘텐츠가 페이지 좌우 여백 없이 전체 폭을 쓴다 — 홈과 같은 폭의
+  /// 할 일 타일처럼, 자기 여백을 가진 콘텐츠용 (개정 2026-08-15 2차).
+  final bool fullBleedContent;
+
   const _ObPage({
     required this.title,
     required this.cta,
@@ -345,74 +349,96 @@ class _ObPage extends StatelessWidget {
     this.body,
     this.content,
     this.secondary,
+    this.fullBleedContent = false,
   });
+
+  static const _hPad = EdgeInsets.symmetric(horizontal: UnwindSpacing.s24);
 
   @override
   Widget build(BuildContext context) {
-    final titleText = Text(
-      title,
-      textAlign: TextAlign.center,
-      style: UnwindType.display.copyWith(color: UnwindColors.textPrimary),
+    final titleText = Padding(
+      padding: _hPad,
+      child: Text(
+        title,
+        textAlign: TextAlign.center,
+        style: UnwindType.display.copyWith(color: UnwindColors.textPrimary),
+      ),
     );
     final bodyText = body == null
         ? null
-        : Text(
-            body!,
-            textAlign: TextAlign.center,
-            style: UnwindType.body.copyWith(color: UnwindColors.textSecondary),
+        : Padding(
+            padding: _hPad,
+            child: Text(
+              body!,
+              textAlign: TextAlign.center,
+              style: UnwindType.body.copyWith(
+                color: UnwindColors.textSecondary,
+              ),
+            ),
           );
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          UnwindSpacing.s24,
-          0,
-          UnwindSpacing.s24,
-          UnwindSpacing.s16,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (content == null)
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (hero != null) ...[
-                      Center(child: hero),
-                      const SizedBox(height: UnwindSpacing.s24),
-                    ],
-                    titleText,
-                    if (bodyText != null) ...[
-                      const SizedBox(height: UnwindSpacing.s12),
-                      bodyText,
-                    ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (content == null)
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (hero != null) ...[
+                    Center(child: hero),
+                    const SizedBox(height: UnwindSpacing.s24),
                   ],
-                ),
-              )
-            else ...[
-              // 바깥 Column이 stretch라 hero를 그대로 두면 가로로 늘어나
-              // CustomPaint가 화면 폭 기준으로 그려진다 — Center로 감싼다
-              if (hero != null) Center(child: hero),
+                  titleText,
+                  if (bodyText != null) ...[
+                    const SizedBox(height: UnwindSpacing.s12),
+                    bodyText,
+                  ],
+                ],
+              ),
+            )
+          else ...[
+            // 진행 바에 제목이 붙지 않게 위를 비운다 (개정 2026-08-15 2차)
+            const SizedBox(height: UnwindSpacing.s20),
+            // 바깥 Column이 stretch라 hero를 그대로 두면 가로로 늘어나
+            // CustomPaint가 화면 폭 기준으로 그려진다 — Center로 감싼다
+            if (hero != null) Center(child: hero),
+            const SizedBox(height: UnwindSpacing.s8),
+            titleText,
+            if (bodyText != null) ...[
               const SizedBox(height: UnwindSpacing.s8),
-              titleText,
-              if (bodyText != null) ...[
-                const SizedBox(height: UnwindSpacing.s8),
-                bodyText,
-              ],
-              const SizedBox(height: UnwindSpacing.s12),
-              Expanded(child: content!),
+              bodyText,
             ],
-            if (secondary != null) ...[
-              secondary!,
-              const SizedBox(height: UnwindSpacing.s4),
-            ],
-            UnwindButton(label: cta, onPressed: ctaEnabled ? onCta : null),
+            const SizedBox(height: UnwindSpacing.s12),
+            Expanded(
+              child: fullBleedContent
+                  ? content!
+                  : Padding(padding: _hPad, child: content!),
+            ),
           ],
-        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              UnwindSpacing.s24,
+              0,
+              UnwindSpacing.s24,
+              UnwindSpacing.s16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (secondary != null) ...[
+                  secondary!,
+                  const SizedBox(height: UnwindSpacing.s4),
+                ],
+                UnwindButton(label: cta, onPressed: ctaEnabled ? onCta : null),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -495,72 +521,7 @@ class _WelcomePageState extends State<_WelcomePage> with _DelayedCta {
   }
 }
 
-// ── 2. 눈부신 밤 ────────────────────────────────────────────
-
-class _NightPage extends StatefulWidget {
-  final VoidCallback onNext;
-
-  const _NightPage({required this.onNext});
-
-  @override
-  State<_NightPage> createState() => _NightPageState();
-}
-
-class _NightPageState extends State<_NightPage> with _DelayedCta {
-  @override
-  void initState() {
-    super.initState();
-    startCtaDelay();
-  }
-
-  @override
-  void dispose() {
-    disposeCtaDelay();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    // 홈과 같은 문법: 위 Lumi, 아래 켜진 등들 (여기선 읽기 전용)
-    return _ObPage(
-      hero: SizedBox(
-        height: 132,
-        child: Center(
-          child: LumiView(
-            state: const LumiState(
-              brightness: 0.0,
-              mode: LumiMode.nightAwake,
-              dazzle: 0.95, // 찡그림 + 하품
-            ),
-            reduceMotion: MediaQuery.disableAnimationsOf(context),
-            size: 118,
-          ),
-        ),
-      ),
-      title: l10n.obNightTitle,
-      body: l10n.obNightBody,
-      content: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          for (final title in [l10n.obDummy1, l10n.obDummy2, l10n.obDummy3])
-            UnwindTodoTile(
-              title: title,
-              isOn: true,
-              readOnlySwitch: true,
-              switchSemanticsOn: l10n.lampOn,
-              switchSemanticsOff: l10n.lampOff,
-            ),
-        ],
-      ),
-      cta: l10n.obNext,
-      ctaEnabled: ctaReady,
-      onCta: widget.onNext,
-    );
-  }
-}
-
-// ── 3. 소등 체험 ────────────────────────────────────────────
+// ── 2. 눈부신 밤 + 소등 체험 (병합 2026-08-15 2차) ──────────
 
 class _LightsPage extends StatefulWidget {
   final VoidCallback onNext;
@@ -590,28 +551,25 @@ class _LightsPageState extends State<_LightsPage> {
     final checked = _done.where((d) => d).length;
 
     return _ObPage(
-      hero: SizedBox(
-        height: 132,
-        child: Center(
-          child: LumiView(
-            state: _allDone
-                ? const LumiState(
-                    brightness: 1.0,
-                    isAsleep: true,
-                    mode: LumiMode.asleep,
-                  )
-                : LumiState(
-                    brightness: checked / 3,
-                    mode: LumiMode.nightAwake,
-                    dazzle: (3 - checked) / 3,
-                  ),
-            reduceMotion: MediaQuery.disableAnimationsOf(context),
-            size: 118,
-          ),
-        ),
+      hero: LumiView(
+        state: _allDone
+            ? const LumiState(
+                brightness: 1.0,
+                isAsleep: true,
+                mode: LumiMode.asleep,
+              )
+            : LumiState(
+                brightness: checked / 3,
+                mode: LumiMode.nightAwake,
+                dazzle: (3 - checked) / 3, // 찡그림 + 하품
+              ),
+        reduceMotion: MediaQuery.disableAnimationsOf(context),
+        size: 200,
       ),
-      title: _allDone ? l10n.obLightsDone : l10n.obLightsTitle,
-      body: _allDone ? null : l10n.obLightsBody,
+      title: _allDone ? l10n.obLightsDone : l10n.obNightTitle,
+      body: _allDone ? null : l10n.obNightBody,
+      // 타일은 홈과 같은 폭 — 자기 여백(s20)을 갖고 있어 풀블리드로 얹는다
+      fullBleedContent: true,
       content: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -810,7 +768,7 @@ class _QuestionsIntroPage extends StatelessWidget {
       hero: LumiView(
         state: const LumiState(brightness: 0.2, mode: LumiMode.day),
         reduceMotion: MediaQuery.disableAnimationsOf(context),
-        size: 150,
+        size: 210,
       ),
       title: l10n.obQuestionsTitle,
       body: l10n.obQuestionsBody,
@@ -842,11 +800,26 @@ class _HabitsPageState extends State<_HabitsPage> {
   final _fieldFocus = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    // 입력이 시작되면 바로 "다음"이 열린다 (개정 2026-08-15 2차) —
+    // `+`는 저장 버튼이 아니라 **여러 개 적을 때** 줄을 추가하는 버튼이다.
+    _fieldCtrl.addListener(_onField);
+  }
+
+  void _onField() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _fieldCtrl.removeListener(_onField);
     _fieldCtrl.dispose();
     _fieldFocus.dispose();
     super.dispose();
   }
+
+  bool get _fieldHasText => _fieldCtrl.text.trim().isNotEmpty;
 
   void _add() {
     final text = _fieldCtrl.text.trim();
@@ -862,6 +835,12 @@ class _HabitsPageState extends State<_HabitsPage> {
   void _remove(int i) {
     setState(() => widget.habits.removeAt(i));
     widget.onChanged();
+  }
+
+  /// "다음" — 쓰다 만 입력도 함께 저장하고 넘어간다
+  void _submit() {
+    if (_fieldHasText) _add();
+    widget.onNext();
   }
 
   @override
@@ -942,19 +921,19 @@ class _HabitsPageState extends State<_HabitsPage> {
           ),
         ],
       ),
-      secondary: widget.habits.isEmpty
+      secondary: widget.habits.isEmpty && !_fieldHasText
           ? UnwindButton.ghost(label: l10n.obHabitsNone, onPressed: widget.onNext)
           : null,
       cta: l10n.obNext,
-      ctaEnabled: widget.habits.isNotEmpty,
-      onCta: widget.onNext,
+      ctaEnabled: widget.habits.isNotEmpty || _fieldHasText,
+      onCta: _submit,
     );
   }
 }
 
 // ── 7·8. 질문 2·3: 시간 ────────────────────────────────────
 
-class _HourQuestionPage extends StatelessWidget {
+class _HourQuestionPage extends ConsumerWidget {
   final String title;
   final String body;
   final List<int> hours;
@@ -974,7 +953,7 @@ class _HourQuestionPage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final initial = hours.indexOf(value).clamp(0, hours.length - 1);
     return _ObPage(
@@ -986,7 +965,8 @@ class _HourQuestionPage extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                height: 190,
+                // 살짝 키운 피커 (개정 2026-08-15 2차)
+                height: 224,
                 decoration: BoxDecoration(
                   color: UnwindColors.surfaceAlt,
                   borderRadius: BorderRadius.circular(UnwindRadius.md),
@@ -1002,17 +982,21 @@ class _HourQuestionPage extends StatelessWidget {
                     primaryColor: UnwindColors.accent,
                   ),
                   child: CupertinoPicker(
-                    itemExtent: 40,
+                    itemExtent: 46,
                     scrollController: FixedExtentScrollController(
                       initialItem: initial,
                     ),
-                    onSelectedItemChanged: (i) => onChanged(hours[i]),
+                    onSelectedItemChanged: (i) {
+                      // 굴러갈 때마다 작은 촉감 (개정 2026-08-15 2차)
+                      ref.read(hapticsProvider).selection();
+                      onChanged(hours[i]);
+                    },
                     children: [
                       for (final h in hours)
                         Center(
                           child: Text(
                             l10n.hourLabel(h),
-                            style: UnwindType.bodyStrong.copyWith(
+                            style: UnwindType.headline.copyWith(
                               color: UnwindColors.textPrimary,
                             ),
                           ),
@@ -1123,7 +1107,7 @@ class _ScheduleRing extends StatelessWidget {
           mode: LumiMode.asleep,
         ),
         reduceMotion: reduce,
-        size: 96,
+        size: 110,
       ),
     );
   }
@@ -1302,7 +1286,7 @@ class _NamePageState extends State<_NamePage> {
       hero: LumiView(
         state: const LumiState(brightness: 0.2, mode: LumiMode.day),
         reduceMotion: MediaQuery.disableAnimationsOf(context),
-        size: 130,
+        size: 200,
       ),
       title: l10n.obNameTitle,
       content: Center(
@@ -1318,15 +1302,7 @@ class _NamePageState extends State<_NamePage> {
           ),
         ),
       ),
-      secondary: hasName
-          ? null
-          : UnwindButton.ghost(
-              label: l10n.obSkip,
-              onPressed: () {
-                widget.controller.clear();
-                widget.onFinish();
-              },
-            ),
+      // 건너뛰기 없음 (개정 2026-08-15 2차) — Lumi가 부를 이름은 꼭 받는다
       cta: l10n.obBegin,
       ctaEnabled: hasName,
       onCta: widget.onFinish,

@@ -47,9 +47,12 @@ const _base = <_Sprite>[
   _Sprite('lumi_day_stretch', LumiMode.day, activity: LumiDayActivity.stretch),
   _Sprite('lumi_day_coffee', LumiMode.day, activity: LumiDayActivity.coffee),
   _Sprite('lumi_day_read', LumiMode.day, activity: LumiDayActivity.read),
+  _Sprite('lumi_day_doodle', LumiMode.day, activity: LumiDayActivity.doodle),
   _Sprite('lumi_day_walk', LumiMode.day, activity: LumiDayActivity.walk),
   _Sprite('lumi_day_hum', LumiMode.day, activity: LumiDayActivity.hum),
   _Sprite('lumi_day_snack', LumiMode.day, activity: LumiDayActivity.snack),
+  _Sprite('lumi_day_dance', LumiMode.day, activity: LumiDayActivity.dance),
+  _Sprite('lumi_day_bubbles', LumiMode.day, activity: LumiDayActivity.bubbles),
   _Sprite('lumi_day_rest', LumiMode.day, activity: LumiDayActivity.rest),
   // 밤 못 자는 상태 — 눈부심 임계 0.45 (§6 lumiMode) 양쪽
   _Sprite('lumi_night_squint', LumiMode.nightAwake, dazzle: 0.8),

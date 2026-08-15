@@ -84,6 +84,10 @@ void main() {
         null;
 
     testWidgets('첫 실행: 환영 1초 잠금 → 밤 → 소등 체험은 전부 꺼야 통과', (tester) async {
+      // 커진 Lumi(200) 아래 타일 3개가 다 보이도록 실기기 크기로
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [databaseProvider.overrideWithValue(db)],
@@ -103,18 +107,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pump(const Duration(milliseconds: 100));
 
-      // 2. 눈부신 밤 — 더미 등 3개(읽기 전용) + 1초 잠금
+      // 2. 눈부신 밤 + 소등 체험 (병합 2026-08-15 2차) —
+      //    반드시 전부 꺼야 다음으로 (발주자 요구)
       expect(find.text('At night, Lumi needs to sleep'), findsOneWidget);
       expect(find.byType(UnwindTodoTile), findsNWidgets(3));
-      expect(ctaEnabled(tester, 'Next'), false);
-      await tester.pump(const Duration(milliseconds: 1100));
-      await tester.tap(find.text('Next'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-      await tester.pump(const Duration(milliseconds: 100));
-
-      // 3. 소등 체험 — 반드시 전부 꺼야 다음으로 (발주자 요구)
-      expect(find.text('Each task is a lamp'), findsOneWidget);
       expect(ctaEnabled(tester, 'Next'), false);
       for (var i = 0; i < 3; i++) {
         await tester.tap(find.byType(UnwindLampSwitch).at(i));
