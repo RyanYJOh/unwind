@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "lumi_night_squint_dc.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

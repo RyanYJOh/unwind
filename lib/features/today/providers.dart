@@ -14,6 +14,7 @@ import '../../domain/services/brightness_engine.dart';
 import '../../domain/services/day_rollover_service.dart';
 import '../../domain/services/notification_service.dart';
 import '../../domain/services/recurrence_expander.dart';
+import '../../domain/services/widget_snapshot_service.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../settings/settings_controller.dart';
 
@@ -270,6 +271,58 @@ final darkCirclesProvider = Provider<bool>((ref) {
   final viewed = ref.watch(viewedDayKeyProvider);
   final prevKey = dayKey(addDays(parseDayKey(viewed), -1));
   return ref.watch(_dayRowProvider(prevKey)).value?.restless ?? false;
+});
+
+// ── iOS 홈 위젯 동기화 (PRD 개정 2026-08-15) ─────────────────
+
+final widgetSnapshotServiceProvider = Provider<WidgetSnapshotService>(
+  (ref) => WidgetSnapshotService(),
+);
+
+/// 오늘의 상태가 바뀔 때마다 홈 위젯 스냅샷을 App Group에 쓴다.
+/// 열람 날짜(viewed)가 아니라 **실제 오늘** 기준 — 위젯은 언제나 오늘의 방.
+/// TodayScreen이 watch하는 것으로 활성화된다.
+final widgetSyncProvider = Provider<void>((ref) {
+  final service = ref.watch(widgetSnapshotServiceProvider);
+  final todayKey = ref.watch(todayKeyProvider);
+  final todos = ref.watch(todayTodosProvider).value;
+  final day = ref.watch(todayDayProvider).value;
+  if (todos == null) return; // 로딩 중엔 이전 스냅샷 유지
+
+  final counted = todos.where((t) => t.status != TodoStatus.deferred).toList();
+  final remaining = counted
+      .where((t) => t.status == TodoStatus.pending)
+      .length;
+  final lightsOut = day?.lightsOutAt != null;
+
+  // 오늘 기준 조도 — brightnessProvider는 열람 날짜 기준이라 따로 계산한다
+  final double t;
+  if (lightsOut) {
+    t = 1.0;
+  } else if (counted.isEmpty) {
+    t = BrightnessEngine.emptyRoomT;
+  } else {
+    t = (day?.peakProgress ?? 0.0).clamp(0.0, 1.0);
+  }
+
+  // 오늘의 다크서클 = 어제의 restless 봉인 (darkCirclesProvider는 열람 기준)
+  final prevKey = dayKey(addDays(parseDayKey(todayKey), -1));
+  final restless = ref.watch(_dayRowProvider(prevKey)).value?.restless ?? false;
+
+  service.write(
+    WidgetSnapshot(
+      dayKey: todayKey,
+      remaining: remaining,
+      total: counted.length,
+      lightsOut: lightsOut,
+      brightness: t,
+      darkCircles: restless,
+      wakeHour: ref.watch(wakeHourProvider),
+      bedtimeHour: ref.watch(bedtimeHourProvider),
+      languageCode:
+          ref.watch(settingsControllerProvider).value?.languageCode ?? 'en',
+    ),
+  );
 });
 
 /// 입력 시트의 기본 날짜 (§6.1): 취침 후엔 내일

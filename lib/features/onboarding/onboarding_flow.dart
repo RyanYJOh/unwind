@@ -56,6 +56,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   /// 소등 체험 페이지가 보고하는 남은 빛 (1.0 = 전부 켜짐)
   double _lightsLight = 1.0;
 
+  // 인사 페이지 연출 — 페이지가 실제로 나타났을 때 플로우가 타이머를 건다.
+  // (페이지 위젯 안에 두면 PageView가 미리 빌드하는 순간 발동할 수 있다)
+  int _greetTick = 0;
+  Timer? _greetJoy;
+  Timer? _greetDone;
+
   int get _lumiBedtime => lumiBedtimeFrom(_userSleepHour);
   int get _lumiWake => lumiWakeFrom(_userWakeHour);
 
@@ -73,9 +79,22 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   @override
   void dispose() {
+    _greetJoy?.cancel();
+    _greetDone?.cancel();
     _pageCtrl.dispose();
     _nameCtrl.dispose();
     super.dispose();
+  }
+
+  void _onPageChanged(int p) {
+    setState(() => _page = p);
+    if (p == _pageCount - 1) {
+      // 인사: 한 박자 뒤 까르르 → 잠시 머문 뒤 오늘의 방으로
+      _greetJoy = Timer(const Duration(milliseconds: 350), () {
+        if (mounted) setState(() => _greetTick++);
+      });
+      _greetDone = Timer(const Duration(milliseconds: 2100), _complete);
+    }
   }
 
   void _next() {
@@ -203,7 +222,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                   child: PageView(
                     controller: _pageCtrl,
                     physics: const NeverScrollableScrollPhysics(),
-                    onPageChanged: (p) => setState(() => _page = p),
+                    onPageChanged: _onPageChanged,
                     children: [
                       _WelcomePage(onNext: _next),
                       _NightPage(onNext: _next),
@@ -251,7 +270,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                       ),
                       _GreetingPage(
                         name: _nameCtrl.text.trim(),
-                        onDone: _complete,
+                        pokeTick: _greetTick,
                       ),
                     ],
                   ),
@@ -363,7 +382,7 @@ class _ObPage extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (hero != null) ...[
-                      hero!,
+                      Center(child: hero),
                       const SizedBox(height: UnwindSpacing.s24),
                     ],
                     titleText,
@@ -375,7 +394,9 @@ class _ObPage extends StatelessWidget {
                 ),
               )
             else ...[
-              ?hero,
+              // 바깥 Column이 stretch라 hero를 그대로 두면 가로로 늘어나
+              // CustomPaint가 화면 폭 기준으로 그려진다 — Center로 감싼다
+              if (hero != null) Center(child: hero),
               const SizedBox(height: UnwindSpacing.s8),
               titleText,
               if (bodyText != null) ...[
@@ -1315,43 +1336,15 @@ class _NamePageState extends State<_NamePage> {
 
 // ── 11. 인사 ────────────────────────────────────────────────
 
-class _GreetingPage extends StatefulWidget {
+/// 연출 타이밍은 플로우가 페이지 도착 시점에 몰아준다 (_onPageChanged).
+class _GreetingPage extends StatelessWidget {
   final String name;
-  final VoidCallback onDone;
+  final int pokeTick;
 
-  const _GreetingPage({required this.name, required this.onDone});
-
-  @override
-  State<_GreetingPage> createState() => _GreetingPageState();
-}
-
-class _GreetingPageState extends State<_GreetingPage> {
-  int _pokeTick = 0;
-  Timer? _joyTimer;
-  Timer? _doneTimer;
-  bool _started = false;
-
-  /// PageView가 페이지를 미리 만들 수 있으므로, 화면에 실제로 나타났을 때
-  /// 타이머를 건다 — build에서 첫 노출을 감지한다.
-  void _start() {
-    if (_started) return;
-    _started = true;
-    _joyTimer = Timer(const Duration(milliseconds: 350), () {
-      if (mounted) setState(() => _pokeTick++);
-    });
-    _doneTimer = Timer(const Duration(milliseconds: 2100), widget.onDone);
-  }
-
-  @override
-  void dispose() {
-    _joyTimer?.cancel();
-    _doneTimer?.cancel();
-    super.dispose();
-  }
+  const _GreetingPage({required this.name, required this.pokeTick});
 
   @override
   Widget build(BuildContext context) {
-    _start();
     final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(UnwindSpacing.s24),
@@ -1362,17 +1355,15 @@ class _GreetingPageState extends State<_GreetingPage> {
             state: LumiState(
               brightness: 0.1,
               mode: LumiMode.day,
-              event: _pokeTick > 0 ? LumiEvent.poke : null,
-              eventTick: _pokeTick,
+              event: pokeTick > 0 ? LumiEvent.poke : null,
+              eventTick: pokeTick,
             ),
             reduceMotion: MediaQuery.disableAnimationsOf(context),
             size: 210,
           ),
           const SizedBox(height: UnwindSpacing.s24),
           Text(
-            widget.name.isEmpty
-                ? l10n.obGreetingNoName
-                : l10n.obGreeting(widget.name),
+            name.isEmpty ? l10n.obGreetingNoName : l10n.obGreeting(name),
             textAlign: TextAlign.center,
             style: UnwindType.display.copyWith(color: UnwindColors.textPrimary),
           ),

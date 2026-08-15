@@ -362,6 +362,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     // §10 밤 리마인더 조건 갱신 활성화
     ref.watch(nightReminderSchedulerProvider);
     ref.watch(todoReminderSchedulerProvider);
+    // iOS 홈 위젯 스냅샷 동기화 (PRD 개정 2026-08-15)
+    ref.watch(widgetSyncProvider);
 
     // §10 알림 탭 라우팅: 청구서 알림 → 청구서 화면
     ref.listen<String?>(notificationTapProvider, (prev, next) async {

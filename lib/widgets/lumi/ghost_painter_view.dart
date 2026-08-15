@@ -1162,28 +1162,23 @@ class _GhostPainter extends CustomPainter {
     canvas.restore(); // 몸통 스케일
 
     // ── 콧노래 음표 (14~16시) — zzz와 같은 문법의 상승 루프 ──
+    // 글리프는 폰트가 아니라 패스로 직접 그린다 (개정 2026-08-15):
+    // 플랫폼 폰트 차이·위젯 스프라이트 추출 환경에 흔들리지 않고,
+    // 라운드 스트로크가 카와이 톤과도 맞는다.
     if (activity == LumiDayActivity.hum) {
       for (var i = 0; i < 2; i++) {
         final p = (phase * 0.30 + i * 0.5) % 1.0;
         final alpha = math.sin(p * math.pi) * 0.6;
         if (alpha <= 0.02) continue;
-        final tp = TextPainter(
-          text: TextSpan(
-            text: i.isEven ? '♪' : '♫',
-            style: TextStyle(
-              fontSize: (13.0 + i * 4) * u,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFFA99BC9).withValues(alpha: alpha),
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(
+        _paintNote(
           canvas,
           Offset(
             cx + bodyW * 0.42 + i * 11 * u + math.sin(p * 2 * math.pi) * 4 * u,
             top + 4 * u - p * 30 * u,
           ),
+          (13.0 + i * 4) * u,
+          const Color(0xFFA99BC9).withValues(alpha: alpha),
+          eighthPair: i.isOdd,
         );
       }
     }
@@ -1196,28 +1191,117 @@ class _GhostPainter extends CustomPainter {
         final p = (phase * 0.35 + i / 3) % 1.0;
         final alpha = zzzOpacity * math.sin(p * math.pi) * (0.35 + 0.2 * i);
         if (alpha <= 0.01) continue;
-        final tp = TextPainter(
-          text: TextSpan(
-            text: 'z',
-            style: TextStyle(
-              fontSize: (11.0 + i * 5) * u,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF8E86A8).withValues(alpha: alpha),
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(
+        _paintZ(
           canvas,
           Offset(
             baseX + i * 12 * u + p * 6 * u,
             baseY - p * 34 * u - i * 10 * u,
           ),
+          (11.0 + i * 5) * u,
+          const Color(0xFF8E86A8).withValues(alpha: alpha),
         );
       }
     }
 
     canvas.restore(); // 전체 이동 레이어
+  }
+
+  /// 소문자 'z' — 세 획(윗줄·대각선·아랫줄)을 라운드 스트로크로.
+  /// [size]는 폰트 크기에 해당하고 [o]는 글리프 박스의 좌상단.
+  void _paintZ(Canvas canvas, Offset o, double size, Color color) {
+    final w = size * 0.60;
+    final h = size * 0.62;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size * 0.17
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path()
+      ..moveTo(o.dx, o.dy)
+      ..lineTo(o.dx + w, o.dy)
+      ..lineTo(o.dx, o.dy + h)
+      ..lineTo(o.dx + w, o.dy + h);
+    canvas.drawPath(path, paint);
+  }
+
+  /// 8분음표 — [eighthPair]면 빔으로 이은 두 개(♫), 아니면 꼬리 하나(♪).
+  void _paintNote(
+    Canvas canvas,
+    Offset o,
+    double size,
+    Color color, {
+    bool eighthPair = false,
+  }) {
+    final fill = Paint()..color = color;
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size * 0.09
+      ..strokeCap = StrokeCap.round;
+
+    void head(double cxh, double cyh) {
+      canvas.save();
+      canvas.translate(cxh, cyh);
+      canvas.rotate(-0.35);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: size * 0.40,
+          height: size * 0.30,
+        ),
+        fill,
+      );
+      canvas.restore();
+    }
+
+    if (eighthPair) {
+      final y = o.dy + size * 0.78;
+      final x1 = o.dx + size * 0.20, x2 = o.dx + size * 0.62;
+      final topY = o.dy + size * 0.16;
+      head(x1, y);
+      head(x2, y);
+      canvas.drawLine(
+        Offset(x1 + size * 0.17, y - size * 0.05),
+        Offset(x1 + size * 0.17, topY + size * 0.05),
+        stroke,
+      );
+      canvas.drawLine(
+        Offset(x2 + size * 0.17, y - size * 0.05),
+        Offset(x2 + size * 0.17, topY),
+        stroke,
+      );
+      // 빔 — 살짝 기운 두툼한 연결선
+      canvas.drawLine(
+        Offset(x1 + size * 0.17, topY + size * 0.05),
+        Offset(x2 + size * 0.17, topY),
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = size * 0.16
+          ..strokeCap = StrokeCap.round,
+      );
+    } else {
+      final x = o.dx + size * 0.26, y = o.dy + size * 0.80;
+      final stemX = x + size * 0.17;
+      final topY = o.dy + size * 0.14;
+      head(x, y);
+      canvas.drawLine(
+        Offset(stemX, y - size * 0.05),
+        Offset(stemX, topY),
+        stroke,
+      );
+      // 꼬리 — 스템 꼭대기에서 오른쪽 아래로 흐르는 곡선
+      final flag = Path()
+        ..moveTo(stemX, topY)
+        ..quadraticBezierTo(
+          stemX + size * 0.30,
+          topY + size * 0.12,
+          stemX + size * 0.24,
+          topY + size * 0.40,
+        );
+      canvas.drawPath(flag, stroke);
+    }
   }
 
   // ── 낮 일과 소품들 (개편 2026-08-08, 개정 2026-08-15: 손 제거) ──
