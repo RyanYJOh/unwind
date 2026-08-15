@@ -2,7 +2,7 @@ name: unwind
 description: "하루를 끝내는 앱. 할 일을 지울 때마다 집의 불이 꺼지고, 마지막 불이 꺼지면 Lumi가 잠든다."
 publish_to: 'none'
 
-version: 0.1.0+11
+version: 0.1.0+12
 
 environment:
   sdk: ^3.12.2

@@ -25,12 +25,18 @@ class _Sprite {
   final double dazzle;
   final bool darkCircles;
 
+  /// 유휴 위상 (신설 2026-08-15) — 위상 기반 연출(꾸벅 낙하·콧물 방울·
+  /// 식은땀)의 대표 순간을 정지 프레임에 담기 위한 값. 0이면 연출이
+  /// 시작 전이라 아예 안 보인다.
+  final double phase;
+
   const _Sprite(
     this.name,
     this.mode, {
     this.activity,
     this.dazzle = 0.0,
     this.darkCircles = false,
+    this.phase = 0.0,
   });
 
   _Sprite get withDarkCircles => _Sprite(
@@ -39,6 +45,7 @@ class _Sprite {
     activity: activity,
     dazzle: dazzle,
     darkCircles: true,
+    phase: phase,
   );
 }
 
@@ -54,9 +61,12 @@ const _base = <_Sprite>[
   _Sprite('lumi_day_dance', LumiMode.day, activity: LumiDayActivity.dance),
   _Sprite('lumi_day_bubbles', LumiMode.day, activity: LumiDayActivity.bubbles),
   _Sprite('lumi_day_rest', LumiMode.day, activity: LumiDayActivity.rest),
-  // 밤 못 자는 상태 — 눈부심 임계 0.45 (§6 lumiMode) 양쪽
-  _Sprite('lumi_night_squint', LumiMode.nightAwake, dazzle: 0.8),
-  _Sprite('lumi_night_doze', LumiMode.nightAwake, dazzle: 0.2),
+  // 밤 못 자는 상태 — 눈부심 임계 0.45 (§6 lumiMode) 양쪽.
+  // phase는 과장 연출(2026-08-15)의 대표 순간: squint는 식은땀이 또렷한
+  // 중간 지점(sp=0.5), doze는 꾸벅 낙하 정점 근처(콧물 방울 최대).
+  // dazzle 0.9 — 압착 눈·눈물·땀이 위젯 크기에서도 읽히는 세기.
+  _Sprite('lumi_night_squint', LumiMode.nightAwake, dazzle: 0.9, phase: 1.11),
+  _Sprite('lumi_night_doze', LumiMode.nightAwake, dazzle: 0.2, phase: 1.18),
 ];
 
 void main() {
@@ -93,6 +103,7 @@ void main() {
                     activity: sprite.activity,
                     dazzle: sprite.dazzle,
                     darkCircles: sprite.darkCircles,
+                    initialPhase: sprite.phase,
                   ),
                 ),
               ),

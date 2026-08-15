@@ -38,6 +38,12 @@ class GhostPainterView extends StatefulWidget {
   /// 행동하지만 눈 밑에 옅은 다크서클이 하루 종일 남는다.
   final bool darkCircles;
 
+  /// 유휴 위상의 시작값 (신설 2026-08-15) — **정지 프레임 도구 전용**.
+  /// 위젯 스프라이트 추출기가 reduceMotion(틱 정지) 상태에서도 꾸벅·콧물
+  /// 방울·식은땀 같은 위상 기반 연출의 대표 순간을 담을 수 있게 한다.
+  /// 앱 화면에서는 기본값 0을 쓴다.
+  final double initialPhase;
+
   const GhostPainterView({
     super.key,
     required this.sleepiness,
@@ -49,6 +55,7 @@ class GhostPainterView extends StatefulWidget {
     this.activity,
     this.dazzle = 0.0,
     this.darkCircles = false,
+    this.initialPhase = 0.0,
   });
 
   @override
@@ -64,7 +71,7 @@ class _GhostPainterViewState extends State<GhostPainterView>
   Duration _lastTick = Duration.zero;
 
   late final AnimationController _yawn; // 타임라인 C, 1.5s
-  late final AnimationController _bounce; // 타임라인 D, 0.5s
+  late final AnimationController _bounce; // 타임라인 D — 체크 축하, 0.8s
   late final AnimationController _sleep; // 타임라인 E 진입/해제
   late final AnimationController _happy; // 타임라인 F, 1.6s
   late final AnimationController _blink; // PRD §7.3 깜빡임 (180ms)
@@ -123,7 +130,9 @@ class _GhostPainterViewState extends State<GhostPainterView>
     );
     _bounce = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      // 체크 축하 (개편 2026-08-15): 통통 스케일 + 폴짝 + 웃는 눈 + 반짝이.
+      // 연속 체크 때 겹치지 않게 짧게 유지하되, 기쁨이 읽힐 만큼은 길게.
+      duration: const Duration(milliseconds: 800),
     );
     _sleep = AnimationController(
       vsync: this,
@@ -139,6 +148,7 @@ class _GhostPainterViewState extends State<GhostPainterView>
     );
     _poke = AnimationController(vsync: this, duration: _tickleDuration);
 
+    _phase = widget.initialPhase;
     _ticker = createTicker(_onTick);
     if (!widget.reduceMotion) _ticker.start();
     if (_asleep) _sleep.value = 1.0;
@@ -285,11 +295,23 @@ class _GhostPainterViewState extends State<GhostPainterView>
               ? 1.0
               : 1.0 - Curves.easeInOut.transform((yp - 0.667) / 0.333);
 
-          // 타임라인 D: 통통 — 감쇠 사인 스케일 펄스
+          // 타임라인 D: 체크 축하 (개편 2026-08-15) — 등 하나를 끌 때마다
+          // 짜릿하게 기뻐한다. 통통 스케일 + 폴짝 점프 + 웃는 ∩∩ 눈 +
+          // 반짝이 버스트. 심리적 보상이 목적이라 확실히 보여야 한다.
           final bp = _bounce.value;
           final bounceScale = bp <= 0 || bp >= 1
               ? 0.0
-              : math.sin(bp * math.pi * 2) * (1 - bp) * 0.09;
+              : math.sin(bp * math.pi * 2) * (1 - bp) * 0.11;
+          // 기쁨 엔벨로프 — 확 벅차올랐다가 서서히 잦아든다
+          final joy = (widget.reduceMotion || bp <= 0 || bp >= 1)
+              ? 0.0
+              : bp < 0.12
+              ? Curves.easeOut.transform(bp / 0.12)
+              : 1.0 - Curves.easeInOutCubic.transform((bp - 0.12) / 0.88);
+          // 폴짝 — 앞 55% 동안 한 번 뛰었다 내려온다 (Reduce Motion 시 없음)
+          final hop = (widget.reduceMotion || bp <= 0 || bp >= 0.55)
+              ? 0.0
+              : math.sin(bp / 0.55 * math.pi) * 13.0;
 
           // 타임라인 F: 기지개 + 미소 + 하이라이트 반짝
           final hAmt = math.sin(_happy.value * math.pi);
@@ -351,7 +373,12 @@ class _GhostPainterViewState extends State<GhostPainterView>
               nightDoze: widget.mode == LumiMode.nightAwake && s < 0.5,
               dazzle: widget.dazzle.clamp(0.0, 1.0),
               lidCover: lid.clamp(0.0, 1.0),
-              tickle: tickle.clamp(0.0, 1.0),
+              // 체크 축하도 간지럼과 같은 얼굴(∩∩ 눈·활짝 미소·볼터치)을
+              // 쓴다 — 기쁨의 문법을 하나로 유지한다
+              tickle: math.max(tickle, joy).clamp(0.0, 1.0),
+              joy: joy.clamp(0.0, 1.0),
+              joyT: bp.clamp(0.0, 1.0),
+              hopPx: hop / 240 * widget.size,
               shakeDeg: shakeDeg,
               gazeX: gazeX,
               peekOpen: peekOpen,
@@ -379,14 +406,14 @@ class _GhostPainterViewState extends State<GhostPainterView>
               bodyScale:
                   1.0 +
                   bounceScale +
-                  0.05 * math.sin(tickle.clamp(0.0, 1.0) * math.pi) +
+                  0.05 * math.sin(math.max(tickle, joy).clamp(0.0, 1.0) * math.pi) +
                   0.07 * yawnAmt +
                   0.06 * hAmt +
                   (s > 0.99 && !widget.reduceMotion
                       ? math.sin(_phase * 2 * math.pi * 0.7) * 0.008
                       : 0.0),
               mouthOpen: yawnAmt,
-              smile: math.max(hAmt, tickle.clamp(0.0, 1.0)),
+              smile: math.max(hAmt, math.max(tickle, joy).clamp(0.0, 1.0)),
               zzzOpacity: s,
             ),
           );
@@ -418,6 +445,15 @@ class _GhostPainter extends CustomPainter {
   /// 간지럼 (0~1). 몸을 떨고, 눈이 ^ ^로 접히고, 입이 활짝 벌어진다.
   final double tickle;
 
+  /// 체크 축하 (개편 2026-08-15, 0~1) — 반짝이 버스트의 세기(알파).
+  final double joy;
+
+  /// 체크 축하의 진행도 (컨트롤러 원값 0~1) — 반짝이가 퍼져 나가는 축.
+  final double joyT;
+
+  /// 체크 축하의 폴짝 점프 높이 (캔버스 px, 위쪽 +)
+  final double hopPx;
+
   /// 간지럼 떨림 각도(도)
   final double shakeDeg;
 
@@ -448,6 +484,9 @@ class _GhostPainter extends CustomPainter {
     this.dazzle = 0.0,
     required this.lidCover,
     this.tickle = 0.0,
+    this.joy = 0.0,
+    this.joyT = 0.0,
+    this.hopPx = 0.0,
     this.shakeDeg = 0.0,
     this.gazeX = 0.0,
     this.peekOpen = 0.0,
@@ -479,7 +518,8 @@ class _GhostPainter extends CustomPainter {
     final u = size.width / 240; // 기준 크기 240 대비 배율
     final cx = size.width / 2;
     final floatY = math.sin(phase * 2 * math.pi) * floatAmp;
-    final cy = size.height / 2 + floatY + asleepProgress * 8 * u;
+    // hopPx: 체크 축하의 폴짝 — 부유 위에 잠깐 얹히는 점프 (2026-08-15)
+    final cy = size.height / 2 + floatY + asleepProgress * 8 * u - hopPx;
 
     // ── 산책: 방 안을 이리저리 떠다닌다. 통통 튀는 걸음 보브 +
     //    진행 방향으로 살짝 기울기 — 전체(글로우 포함)가 함께 움직인다.
@@ -1280,6 +1320,12 @@ class _GhostPainter extends CustomPainter {
         break;
     }
 
+    // ── 체크 축하 반짝이 (개편 2026-08-15) — 등 하나를 끌 때마다
+    //    정수리 위로 별이 팡 터진다. 확산은 joyT, 밝기는 joy가 몬다.
+    if (joy > 0.02) {
+      _paintJoyBurst(canvas, u, cx, top, bodyW);
+    }
+
     // ── 식은땀 (신설 2026-08-15) — 강한 눈부심에 괴로울 때 관자놀이에
     //    땀방울이 맺혀 또르르 흘러내린다.
     if (squint > 0.5) {
@@ -1522,6 +1568,45 @@ class _GhostPainter extends CustomPainter {
       r * 0.22,
       Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9 * a),
     );
+  }
+
+  /// 4갈래 다이아몬드 별 — 허리가 잘록해 반짝임으로 읽힌다 (춤·체크 축하 공용)
+  static Path _diamondStar(Offset c, double r) => Path()
+    ..moveTo(c.dx, c.dy - r * 1.9)
+    ..quadraticBezierTo(c.dx + r * 0.25, c.dy - r * 0.25, c.dx + r * 1.9, c.dy)
+    ..quadraticBezierTo(c.dx + r * 0.25, c.dy + r * 0.25, c.dx, c.dy + r * 1.9)
+    ..quadraticBezierTo(c.dx - r * 0.25, c.dy + r * 0.25, c.dx - r * 1.9, c.dy)
+    ..quadraticBezierTo(c.dx - r * 0.25, c.dy - r * 0.25, c.dx, c.dy - r * 1.9)
+    ..close();
+
+  /// 체크 축하 (개편 2026-08-15): 등 하나를 끌 때마다 정수리 주변 부채꼴로
+  /// 별 무리가 팡 터지며 바깥으로 퍼진다 — 짜릿한 심리적 보상.
+  void _paintJoyBurst(
+    Canvas canvas,
+    double u,
+    double cx,
+    double top,
+    double bodyW,
+  ) {
+    final head = Offset(cx, top + 6 * u);
+    // 위쪽 부채꼴 5방향 (라디안) — 좌우 대칭, 정수리가 가장 멀리 뻗는다
+    const angles = [-2.62, -2.10, -1.57, -1.04, -0.52];
+    final spread =
+        bodyW * (0.40 + 0.45 * Curves.easeOut.transform(joyT.clamp(0.0, 1.0)));
+    for (var i = 0; i < angles.length; i++) {
+      final reach = i.isEven ? 1.0 : 0.78; // 별들이 두 겹으로 흩어진다
+      final c =
+          head +
+          Offset(math.cos(angles[i]), math.sin(angles[i])) * spread * reach;
+      final r = (i.isEven ? 3.6 : 2.5) * u * (0.6 + 0.5 * joy);
+      final color = i.isOdd
+          ? const Color(0xFFFFFFFF)
+          : const Color(0xFFFFC85C);
+      canvas.drawPath(
+        _diamondStar(c, r),
+        Paint()..color = color.withValues(alpha: (0.95 * joy).clamp(0.0, 1.0)),
+      );
+    }
   }
 
   /// 춤 (신설 2026-08-15): 스텝 주변에 앰버 반짝이 별들이 위상차로 깜빡인다.
@@ -1822,6 +1907,9 @@ class _GhostPainter extends CustomPainter {
       old.dazzle != dazzle ||
       old.lidCover != lidCover ||
       old.tickle != tickle ||
+      old.joy != joy ||
+      old.joyT != joyT ||
+      old.hopPx != hopPx ||
       old.shakeDeg != shakeDeg ||
       old.gazeX != gazeX ||
       old.peekOpen != peekOpen ||
