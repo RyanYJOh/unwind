@@ -7,6 +7,7 @@ import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../ui/ui.dart';
 import '../dev/design_gallery_screen.dart';
+import '../onboarding/onboarding_flow.dart';
 import 'ghost_demo_screen.dart';
 import 'settings_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -32,7 +33,6 @@ class SettingsScreen extends ConsumerWidget {
     final settings =
         ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
     final ctrl = ref.read(settingsControllerProvider.notifier);
-    final (reminderHour, reminderMinute) = settings.reminderHourMinute;
 
     return UnwindScreen(
       header: UnwindHeader(
@@ -44,6 +44,36 @@ class SettingsScreen extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.only(bottom: UnwindSpacing.s48),
         children: [
+          // Lumi의 하루 (세계관 2026-08-15) — 기상·취침시간이 하루의 축이다
+          UnwindSectionLabel(l10n.sectionDay),
+          UnwindListRow.value(
+            label: l10n.wakeTime,
+            caption: l10n.wakeTimeCaption,
+            value: l10n.hourLabel(settings.wakeHour),
+            onTap: () => _pickHour(
+              context,
+              title: l10n.wakeTime,
+              // 온보딩의 계산값(유저 기상 -1h)이 어디에 떨어져도 담기게
+              // 넉넉히 (개정 2026-08-15)
+              hours: [for (var h = 1; h <= 12; h++) h],
+              current: settings.wakeHour,
+              onPicked: ctrl.setWakeHour,
+            ),
+          ),
+          UnwindListRow.value(
+            label: l10n.bedtime,
+            caption: l10n.bedtimeCaption,
+            value: l10n.hourLabel(settings.bedtimeHour),
+            onTap: () => _pickHour(
+              context,
+              title: l10n.bedtime,
+              // 저녁 16시 ~ 새벽 2시 (자정 넘김 허용, 온보딩 계산값 포함)
+              hours: [for (var h = 16; h <= 23; h++) h, 0, 1, 2],
+              current: settings.bedtimeHour,
+              onPicked: ctrl.setBedtimeHour,
+            ),
+          ),
+
           UnwindSectionLabel(l10n.sectionNotifications),
           UnwindListRow.toggle(
             label: l10n.nightReminder,
@@ -51,20 +81,6 @@ class SettingsScreen extends ConsumerWidget {
             value: settings.nightReminderEnabled,
             onChanged: ctrl.setNightReminderEnabled,
           ),
-          if (settings.nightReminderEnabled)
-            UnwindListRow.value(
-              label: l10n.reminderTime,
-              value: settings.nightReminderTime,
-              onTap: () => _pickTime(
-                context,
-                reminderHour,
-                reminderMinute,
-                (h, m) => ctrl.setNightReminderTime(
-                  '${h.toString().padLeft(2, '0')}:'
-                  '${m.toString().padLeft(2, '0')}',
-                ),
-              ),
-            ),
           UnwindListRow.toggle(
             label: l10n.billNotification,
             caption: l10n.billNotificationCaption,
@@ -82,15 +98,6 @@ class SettingsScreen extends ConsumerWidget {
             label: l10n.haptics,
             value: settings.hapticsEnabled,
             onChanged: ctrl.setHapticsEnabled,
-          ),
-
-          UnwindSectionLabel(l10n.sectionDay),
-          UnwindListRow.value(
-            label: l10n.dayStart,
-            caption: l10n.dayStartCaption,
-            value: l10n.hourLabel(settings.dayStartHour),
-            onTap: () =>
-                _pickHour(context, settings.dayStartHour, ctrl.setDayStartHour),
           ),
 
           UnwindSectionLabel(l10n.sectionLanguage),
@@ -115,6 +122,17 @@ class SettingsScreen extends ConsumerWidget {
             value: '',
             destructive: true,
             onTap: () => _confirmFullReset(context, ctrl, l10n),
+          ),
+          // TODO(unwind): 배포 빌드에서 제거 — 온보딩 미리보기 (저장 없음)
+          UnwindListRow.value(
+            label: 'Onboarding (dev)',
+            caption: '저장 없이 플로우만 체험',
+            value: '',
+            onTap: () => Navigator.of(context, rootNavigator: true).push(
+              CupertinoPageRoute(
+                builder: (_) => const OnboardingFlow(preview: true),
+              ),
+            ),
           ),
           // TODO(unwind): 배포 빌드에서 제거 — 캐릭터 검증 데모
           UnwindListRow.value(
@@ -142,57 +160,21 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _pickTime(
-    BuildContext context,
-    int hour,
-    int minute,
-    void Function(int, int) onPicked,
-  ) {
-    var h = hour, m = minute;
-    showUnwindSheet<void>(
-      context,
-      builder: (ctx) => UnwindSheet(
-        title: AppLocalizations.of(ctx).reminderTime,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _PickerBox(
-              height: 190,
-              child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.time,
-                initialDateTime: DateTime(2026, 1, 1, hour, minute),
-                use24hFormat: true,
-                onDateTimeChanged: (d) {
-                  h = d.hour;
-                  m = d.minute;
-                },
-              ),
-            ),
-            const SizedBox(height: UnwindSpacing.s16),
-            UnwindButton(
-              label: AppLocalizations.of(ctx).save,
-              onPressed: () {
-                onPicked(h, m);
-                Navigator.of(ctx).pop();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
+  /// 시 단위 피커 (세계관 2026-08-15: 기상·취침시간은 정시 단위) —
+  /// [hours]에 나열된 시각만 고를 수 있다 (취침은 자정 넘김 허용).
   void _pickHour(
-    BuildContext context,
-    int current,
-    void Function(int) onPicked,
-  ) {
-    var h = current;
+    BuildContext context, {
+    required String title,
+    required List<int> hours,
+    required int current,
+    required void Function(int) onPicked,
+  }) {
+    final initial = hours.indexOf(current).clamp(0, hours.length - 1);
+    var h = hours[initial];
     showUnwindSheet<void>(
       context,
       builder: (ctx) => UnwindSheet(
-        title: AppLocalizations.of(ctx).dayStart,
+        title: title,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -202,14 +184,14 @@ class SettingsScreen extends ConsumerWidget {
               child: CupertinoPicker(
                 itemExtent: 38,
                 scrollController: FixedExtentScrollController(
-                  initialItem: current,
+                  initialItem: initial,
                 ),
-                onSelectedItemChanged: (i) => h = i,
+                onSelectedItemChanged: (i) => h = hours[i],
                 children: [
-                  for (var i = 0; i <= 11; i++)
+                  for (final hour in hours)
                     Center(
                       child: Text(
-                        AppLocalizations.of(ctx).hourLabel(i),
+                        AppLocalizations.of(ctx).hourLabel(hour),
                         style: UnwindType.body.copyWith(
                           color: UnwindColors.textPrimary,
                         ),

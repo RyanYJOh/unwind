@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 
 import '../core/tokens/palette.dart';
@@ -31,6 +32,10 @@ class UnwindPill extends StatelessWidget {
   final VoidCallback? onTap;
   final UnwindPillTone tone;
 
+  /// 라벨 오른쪽의 작은 `›` (재도입 2026-08-15) — "누르면 어딘가로 간다"는
+  /// 신호가 필요한 이동용 알약(주간 뷰 진입)에 쓴다. 알림용은 끈다.
+  final bool chevron;
+
   final String? semanticLabel;
 
   const UnwindPill({
@@ -38,6 +43,7 @@ class UnwindPill extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.tone = UnwindPillTone.neutral,
+    this.chevron = false,
     this.semanticLabel,
   });
 
@@ -83,9 +89,18 @@ class UnwindPill extends StatelessWidget {
           borderRadius: br,
           border: Border.all(color: border, width: UnwindStroke.hair),
         ),
-        child: Text(
-          label,
-          style: UnwindType.caption.copyWith(color: fg, height: 1.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: UnwindType.caption.copyWith(color: fg, height: 1.0),
+            ),
+            if (chevron) ...[
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right_rounded, size: 14, color: fg),
+            ],
+          ],
         ),
       ),
     );

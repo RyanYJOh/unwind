@@ -15,19 +15,20 @@ DateTime parseDayKey(String key) {
   return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
 }
 
-/// §4.5 dayStartHour(기본 6시) 기준의 "논리적 오늘".
+/// 하루의 경계 = Lumi 기상시간(wakeHour, 기본 5시) 기준의 "논리적 오늘"
+/// (세계관 통합 2026-08-15: Lumi가 일어나는 순간 새 하루가 시작된다).
 /// 새벽 2시는 아직 어제의 방이다.
-DateTime logicalToday(DateTime now, {int dayStartHour = 6}) {
+DateTime logicalToday(DateTime now, {int dayStartHour = 5}) {
   final shifted = now.subtract(Duration(hours: dayStartHour));
   return DateTime(shifted.year, shifted.month, shifted.day);
 }
 
 /// 논리적 오늘의 dayKey
-String logicalTodayKey(DateTime now, {int dayStartHour = 6}) =>
+String logicalTodayKey(DateTime now, {int dayStartHour = 5}) =>
     dayKey(logicalToday(now, dayStartHour: dayStartHour));
 
 /// 다음 논리적 날짜 경계 시각 (롤오버 타이머용)
-DateTime nextRolloverAt(DateTime now, {int dayStartHour = 6}) {
+DateTime nextRolloverAt(DateTime now, {int dayStartHour = 5}) {
   final today = logicalToday(now, dayStartHour: dayStartHour);
   return DateTime(today.year, today.month, today.day + 1, dayStartHour);
 }

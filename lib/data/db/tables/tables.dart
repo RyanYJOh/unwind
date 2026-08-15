@@ -74,6 +74,11 @@ class Days extends Table {
   /// 하루 종료 시점의 최종 조도 (주간 스트립·청구서용)
   RealColumn get finalT => real().nullable()();
 
+  /// 불을 남긴 채 넘어간 밤 (세계관 2026-08-15): 미완 항목이 남아
+  /// Lumi가 제대로 못 잔 날. 다음날 다크서클의 근거가 된다.
+  /// 롤오버 봉인 시에만 기록한다 — autoDefer가 항목을 옮기기 전의 진실.
+  BoolColumn get restless => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {date};
 }
@@ -104,13 +109,26 @@ class Settings extends Table {
 /// 설정 키 상수 (§4.5)
 abstract final class SettingKeys {
   static const nightReminderEnabled = 'nightReminderEnabled';
-  static const nightReminderTime = 'nightReminderTime'; // 기본 22:00
   static const billNotificationEnabled = 'billNotificationEnabled';
   static const soundEnabled = 'soundEnabled'; // 기본 true
   static const hapticsEnabled = 'hapticsEnabled'; // 기본 true
   static const onboardingCompleted = 'onboardingCompleted';
-  static const dayStartHour = 'dayStartHour'; // 기본 6
+
+  /// Lumi 기상시간 = 하루의 경계 (세계관 통합 2026-08-15, 기본 5).
+  /// 이 시각 전까지는 어제의 방이다.
+  static const wakeHour = 'wakeHour';
+
+  /// Lumi 취침시간 (기본 22). 이 시각부터 Lumi는 자고 싶어하고,
+  /// 취침 알림(nightReminderEnabled)도 이 시각에 맞춰 발송한다.
+  static const bedtimeHour = 'bedtimeHour';
+
+  /// Lumi가 부르는 사용자 이름 (온보딩 2026-08-15). 없을 수 있다.
+  static const userName = 'userName';
+
   static const languageCode = 'languageCode'; // 기본 'en'
+  // dayStartHour는 2026-08-15에 wakeHour로 통합됐다 (읽기 폴백만 유지).
+  // nightReminderTime은 취침시간과 통합돼 제거됐다.
   // weekViewOpen은 2026-08-13에 제거됐다 — 주간 뷰가 오버레이 토글에서
   // 라우트로 바뀌면서 열림 상태를 영속할 이유가 사라졌다.
+  static const legacyDayStartHour = 'dayStartHour';
 }

@@ -34,6 +34,10 @@ class LumiState {
   /// [LumiMode.nightAwake]일 때 눈부심 정도 (= 방에 남은 빛, 1 - t)
   final double dazzle;
 
+  /// 전날 밤 불을 남긴 채 잤다 (세계관 2026-08-15) — 하루 종일 눈 밑에
+  /// 옅은 다크서클이 남는다. 표정·행동은 평소 그대로다.
+  final bool darkCircles;
+
   /// 외부에서 주입하는 이벤트 (react 등). 같은 이벤트를 연속 발생시키기 위해
   /// [eventTick]이 바뀔 때마다 재생한다.
   final LumiEvent? event;
@@ -45,6 +49,7 @@ class LumiState {
     this.mode,
     this.activity,
     this.dazzle = 0.0,
+    this.darkCircles = false,
     this.event,
     this.eventTick = 0,
   });

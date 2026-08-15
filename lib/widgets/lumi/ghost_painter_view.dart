@@ -34,6 +34,10 @@ class GhostPainterView extends StatefulWidget {
   final LumiDayActivity? activity;
   final double dazzle;
 
+  /// 전날 밤 불을 남긴 채 잤다 (세계관 2026-08-15) — 평소와 똑같이
+  /// 행동하지만 눈 밑에 옅은 다크서클이 하루 종일 남는다.
+  final bool darkCircles;
+
   const GhostPainterView({
     super.key,
     required this.sleepiness,
@@ -44,6 +48,7 @@ class GhostPainterView extends StatefulWidget {
     this.mode,
     this.activity,
     this.dazzle = 0.0,
+    this.darkCircles = false,
   });
 
   @override
@@ -352,7 +357,15 @@ class _GhostPainterViewState extends State<GhostPainterView>
               peekOpen: peekOpen,
               // 흰자는 항상 흰색 — 분홍 블렌드는 사용자 결정으로 제거
               scleraColor: const Color(0xFFFFFFFF),
-              darkCircleOpacity: 0.35 * t * (1 - s * 0.5),
+              // 졸림에 따른 은은한 다크서클에 더해, 전날 불을 남긴 밤의
+              // 흔적(darkCircles)은 하루 종일 지워지지 않는 바닥값으로 깔린다.
+              // 홈에서는 캐릭터가 작게(118pt) 그려져 과장해야 읽힌다
+              // (발주자 결정 2026-08-15) — 세기가 높으면 그리기 쪽에서도
+              // 호를 더 굵고 넓게 키운다.
+              darkCircleOpacity: math.max(
+                0.35 * t * (1 - s * 0.5),
+                widget.darkCircles ? 0.95 * (1 - s * 0.15) : 0.0,
+              ),
               pupilScale: _lerp(1.0, 0.7, t),
               highlightOpacity: (_lerp(1.0, 0.0, t) + hAmt).clamp(0.0, 1.0),
               headTiltDeg: 5.0 * t * (1 - s),
@@ -452,7 +465,6 @@ class _GhostPainter extends CustomPainter {
   });
 
   // ── 팔레트 (전면 개편 2026-08-09: 첨부 레퍼런스 매칭) ──
-  static const _bodyColor = Color(0xFFFFFFFF);
   static const _pupilColor = Color(0xFF1E1A2E); // 눈 = 잉크와 동일 (솔리드)
   static const _glowColor = Color(0xFFF2C482);
   static const _blushColor = Color(0xFFFFAEBB); // 옅고 맑은 볼터치
@@ -734,6 +746,46 @@ class _GhostPainter extends CustomPainter {
     for (final dir in [-1, 1]) {
       final ec = Offset(headCx + dir * eyeDx + gazeShift, headCy + eyeYOff);
 
+      // 다크서클 — 눈 아래 반달. 눈 모양 분기(간지럼·취침)보다 먼저
+      // 그린다 — 전날 못 잔 흔적은 감은 눈 밑에도, 웃는 눈 밑에도 남아
+      // 있어야 한다 (세계관 2026-08-15).
+      // 세기(opacity)가 높을수록 넓고 굵고 짙어진다 — 홈의 작은 캐릭터
+      // (118pt)에서도 읽히도록 과장 (발주자 결정 2026-08-15). 진한 쪽은
+      // 채운 초승달 음영 + 가장자리 선으로, 옅은 쪽은 선 하나로 그린다.
+      if (darkCircleOpacity > 0.01) {
+        final dcW = eyeRx * (0.7 + 0.55 * darkCircleOpacity);
+        final topY = ec.dy + eyeRy * 1.02;
+        final dipY = ec.dy + eyeRy * (1.35 + 0.45 * darkCircleOpacity);
+        final edge = Path()
+          ..moveTo(ec.dx - dcW, topY)
+          ..quadraticBezierTo(ec.dx, dipY, ec.dx + dcW, topY);
+        // 채움: 눈 밑을 살짝 꺼진 초승달로 음영 처리 (진할 때만 보인다)
+        if (darkCircleOpacity > 0.45) {
+          final crescent = Path()
+            ..moveTo(ec.dx - dcW, topY)
+            ..quadraticBezierTo(ec.dx, dipY, ec.dx + dcW, topY)
+            ..quadraticBezierTo(ec.dx, dipY - eyeRy * 0.42, ec.dx - dcW, topY)
+            ..close();
+          canvas.drawPath(
+            crescent,
+            Paint()
+              ..color = const Color(
+                0xFFA98BB0,
+              ).withValues(alpha: (darkCircleOpacity - 0.45) * 0.62),
+          );
+        }
+        canvas.drawPath(
+          edge,
+          Paint()
+            ..color = const Color(
+              0xFF8A6494,
+            ).withValues(alpha: (darkCircleOpacity * 0.85).clamp(0.0, 1.0))
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = (2.2 + 1.6 * darkCircleOpacity) * u
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+
       // 간지럼 — 웃느라 눈이 ∩ 모양으로 접힌다.
       // 문턱을 낮게 잡아 반응 대부분의 구간에서 웃는 눈이 보이게 한다.
       if (tickle > 0.12) {
@@ -912,27 +964,6 @@ class _GhostPainter extends CustomPainter {
         }
       }
 
-      // 다크서클 — 눈 아래 은은한 반달 (졸림 신호, 카와이 톤으로 절제)
-      if (darkCircleOpacity > 0.01) {
-        final p = Path()
-          ..moveTo(ec.dx - eyeRx * 0.7, ec.dy + eyeRy * 1.1)
-          ..quadraticBezierTo(
-            ec.dx,
-            ec.dy + eyeRy * 1.45,
-            ec.dx + eyeRx * 0.7,
-            ec.dy + eyeRy * 1.1,
-          );
-        canvas.drawPath(
-          p,
-          Paint()
-            ..color = const Color(
-              0xFF9B7B8A,
-            ).withValues(alpha: darkCircleOpacity * 0.7)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.4 * u
-            ..strokeCap = StrokeCap.round,
-        );
-      }
     }
 
     // ── 안경 (독서, 개정 2026-08-09) — 둥근 뿔테 + 은은한 렌즈 반사 ──
@@ -1189,32 +1220,11 @@ class _GhostPainter extends CustomPainter {
     canvas.restore(); // 전체 이동 레이어
   }
 
-  // ── 낮 일과 소품들 (개편 2026-08-08, 개정 2026-08-09: 손에 쥔 소품) ──
+  // ── 낮 일과 소품들 (개편 2026-08-08, 개정 2026-08-15: 손 제거) ──
+  // 소품은 유령 몸 앞에 그냥 둥둥 떠 있다 — 몸통 위에 겹쳐 그리던 "쥔 손"은
+  // 발주자 결정으로 제거했다 (몸 안에 손이 있는 것처럼 보였다).
 
-  /// 소품을 감싸 쥔 작은 손 — 소품 위에 겹쳐 그려 "들고 있음"을 만든다.
-  void _paintHoldingHand(
-    Canvas canvas,
-    double u,
-    Offset p, {
-    double scale = 1,
-  }) {
-    final hand = Rect.fromCenter(
-      center: p,
-      width: 14 * u * scale,
-      height: 11 * u * scale,
-    );
-    canvas.drawOval(hand, Paint()..color = _bodyColor);
-    canvas.drawOval(
-      hand,
-      Paint()
-        ..color = _inkColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.0 * u
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  /// 독서 (10~12시): 펼친 책 — 더 크게 (개정 2026-08-09), 양손이 받친다.
+  /// 독서 (10~12시): 펼친 책 — 몸 앞에 둥둥 떠 있다.
   void _paintBook(Canvas canvas, double u, double cx, double cy, double bodyH) {
     final y =
         cy +
@@ -1249,13 +1259,10 @@ class _GhostPainter extends CustomPainter {
         );
       }
     }
-    // 양손이 책 아래 모서리를 받친다
-    _paintHoldingHand(canvas, u, Offset(cx - 37 * u, y + 15 * u), scale: 1.2);
-    _paintHoldingHand(canvas, u, Offset(cx + 37 * u, y + 15 * u), scale: 1.2);
   }
 
-  /// 커피 (08~10시): 김이 오르는 잔 — 더 크게, 손에 쥔다
-  /// (개정 2026-08-09). 주기적으로 홀짝 들어올린다.
+  /// 커피 (08~10시): 김이 오르는 잔 — 몸 앞에 떠서 주기적으로 홀짝
+  /// 들어올려진다.
   void _paintCoffee(
     Canvas canvas,
     double u,
@@ -1327,17 +1334,10 @@ class _GhostPainter extends CustomPainter {
         ..strokeWidth = 2.8 * u
         ..strokeCap = StrokeCap.round,
     );
-    // 손이 잔을 감싸 쥔다
-    _paintHoldingHand(
-      canvas,
-      u,
-      Offset(mc.dx - 15 * u, mc.dy + 8 * u),
-      scale: 1.15,
-    );
   }
 
-  /// 간식 (16~18시): 초코칩 쿠키 — 더 크게, 손에 쥔다 (개정 2026-08-09).
-  /// 한 입씩 사라졌다가 새 쿠키로.
+  /// 간식 (16~18시): 초코칩 쿠키 — 몸 앞에 둥둥. 한 입씩 사라졌다가
+  /// 새 쿠키로.
   void _paintCookie(
     Canvas canvas,
     double u,
@@ -1388,13 +1388,6 @@ class _GhostPainter extends CustomPainter {
         Paint()..color = _inkColor.withValues(alpha: 0.55),
       );
     }
-    // 손이 쿠키를 쥔다 — 아래쪽 가장자리
-    _paintHoldingHand(
-      canvas,
-      u,
-      Offset(cc.dx - r * 0.75, cc.dy + r * 0.6),
-      scale: 1.15,
-    );
   }
 
   @override

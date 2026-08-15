@@ -37,21 +37,22 @@ void main() {
       final c = await makeContainer(tester);
       var s = await c.read(settingsControllerProvider.future);
       expect(s.nightReminderEnabled, true);
-      expect(s.nightReminderTime, '22:00');
       expect(s.soundEnabled, true);
       expect(s.hapticsEnabled, true);
-      expect(s.dayStartHour, 6);
+      // 세계관 통합 (2026-08-15): 기상 05시 · 취침 22시
+      expect(s.wakeHour, 5);
+      expect(s.bedtimeHour, 22);
       expect(s.onboardingCompleted, false);
 
       final ctrl = c.read(settingsControllerProvider.notifier);
-      await ctrl.setNightReminderTime('23:30');
       await ctrl.setSoundEnabled(false);
-      await ctrl.setDayStartHour(4);
+      await ctrl.setWakeHour(4);
+      await ctrl.setBedtimeHour(23);
 
       // DB에 실제 영속화됐는지 확인
-      expect(await db.settingsDao.getValue('nightReminderTime'), '23:30');
       expect(await db.settingsDao.getValue('soundEnabled'), 'false');
-      expect(await db.settingsDao.getValue('dayStartHour'), '4');
+      expect(await db.settingsDao.getValue('wakeHour'), '4');
+      expect(await db.settingsDao.getValue('bedtimeHour'), '23');
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
@@ -74,8 +75,15 @@ void main() {
     });
   });
 
-  group('온보딩 (§6.6)', () {
-    testWidgets('첫 실행 → 컨셉 화면 → 샘플 방 3개', (tester) async {
+  group('온보딩 (§6.6, 전면 개편 2026-08-15)', () {
+    /// "다음" 버튼 활성 여부 — 라벨로 UnwindButton을 찾아 onPressed를 본다
+    bool ctaEnabled(WidgetTester tester, String label) =>
+        tester
+            .widget<UnwindButton>(find.widgetWithText(UnwindButton, label))
+            .onPressed !=
+        null;
+
+    testWidgets('첫 실행: 환영 1초 잠금 → 밤 → 소등 체험은 전부 꺼야 통과', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [databaseProvider.overrideWithValue(db)],
@@ -84,15 +92,36 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 200));
 
-      // 1단계: 컨셉
-      expect(find.text('Lumi wants to sleep'), findsOneWidget);
-
-      await tester.tap(find.text('Go turn off the lights'));
+      // 1. 환영 — CTA는 1초 뒤에야 열린다
+      expect(find.text('Get things done with Lumi'), findsOneWidget);
+      expect(ctaEnabled(tester, 'Next'), false);
+      await tester.pump(const Duration(milliseconds: 1100));
+      expect(ctaEnabled(tester, 'Next'), true);
+      await tester.tap(find.text('Next'));
+      // 누름 상태 setState가 첫 프레임을 먹는다 (§10 검증 루틴)
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
       await tester.pump(const Duration(milliseconds: 100));
 
-      // 2단계: 샘플 3개가 놓인 방 (아하 모먼트)
+      // 2. 눈부신 밤 — 더미 등 3개(읽기 전용) + 1초 잠금
+      expect(find.text('At night, Lumi needs to sleep'), findsOneWidget);
       expect(find.byType(UnwindTodoTile), findsNWidgets(3));
-      expect(find.text('Return the borrowed book'), findsOneWidget);
+      expect(ctaEnabled(tester, 'Next'), false);
+      await tester.pump(const Duration(milliseconds: 1100));
+      await tester.tap(find.text('Next'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 3. 소등 체험 — 반드시 전부 꺼야 다음으로 (발주자 요구)
+      expect(find.text('Each task is a lamp'), findsOneWidget);
+      expect(ctaEnabled(tester, 'Next'), false);
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.byType(UnwindLampSwitch).at(i));
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+      expect(find.text('All lights out — sweet dreams, Lumi'), findsOneWidget);
+      expect(ctaEnabled(tester, 'Next'), true);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
@@ -108,7 +137,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.text('Lumi wants to sleep'), findsNothing);
+      expect(find.text('Get things done with Lumi'), findsNothing);
       expect(find.text('Today'), findsWidgets); // 홈
 
       await tester.pumpWidget(const SizedBox());

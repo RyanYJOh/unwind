@@ -311,7 +311,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     );
     if (!mounted) return;
 
-    // DB 기록: 상태는 pending 유지, lightsOutAt/finalT만 (§6.4)
+    // DB 기록 (개정 2026-08-15): 일괄 소등 = 일괄 완료 — 남은 등을 전부
+    // 체크(done)하고 lightsOutAt/finalT를 기록한다 (§6.4)
     await repo.pullCord(todayKey, DateTime.now());
 
     if (reduce) {
@@ -337,6 +338,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     final asleep = ref.watch(isAsleepProvider);
     // Lumi 생활 모드 (개편 2026-08-08): 시각·체크 상태가 결정
     final lumiMode = ref.watch(lumiModeProvider);
+    // Lumi는 오직 오늘의 방에만 있다 (개정 2026-08-15) — 과거·미래 열람은
+    // 빈 자리(바닥 그림자)만 남는다.
+    final isViewingToday =
+        ref.watch(viewedDayKeyProvider) == ref.watch(todayKeyProvider);
     final cordEnabled = ref.watch(pullCordEnabledProvider);
     final haptics = ref.watch(hapticsProvider);
     final reduce = MediaQuery.disableAnimationsOf(context);
@@ -426,38 +431,48 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                     onOpenBill: _openDummyBill,
                   ),
                   // 유령 영역 — 고정 높이로 체크리스트와의 간격 축소.
-                  // 탭하면 Lumi가 반응한다 (잠들었을 땐 무반응).
+                  // 오늘: Lumi (탭하면 반응, 잠들었을 땐 무반응).
+                  // 과거·미래: Lumi는 오늘의 방에 있다 — 빈 자리만 남는다.
                   SizedBox(
                     height: 136,
-                    child: Center(
-                      child: UnwindPressable(
-                        onTap: _pokeLumi,
-                        depth: 0,
-                        pressScale: 1.0, // 반응은 캐릭터가 한다
-                        haptic: UnwindHapticKind.none, // _pokeLumi가 고른다
-                        isButton: false,
-                        semanticLabel: l10n.lumiPokeLabel,
-                        child: Center(
-                          child: AnimatedBuilder(
-                            animation: _theme,
-                            builder: (context, _) => LumiView(
-                              state: LumiState(
-                                brightness: _displayTStatic,
-                                // 시각 무관: 전부 체크 시 잠들고, 밤의 빈 방도 잠든다
-                                isAsleep: lumiMode.mode == LumiMode.asleep,
-                                mode: lumiMode.mode,
-                                activity: lumiMode.activity,
-                                dazzle: lumiMode.dazzle,
-                                event: _lumiEvent,
-                                eventTick: _lumiTick,
+                    child: !isViewingToday
+                        ? _LumiAway(label: l10n.lumiAway)
+                        : Center(
+                            child: UnwindPressable(
+                              onTap: _pokeLumi,
+                              depth: 0,
+                              pressScale: 1.0, // 반응은 캐릭터가 한다
+                              haptic:
+                                  UnwindHapticKind.none, // _pokeLumi가 고른다
+                              isButton: false,
+                              semanticLabel: l10n.lumiPokeLabel,
+                              child: Center(
+                                child: AnimatedBuilder(
+                                  animation: _theme,
+                                  builder: (context, _) => LumiView(
+                                    state: LumiState(
+                                      brightness: _displayTStatic,
+                                      // 시각 무관: 전부 체크 시 잠들고,
+                                      // 밤의 빈 방도 잠든다
+                                      isAsleep:
+                                          lumiMode.mode == LumiMode.asleep,
+                                      mode: lumiMode.mode,
+                                      activity: lumiMode.activity,
+                                      dazzle: lumiMode.dazzle,
+                                      // 전날 불을 남겼으면 눈 밑에 다크서클
+                                      darkCircles: ref.watch(
+                                        darkCirclesProvider,
+                                      ),
+                                      event: _lumiEvent,
+                                      eventTick: _lumiTick,
+                                    ),
+                                    reduceMotion: reduce,
+                                    size: 118,
+                                  ),
+                                ),
                               ),
-                              reduceMotion: reduce,
-                              size: 118,
                             ),
                           ),
-                        ),
-                      ),
-                    ),
                   ),
                   Expanded(
                     child: todos.isEmpty
@@ -710,12 +725,45 @@ class _WeekPill extends ConsumerWidget {
     );
     return UnwindPill(
       label: weekLabel(context, mondayKey: mondayKey, todayKey: todayKey),
+      chevron: true, // 이동임을 알리는 작은 › (재도입 2026-08-15)
       onTap: () => showWeekScreen(context, mondayKey: mondayKey),
     );
   }
 }
 
-/// §6.1 빈 상태 — 사과가 아니라 초대 (§8.5)
+/// Lumi의 빈 자리 (개정 2026-08-15) — 과거·미래 날짜의 방.
+/// Lumi는 오직 오늘의 방에만 있으므로 떠 있던 자리 아래 바닥 그림자만
+/// 남긴다 (문구는 뺐다 — 2차 개정 2026-08-15: 그림자만으로 부재가 읽힌다).
+/// 탭해도 반응 없음. [label]은 스크린 리더용 설명으로만 쓴다.
+class _LumiAway extends StatelessWidget {
+  final String label;
+
+  const _LumiAway({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Lumi가 떠 있던 높이만큼 비워 둔다 — 부재가 읽히는 여백
+          const SizedBox(height: 58),
+          // 바닥 그림자 — 블러 없는 솔리드 타원 (§11, 디자인 시스템 §5.2)
+          Container(
+            width: 76,
+            height: 13,
+            decoration: const BoxDecoration(
+              color: Color(0x30000000),
+              borderRadius: BorderRadius.all(Radius.elliptical(38, 6.5)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyRoom extends StatelessWidget {
   const _EmptyRoom();
 

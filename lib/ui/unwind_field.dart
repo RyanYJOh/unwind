@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart'
     show InputBorder, InputDecoration, Material, MaterialType, TextField;
-import 'package:flutter/services.dart' show TextInputAction;
+import 'package:flutter/services.dart' show TextCapitalization, TextInputAction;
 import 'package:flutter/widgets.dart';
 
 import '../core/tokens/palette.dart';
@@ -19,6 +19,10 @@ class UnwindTextField extends StatefulWidget {
   final int maxLines;
   final TextStyle? textStyle;
   final TextInputAction textInputAction;
+
+  /// 키보드 자동 대문자 (개정 2026-08-15) — 문장 입력란(할 일·메모)은
+  /// [TextCapitalization.sentences]로 첫 글자가 대문자로 시작한다.
+  final TextCapitalization textCapitalization;
   final ValueChanged<String>? onSubmitted;
 
   /// 시트의 주 입력처럼 테두리 없이 크게 쓸 때
@@ -35,6 +39,7 @@ class UnwindTextField extends StatefulWidget {
     this.maxLines = 1,
     this.textStyle,
     this.textInputAction = TextInputAction.done,
+    this.textCapitalization = TextCapitalization.none,
     this.onSubmitted,
     this.bare = false,
   });
@@ -90,6 +95,7 @@ class _UnwindTextFieldState extends State<UnwindTextField> {
         cursorWidth: 2.5,
         cursorRadius: const Radius.circular(2),
         textInputAction: widget.textInputAction,
+        textCapitalization: widget.textCapitalization,
         onSubmitted: widget.onSubmitted,
         onEditingComplete: () {}, // 포커스 유지 (연속 입력, §6.3)
         decoration: InputDecoration(

@@ -1422,12 +1422,28 @@ class $DaysTable extends Days with TableInfo<$DaysTable, Day> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _restlessMeta = const VerificationMeta(
+    'restless',
+  );
+  @override
+  late final GeneratedColumn<bool> restless = GeneratedColumn<bool>(
+    'restless',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("restless" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     date,
     peakProgress,
     lightsOutAt,
     finalT,
+    restless,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1475,6 +1491,12 @@ class $DaysTable extends Days with TableInfo<$DaysTable, Day> {
         finalT.isAcceptableOrUnknown(data['final_t']!, _finalTMeta),
       );
     }
+    if (data.containsKey('restless')) {
+      context.handle(
+        _restlessMeta,
+        restless.isAcceptableOrUnknown(data['restless']!, _restlessMeta),
+      );
+    }
     return context;
   }
 
@@ -1500,6 +1522,10 @@ class $DaysTable extends Days with TableInfo<$DaysTable, Day> {
         DriftSqlType.double,
         data['${effectivePrefix}final_t'],
       ),
+      restless: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}restless'],
+      )!,
     );
   }
 
@@ -1520,11 +1546,17 @@ class Day extends DataClass implements Insertable<Day> {
 
   /// 하루 종료 시점의 최종 조도 (주간 스트립·청구서용)
   final double? finalT;
+
+  /// 불을 남긴 채 넘어간 밤 (세계관 2026-08-15): 미완 항목이 남아
+  /// Lumi가 제대로 못 잔 날. 다음날 다크서클의 근거가 된다.
+  /// 롤오버 봉인 시에만 기록한다 — autoDefer가 항목을 옮기기 전의 진실.
+  final bool restless;
   const Day({
     required this.date,
     required this.peakProgress,
     this.lightsOutAt,
     this.finalT,
+    required this.restless,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1537,6 +1569,7 @@ class Day extends DataClass implements Insertable<Day> {
     if (!nullToAbsent || finalT != null) {
       map['final_t'] = Variable<double>(finalT);
     }
+    map['restless'] = Variable<bool>(restless);
     return map;
   }
 
@@ -1550,6 +1583,7 @@ class Day extends DataClass implements Insertable<Day> {
       finalT: finalT == null && nullToAbsent
           ? const Value.absent()
           : Value(finalT),
+      restless: Value(restless),
     );
   }
 
@@ -1563,6 +1597,7 @@ class Day extends DataClass implements Insertable<Day> {
       peakProgress: serializer.fromJson<double>(json['peakProgress']),
       lightsOutAt: serializer.fromJson<DateTime?>(json['lightsOutAt']),
       finalT: serializer.fromJson<double?>(json['finalT']),
+      restless: serializer.fromJson<bool>(json['restless']),
     );
   }
   @override
@@ -1573,6 +1608,7 @@ class Day extends DataClass implements Insertable<Day> {
       'peakProgress': serializer.toJson<double>(peakProgress),
       'lightsOutAt': serializer.toJson<DateTime?>(lightsOutAt),
       'finalT': serializer.toJson<double?>(finalT),
+      'restless': serializer.toJson<bool>(restless),
     };
   }
 
@@ -1581,11 +1617,13 @@ class Day extends DataClass implements Insertable<Day> {
     double? peakProgress,
     Value<DateTime?> lightsOutAt = const Value.absent(),
     Value<double?> finalT = const Value.absent(),
+    bool? restless,
   }) => Day(
     date: date ?? this.date,
     peakProgress: peakProgress ?? this.peakProgress,
     lightsOutAt: lightsOutAt.present ? lightsOutAt.value : this.lightsOutAt,
     finalT: finalT.present ? finalT.value : this.finalT,
+    restless: restless ?? this.restless,
   );
   Day copyWithCompanion(DaysCompanion data) {
     return Day(
@@ -1597,6 +1635,7 @@ class Day extends DataClass implements Insertable<Day> {
           ? data.lightsOutAt.value
           : this.lightsOutAt,
       finalT: data.finalT.present ? data.finalT.value : this.finalT,
+      restless: data.restless.present ? data.restless.value : this.restless,
     );
   }
 
@@ -1606,13 +1645,15 @@ class Day extends DataClass implements Insertable<Day> {
           ..write('date: $date, ')
           ..write('peakProgress: $peakProgress, ')
           ..write('lightsOutAt: $lightsOutAt, ')
-          ..write('finalT: $finalT')
+          ..write('finalT: $finalT, ')
+          ..write('restless: $restless')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(date, peakProgress, lightsOutAt, finalT);
+  int get hashCode =>
+      Object.hash(date, peakProgress, lightsOutAt, finalT, restless);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1620,7 +1661,8 @@ class Day extends DataClass implements Insertable<Day> {
           other.date == this.date &&
           other.peakProgress == this.peakProgress &&
           other.lightsOutAt == this.lightsOutAt &&
-          other.finalT == this.finalT);
+          other.finalT == this.finalT &&
+          other.restless == this.restless);
 }
 
 class DaysCompanion extends UpdateCompanion<Day> {
@@ -1628,12 +1670,14 @@ class DaysCompanion extends UpdateCompanion<Day> {
   final Value<double> peakProgress;
   final Value<DateTime?> lightsOutAt;
   final Value<double?> finalT;
+  final Value<bool> restless;
   final Value<int> rowid;
   const DaysCompanion({
     this.date = const Value.absent(),
     this.peakProgress = const Value.absent(),
     this.lightsOutAt = const Value.absent(),
     this.finalT = const Value.absent(),
+    this.restless = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DaysCompanion.insert({
@@ -1641,6 +1685,7 @@ class DaysCompanion extends UpdateCompanion<Day> {
     required double peakProgress,
     this.lightsOutAt = const Value.absent(),
     this.finalT = const Value.absent(),
+    this.restless = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : date = Value(date),
        peakProgress = Value(peakProgress);
@@ -1649,6 +1694,7 @@ class DaysCompanion extends UpdateCompanion<Day> {
     Expression<double>? peakProgress,
     Expression<DateTime>? lightsOutAt,
     Expression<double>? finalT,
+    Expression<bool>? restless,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1656,6 +1702,7 @@ class DaysCompanion extends UpdateCompanion<Day> {
       if (peakProgress != null) 'peak_progress': peakProgress,
       if (lightsOutAt != null) 'lights_out_at': lightsOutAt,
       if (finalT != null) 'final_t': finalT,
+      if (restless != null) 'restless': restless,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1665,6 +1712,7 @@ class DaysCompanion extends UpdateCompanion<Day> {
     Value<double>? peakProgress,
     Value<DateTime?>? lightsOutAt,
     Value<double?>? finalT,
+    Value<bool>? restless,
     Value<int>? rowid,
   }) {
     return DaysCompanion(
@@ -1672,6 +1720,7 @@ class DaysCompanion extends UpdateCompanion<Day> {
       peakProgress: peakProgress ?? this.peakProgress,
       lightsOutAt: lightsOutAt ?? this.lightsOutAt,
       finalT: finalT ?? this.finalT,
+      restless: restless ?? this.restless,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1691,6 +1740,9 @@ class DaysCompanion extends UpdateCompanion<Day> {
     if (finalT.present) {
       map['final_t'] = Variable<double>(finalT.value);
     }
+    if (restless.present) {
+      map['restless'] = Variable<bool>(restless.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1704,6 +1756,7 @@ class DaysCompanion extends UpdateCompanion<Day> {
           ..write('peakProgress: $peakProgress, ')
           ..write('lightsOutAt: $lightsOutAt, ')
           ..write('finalT: $finalT, ')
+          ..write('restless: $restless, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3073,6 +3126,7 @@ typedef $$DaysTableCreateCompanionBuilder =
       required double peakProgress,
       Value<DateTime?> lightsOutAt,
       Value<double?> finalT,
+      Value<bool> restless,
       Value<int> rowid,
     });
 typedef $$DaysTableUpdateCompanionBuilder =
@@ -3081,6 +3135,7 @@ typedef $$DaysTableUpdateCompanionBuilder =
       Value<double> peakProgress,
       Value<DateTime?> lightsOutAt,
       Value<double?> finalT,
+      Value<bool> restless,
       Value<int> rowid,
     });
 
@@ -3109,6 +3164,11 @@ class $$DaysTableFilterComposer extends Composer<_$UnwindDatabase, $DaysTable> {
 
   ColumnFilters<double> get finalT => $composableBuilder(
     column: $table.finalT,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get restless => $composableBuilder(
+    column: $table.restless,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3141,6 +3201,11 @@ class $$DaysTableOrderingComposer
     column: $table.finalT,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get restless => $composableBuilder(
+    column: $table.restless,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DaysTableAnnotationComposer
@@ -3167,6 +3232,9 @@ class $$DaysTableAnnotationComposer
 
   GeneratedColumn<double> get finalT =>
       $composableBuilder(column: $table.finalT, builder: (column) => column);
+
+  GeneratedColumn<bool> get restless =>
+      $composableBuilder(column: $table.restless, builder: (column) => column);
 }
 
 class $$DaysTableTableManager
@@ -3201,12 +3269,14 @@ class $$DaysTableTableManager
                 Value<double> peakProgress = const Value.absent(),
                 Value<DateTime?> lightsOutAt = const Value.absent(),
                 Value<double?> finalT = const Value.absent(),
+                Value<bool> restless = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DaysCompanion(
                 date: date,
                 peakProgress: peakProgress,
                 lightsOutAt: lightsOutAt,
                 finalT: finalT,
+                restless: restless,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3215,12 +3285,14 @@ class $$DaysTableTableManager
                 required double peakProgress,
                 Value<DateTime?> lightsOutAt = const Value.absent(),
                 Value<double?> finalT = const Value.absent(),
+                Value<bool> restless = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DaysCompanion.insert(
                 date: date,
                 peakProgress: peakProgress,
                 lightsOutAt: lightsOutAt,
                 finalT: finalT,
+                restless: restless,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

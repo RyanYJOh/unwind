@@ -31,6 +31,9 @@ class GhostView extends StatefulWidget {
   final LumiDayActivity? activity;
   final double dazzle;
 
+  /// 전날 못 잔 밤의 흔적 (세계관 2026-08-15) — 눈 밑 다크서클
+  final bool darkCircles;
+
   /// .riv 로드 실패 시 대신 그릴 위젯.
   /// 지정하지 않으면 [GhostPainterView] (브리프 사양의 Flutter 구현)를 쓴다.
   final WidgetBuilder? fallbackBuilder;
@@ -45,6 +48,7 @@ class GhostView extends StatefulWidget {
     this.mode,
     this.activity,
     this.dazzle = 0.0,
+    this.darkCircles = false,
     this.fallbackBuilder,
   });
 
@@ -108,6 +112,10 @@ class _GhostViewState extends State<GhostView> {
         (widget.sleepiness.clamp(0.0, 1.0) * 100);
   }
 
+  void _applyDarkCircles() {
+    _vmi?.boolean(GhostContract.vmDarkCircles)?.value = widget.darkCircles;
+  }
+
   void _fireEvent(GhostEvent event) {
     _lastEventAt = DateTime.now();
     switch (event) {
@@ -132,6 +140,7 @@ class _GhostViewState extends State<GhostView> {
   void didUpdateWidget(GhostView old) {
     super.didUpdateWidget(old);
     if (old.sleepiness != widget.sleepiness) _applySleepiness();
+    if (old.darkCircles != widget.darkCircles) _applyDarkCircles();
     if (widget.event != null && widget.eventTick != _seenTick) {
       _seenTick = widget.eventTick;
       _fireEvent(widget.event!);
@@ -160,6 +169,7 @@ class _GhostViewState extends State<GhostView> {
     mode: widget.mode,
     activity: widget.activity,
     dazzle: widget.dazzle,
+    darkCircles: widget.darkCircles,
   );
 
   @override
@@ -186,6 +196,7 @@ class _GhostViewState extends State<GhostView> {
         onLoaded: (state) {
           _vmi = state.viewModelInstance;
           _applySleepiness();
+          _applyDarkCircles();
           if (widget.event == GhostEvent.allDone) {
             _vmi?.boolean(GhostContract.vmAllDone)?.value = true;
           }

@@ -33,7 +33,7 @@ class UnwindDatabase extends _$UnwindDatabase {
   UnwindDatabase.withExecutor(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -42,6 +42,19 @@ class UnwindDatabase extends _$UnwindDatabase {
         await m.addColumn(todos, todos.autoDefer);
         await m.addColumn(todos, todos.scheduledTimeMinutes);
         await m.addColumn(recurrences, recurrences.scheduledTimeMinutes);
+      }
+      if (from < 3) {
+        // 세계관 2026-08-15: 불을 남긴 밤 기록 (다음날 다크서클)
+        await m.addColumn(days, days.restless);
+        // 소급 추론: 이미 봉인된 밤 중 불을 남긴 밤을 restless로 채운다 —
+        // 어젯밤 못 잔 사용자가 업데이트 직후에도 다크서클을 만난다.
+        // 0.15 = BrightnessEngine.emptyRoomT (빈 방은 잘 잔 밤이라 제외),
+        // finalT 1.0 = 소등/전부 완료, lights_out_at 존재 = 줄을 당김.
+        await customStatement(
+          'UPDATE days SET restless = 1 '
+          'WHERE final_t IS NOT NULL AND final_t < 1.0 '
+          'AND final_t != 0.15 AND lights_out_at IS NULL',
+        );
       }
     },
   );

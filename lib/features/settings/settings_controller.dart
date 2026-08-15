@@ -4,57 +4,62 @@ import '../../data/db/tables/tables.dart';
 import '../today/providers.dart';
 
 /// §4.5 / §6.7 설정 값 모델 (기본값 포함)
+///
+/// 세계관 통합 (2026-08-15): Lumi에겐 기상시간과 취침시간이 있다.
+/// - [wakeHour] 기본 05시 — 하루의 경계(롤오버)이자 Lumi의 낮 시작.
+///   (구 dayStartHour를 흡수 — 저장된 옛 키는 읽기 폴백으로 존중한다)
+/// - [bedtimeHour] 기본 22시 — 이 시각부터 Lumi는 자야 한다. 불이 남아
+///   있으면 못 자고, 취침 알림도 이 시각에 발송한다 (구 nightReminderTime
+///   을 흡수 — 별도 리마인더 시각은 없다).
 class UnwindSettings {
   final bool nightReminderEnabled;
-  final String nightReminderTime; // 'HH:mm', 기본 22:00
   final bool billNotificationEnabled;
   final bool soundEnabled;
   final bool hapticsEnabled;
-  final int dayStartHour; // 기본 6
+  final int wakeHour; // 기본 5
+  final int bedtimeHour; // 기본 22
   final bool onboardingCompleted;
+
+  /// Lumi가 부르는 사용자 이름 (온보딩 2026-08-15). null = 안 알려줌.
+  final String? userName;
 
   /// 앱 언어 — 기본 영어. 지원 언어는 l10n/*.arb 추가로 확장한다.
   final String languageCode;
 
   const UnwindSettings({
     this.nightReminderEnabled = true,
-    this.nightReminderTime = '22:00',
     this.billNotificationEnabled = true,
     this.soundEnabled = true,
     this.hapticsEnabled = true,
-    this.dayStartHour = 6,
+    this.wakeHour = 5,
+    this.bedtimeHour = 22,
     this.onboardingCompleted = false,
+    this.userName,
     this.languageCode = 'en',
   });
 
   UnwindSettings copyWith({
     bool? nightReminderEnabled,
-    String? nightReminderTime,
     bool? billNotificationEnabled,
     bool? soundEnabled,
     bool? hapticsEnabled,
-    int? dayStartHour,
+    int? wakeHour,
+    int? bedtimeHour,
     bool? onboardingCompleted,
+    String? userName,
     String? languageCode,
   }) => UnwindSettings(
     nightReminderEnabled: nightReminderEnabled ?? this.nightReminderEnabled,
-    nightReminderTime: nightReminderTime ?? this.nightReminderTime,
     billNotificationEnabled:
         billNotificationEnabled ?? this.billNotificationEnabled,
     soundEnabled: soundEnabled ?? this.soundEnabled,
     hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
-    dayStartHour: dayStartHour ?? this.dayStartHour,
+    wakeHour: wakeHour ?? this.wakeHour,
+    bedtimeHour: bedtimeHour ?? this.bedtimeHour,
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+    userName: userName ?? this.userName,
     languageCode: languageCode ?? this.languageCode,
   );
-
-  (int, int) get reminderHourMinute {
-    final parts = nightReminderTime.split(':');
-    return (
-      int.tryParse(parts[0]) ?? 22,
-      parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
-    );
-  }
 }
 
 /// 설정 컨트롤러 — DB(settings 키/값)와 동기화
@@ -72,8 +77,6 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
         SettingKeys.nightReminderEnabled,
         fallback: true,
       ),
-      nightReminderTime:
-          await dao.getValue(SettingKeys.nightReminderTime) ?? '22:00',
       billNotificationEnabled: await dao.getBool(
         SettingKeys.billNotificationEnabled,
         fallback: true,
@@ -83,11 +86,17 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
         SettingKeys.hapticsEnabled,
         fallback: true,
       ),
-      dayStartHour: await dao.getInt(SettingKeys.dayStartHour, fallback: 6),
+      // 통합 이전에 dayStartHour를 바꿔 둔 사용자의 선택을 존중한다
+      wakeHour: await dao.getInt(
+        SettingKeys.wakeHour,
+        fallback: await dao.getInt(SettingKeys.legacyDayStartHour, fallback: 5),
+      ),
+      bedtimeHour: await dao.getInt(SettingKeys.bedtimeHour, fallback: 22),
       onboardingCompleted: await dao.getBool(
         SettingKeys.onboardingCompleted,
         fallback: false,
       ),
+      userName: await dao.getValue(SettingKeys.userName),
       languageCode: await dao.getValue(SettingKeys.languageCode) ?? 'en',
     );
   }
@@ -109,12 +118,6 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
     (s) => s.copyWith(nightReminderEnabled: v),
   );
 
-  Future<void> setNightReminderTime(String hhmm) => _set(
-    SettingKeys.nightReminderTime,
-    hhmm,
-    (s) => s.copyWith(nightReminderTime: hhmm),
-  );
-
   Future<void> setBillNotificationEnabled(bool v) => _set(
     SettingKeys.billNotificationEnabled,
     '$v',
@@ -130,11 +133,17 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
     (s) => s.copyWith(hapticsEnabled: v),
   );
 
-  Future<void> setDayStartHour(int hour) => _set(
-    SettingKeys.dayStartHour,
+  Future<void> setWakeHour(int hour) =>
+      _set(SettingKeys.wakeHour, '$hour', (s) => s.copyWith(wakeHour: hour));
+
+  Future<void> setBedtimeHour(int hour) => _set(
+    SettingKeys.bedtimeHour,
     '$hour',
-    (s) => s.copyWith(dayStartHour: hour),
+    (s) => s.copyWith(bedtimeHour: hour),
   );
+
+  Future<void> setUserName(String name) =>
+      _set(SettingKeys.userName, name, (s) => s.copyWith(userName: name));
 
   Future<void> setOnboardingCompleted() => _set(
     SettingKeys.onboardingCompleted,

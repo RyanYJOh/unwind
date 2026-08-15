@@ -115,6 +115,9 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
             children: [
               UnwindPill(label: 'Week 33', onTap: () {}),
               const SizedBox(width: UnwindSpacing.s12),
+              // 이동용 알약은 작은 › 를 단다 (재도입 2026-08-15)
+              UnwindPill(label: 'This week', chevron: true, onTap: () {}),
+              const SizedBox(width: UnwindSpacing.s12),
               UnwindPill(
                 label: 'Bill',
                 tone: UnwindPillTone.accent,

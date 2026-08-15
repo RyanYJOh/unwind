@@ -156,10 +156,14 @@ class TodoRepository {
     return pending;
   }
 
-  /// 전등 줄 (§6.4) — 남은 항목의 상태는 pending 유지, 불만 끈다.
-  /// TODO(unwind): 미결정 — §15 미루기 처리. v1은 상태 변경 없음.
-  Future<void> pullCord(String date, DateTime at) =>
-      db.dayDao.markLightsOut(date, at);
+  /// 전등 줄 (§6.4, 개정 2026-08-15) — 일괄 소등은 일괄 완료다.
+  /// 남은 등(pending)을 전부 끄고(done, completedAt = 당긴 시각) 취침을
+  /// 기록한다. 이전에는 pending을 유지해 불만 꺼졌는데, 체크 표시가 남지
+  /// 않아 "끝냈다"는 감각이 비었다.
+  Future<void> pullCord(String date, DateTime at) async {
+    await db.todoDao.completeAllPending(date, at);
+    await db.dayDao.markLightsOut(date, at); // peak/finalT = 1.0
+  }
 
   /// 유령 깨우기 (개정 2026-08-07) — 취침 후 스위치 ON = undo.
   /// 취침 기록(lightsOutAt·finalT) 삭제, 조도는 §5.2 되돌리기 규칙으로

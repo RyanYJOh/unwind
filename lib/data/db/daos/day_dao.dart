@@ -60,8 +60,14 @@ class DayDao extends DatabaseAccessor<UnwindDatabase> with _$DayDaoMixin {
     );
   }
 
-  /// 롤오버 시 하루 종료 조도 기록 (§4.3) — 이미 finalT가 있으면 유지
-  Future<void> sealDay(String date, double finalT) async {
+  /// 롤오버 시 하루 종료 조도 기록 (§4.3) — 이미 finalT가 있으면 유지.
+  /// [restless]: 불을 남긴 채 넘어간 밤 (세계관 2026-08-15) — 미완 항목이
+  /// 남아 Lumi가 제대로 못 잔 날. 다음날 다크서클의 근거.
+  Future<void> sealDay(
+    String date,
+    double finalT, {
+    bool restless = false,
+  }) async {
     final existing = await getDay(date);
     if (existing == null) {
       await into(days).insertOnConflictUpdate(
@@ -69,11 +75,12 @@ class DayDao extends DatabaseAccessor<UnwindDatabase> with _$DayDaoMixin {
           date: date,
           peakProgress: finalT,
           finalT: Value(finalT),
+          restless: Value(restless),
         ),
       );
     } else if (existing.finalT == null) {
       await (update(days)..where((d) => d.date.equals(date))).write(
-        DaysCompanion(finalT: Value(finalT)),
+        DaysCompanion(finalT: Value(finalT), restless: Value(restless)),
       );
     }
   }

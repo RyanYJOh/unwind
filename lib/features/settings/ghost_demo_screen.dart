@@ -30,6 +30,9 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
   LumiDayActivity? _activity;
   double _dazzle = 0.8;
 
+  /// 전날 못 잔 밤의 다크서클 (세계관 2026-08-15) — 모든 모드와 조합 가능
+  bool _darkCircles = false;
+
   void _fire(GhostEvent e) {
     setState(() {
       _event = e;
@@ -66,6 +69,7 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
                 mode: _mode,
                 activity: _activity,
                 dazzle: _dazzle,
+                darkCircles: _darkCircles,
               ),
             ),
           ),
@@ -112,6 +116,12 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
                     _mode = null;
                     _activity = null;
                   }),
+                ),
+                // 전날 못 잔 밤의 흔적 — 어느 모드와도 조합해 확인한다
+                FilterChip(
+                  label: const Text('다크서클'),
+                  selected: _darkCircles,
+                  onSelected: (v) => setState(() => _darkCircles = v),
                 ),
               ],
             ),

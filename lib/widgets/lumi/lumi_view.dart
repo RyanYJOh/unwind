@@ -113,6 +113,7 @@ class _LumiRiveAdapterState extends State<_LumiRiveAdapter> {
       mode: widget.state.mode,
       activity: widget.state.activity,
       dazzle: widget.state.dazzle,
+      darkCircles: widget.state.darkCircles,
     );
   }
 }

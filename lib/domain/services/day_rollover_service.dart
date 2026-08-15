@@ -9,12 +9,14 @@ import '../../data/db/database.dart';
 import '../../data/repositories/todo_repository.dart';
 import 'brightness_engine.dart';
 
-/// §5.3 자정 롤오버 — 정확히는 dayStartHour(기본 6시) 경계.
+/// §5.3 자정 롤오버 — 정확히는 Lumi 기상시간(기본 5시) 경계.
 ///
-/// 세계관(§2): 내일의 방은 아직 불이 켜지지 않은 옆방이다.
+/// 세계관(§2, 통합 2026-08-15): Lumi가 일어나는 순간 새 하루가 시작된다.
 /// 경계가 지나면 지난 방의 finalT를 봉인하고 새 방의 키를 발급한다.
 class DayRolloverService {
   final UnwindDatabase db;
+
+  /// 하루의 경계 = Lumi 기상시간 (wakeHour 설정)
   final int dayStartHour;
   final void Function(String newTodayKey) onRollover;
 
@@ -25,7 +27,7 @@ class DayRolloverService {
   DayRolloverService({
     required this.db,
     required this.onRollover,
-    this.dayStartHour = 6,
+    this.dayStartHour = 5,
     DateTime? now,
   }) : _todayKey = logicalTodayKey(
          now ?? DateTime.now(),
@@ -86,7 +88,11 @@ class DayRolloverService {
       final finalT = total == 0
           ? BrightnessEngine.emptyRoomT
           : math.max(peak, raw);
-      await db.dayDao.sealDay(date, finalT);
+      // 세계관(2026-08-15): 항목이 있었는데 다 끄지 못했고 전등 줄도 안
+      // 당겼다면(당겼으면 finalT=1.0이라 여기 안 옴) 불을 남긴 밤이다 —
+      // 다음날 Lumi 눈 밑에 다크서클이 생긴다. 빈 방은 잘 잔 밤(§6.1).
+      final restless = total > 0 && done < total && row?.lightsOutAt == null;
+      await db.dayDao.sealDay(date, finalT, restless: restless);
     }
   }
 

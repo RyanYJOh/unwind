@@ -57,9 +57,18 @@ final soundPlayerProvider = Provider<SoundPlayer>((ref) {
   return p;
 });
 
-/// §4.5 dayStartHour — 설정 연동 (§6.7), 기본 6
-final dayStartHourProvider = Provider<int>(
-  (ref) => ref.watch(settingsControllerProvider).value?.dayStartHour ?? 6,
+/// Lumi 기상시간 = 하루의 경계 (세계관 통합 2026-08-15), 기본 05시.
+/// Lumi가 일어나는 순간 새 하루가 시작된다 — 롤오버·반복 전개·청구서
+/// 생성이 전부 이 시각에 일어난다.
+final wakeHourProvider = Provider<int>(
+  (ref) => ref.watch(settingsControllerProvider).value?.wakeHour ?? 5,
+);
+
+/// Lumi 취침시간 (세계관 2026-08-15), 기본 22시.
+/// 이 시각부터 Lumi는 자야 한다 — 불(미완 항목)이 남아 있으면 못 자고,
+/// 취침 알림도 이 시각에 발송한다.
+final bedtimeHourProvider = Provider<int>(
+  (ref) => ref.watch(settingsControllerProvider).value?.bedtimeHour ?? 22,
 );
 
 final recurrenceExpanderProvider = Provider<RecurrenceExpander>(
@@ -76,7 +85,7 @@ class TodayKeyNotifier extends Notifier<String> {
 
   @override
   String build() {
-    final dayStart = ref.watch(dayStartHourProvider);
+    final dayStart = ref.watch(wakeHourProvider);
     final expander = ref.watch(recurrenceExpanderProvider);
     final service = DayRolloverService(
       db: ref.watch(databaseProvider),
@@ -181,11 +190,8 @@ final isAsleepProvider = Provider<bool>(
   (ref) => ref.watch(viewedDayProvider).value?.lightsOutAt != null,
 );
 
-// ── Lumi 하루 (개편 2026-08-08) ─────────────────────────────
-
-/// 밤의 시작 — 이 시각부터 Lumi는 자고 싶어한다.
-/// (아침 경계는 dayStartHour 설정을 그대로 쓴다 — 기본 06시)
-const kLumiNightHour = 19;
+// ── Lumi 하루 (개편 2026-08-08 · 세계관 통합 2026-08-15) ────
+// 밤의 시작은 상수(19시)가 아니라 Lumi의 취침시간(bedtimeHourProvider)이다.
 
 /// 1분 시계 — 일과 슬롯·낮밤 전환 감지용
 final clockProvider = StreamProvider<DateTime>((ref) async* {
@@ -201,17 +207,18 @@ class LumiModeState {
   const LumiModeState({required this.mode, this.activity, this.dazzle = 0.0});
 }
 
-/// Lumi 생활 모드 (개편 2026-08-08):
-/// - 소등했거나, 전부 체크됐거나(시간 무관), 밤의 빈 방 → 만족스러운 잠
-/// - 낮(06~19) → 행복한 일과. 2시간 슬롯마다 활동이 바뀐다
-/// - 밤 + 미완 항목 → 못 자는 상태. 눈부심 = 방에 남은 빛(1 - t):
+/// Lumi 생활 모드 (개편 2026-08-08 · 취침/기상시간 반영 2026-08-15):
+/// - 소등했거나, 전부 체크됐거나(시간 무관), 취침시간 이후의 빈 방 → 만족스러운 잠
+/// - 낮(기상시간~취침시간) → 행복한 일과. 2시간 슬롯마다 활동이 바뀐다
+/// - 취침시간 이후 + 미완 항목 → 못 자는 상태. 눈부심 = 방에 남은 빛(1 - t):
 ///   불이 많이 남았으면 눈부셔 못 자고, 몇 개 안 남았으면 꾸벅꾸벅 존다
 final lumiModeProvider = Provider<LumiModeState>((ref) {
   final now = ref.watch(clockProvider).value ?? DateTime.now();
   final todos = ref.watch(viewedTodosProvider).value ?? const <Todo>[];
   final roomAsleep = ref.watch(isAsleepProvider);
   final t = ref.watch(brightnessProvider);
-  final dayStart = ref.watch(dayStartHourProvider);
+  final wake = ref.watch(wakeHourProvider);
+  final bedtime = ref.watch(bedtimeHourProvider);
   final isViewingPast =
       ref.watch(viewedDayKeyProvider) != ref.watch(todayKeyProvider);
 
@@ -231,20 +238,38 @@ final lumiModeProvider = Provider<LumiModeState>((ref) {
     );
   }
 
-  final isDaytime = now.hour >= dayStart && now.hour < kLumiNightHour;
+  // 취침시간이 자정을 넘을 수 있으므로(예: 새벽 1시) 기상시간 기준의
+  // 경과 시간으로 판정한다. 낮 = 기상 후 취침 전.
+  final sinceWake = (now.hour - wake + 24) % 24;
+  final dayLength = (bedtime - wake + 24) % 24;
+  final isDaytime = dayLength == 0 || sinceWake < dayLength;
 
   if (roomAsleep || allDone || (!isDaytime && counted.isEmpty)) {
     return const LumiModeState(mode: LumiMode.asleep);
   }
   if (isDaytime) {
-    const acts = LumiDayActivity.values; // 순서 = 2시간 슬롯 (06시부터)
-    final slot = ((now.hour - dayStart) ~/ 2).clamp(0, acts.length - 1);
+    const acts = LumiDayActivity.values; // 순서 = 2시간 슬롯 (기상시간부터)
+    final slot = (sinceWake ~/ 2).clamp(0, acts.length - 1);
     return LumiModeState(mode: LumiMode.day, activity: acts[slot]);
   }
   return LumiModeState(
     mode: LumiMode.nightAwake,
     dazzle: (1 - t).clamp(0.0, 1.0),
   );
+});
+
+/// 다크서클 (세계관 2026-08-15): 전날 밤 불을 남긴 채 넘어왔다면
+/// (= 어제의 days 행이 restless로 봉인됐다면) 오늘 하루 종일 Lumi 눈
+/// 밑에 옅은 다크서클이 남는다. 열람 날짜 기준이라 과거의 방을 열어도
+/// "그날의 Lumi"가 맞는 얼굴을 한다.
+final _dayRowProvider = StreamProvider.family<Day?, String>(
+  (ref, key) => ref.watch(todoRepositoryProvider).watchDay(key),
+);
+
+final darkCirclesProvider = Provider<bool>((ref) {
+  final viewed = ref.watch(viewedDayKeyProvider);
+  final prevKey = dayKey(addDays(parseDayKey(viewed), -1));
+  return ref.watch(_dayRowProvider(prevKey)).value?.restless ?? false;
 });
 
 /// 입력 시트의 기본 날짜 (§6.1): 취침 후엔 내일
@@ -418,7 +443,8 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   return service;
 });
 
-/// 밤 리마인더 갱신 (§10): 조건이 성립할 때만 오늘 22:00 예약.
+/// 취침 알림 갱신 (§10 · 통합 2026-08-15): 조건이 성립할 때만
+/// Lumi의 취침시간(기본 22:00)에 예약한다 — 별도 리마인더 시각은 없다.
 /// TodayScreen이 watch하는 것으로 활성화된다.
 final nightReminderSchedulerProvider = Provider<void>((ref) {
   final service = ref.watch(notificationServiceProvider);
@@ -432,10 +458,9 @@ final nightReminderSchedulerProvider = Provider<void>((ref) {
       ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
 
   if (settings.nightReminderEnabled && pending > 0 && !pulled) {
-    final (h, m) = settings.reminderHourMinute; // 기본 22:00 (§4.5)
     service.scheduleNightReminder(
-      hour: h,
-      minute: m,
+      hour: settings.bedtimeHour, // Lumi가 자야 하는 시각
+      minute: 0,
       body: _l10nFor(ref).notifNightReminder,
     );
   } else {
@@ -449,7 +474,7 @@ final todoReminderSchedulerProvider = Provider<void>((ref) {
   final todos = ref.watch(timedPendingTodosProvider).value;
   final today = ref.watch(todayKeyProvider);
   final todayDay = ref.watch(todayDayProvider).value;
-  final dayStartHour = ref.watch(dayStartHourProvider);
+  final dayStartHour = ref.watch(wakeHourProvider);
   ref.watch(settingsControllerProvider);
   if (todos == null) return;
 

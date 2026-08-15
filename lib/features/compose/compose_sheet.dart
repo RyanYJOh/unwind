@@ -44,7 +44,6 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
   final _memoController = TextEditingController();
   final _titleFocus = FocusNode();
   late String _dateKey;
-  bool _memoOpen = false;
   bool _calendarOpen = false;
   bool _autoDefer = false;
   int? _scheduledTimeMinutes;
@@ -91,7 +90,6 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
     if (widget.existing != null) {
       _titleController.text = widget.existing!.title;
       _memoController.text = widget.existing!.memo ?? '';
-      _memoOpen = widget.existing!.memo?.isNotEmpty == true;
       _autoDefer =
           widget.existing!.recurrenceId == null && widget.existing!.autoDefer;
       _scheduledTimeMinutes = widget.existing!.scheduledTimeMinutes;
@@ -251,39 +249,26 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
               maxLength: 200,
               bare: true,
               textStyle: UnwindType.headline,
+              // 첫 글자 자동 대문자 (개정 2026-08-15)
+              textCapitalization: TextCapitalization.sentences,
               onSubmitted: (_) => _save(),
             ),
-            const SizedBox(height: UnwindSpacing.s4),
-            if (_memoOpen)
-              UnwindTextField(
-                controller: _memoController,
-                hint: l10n.memoHint,
-                maxLength: 2000,
-                minLines: 1,
-                maxLines: 3,
-                bare: true,
-                textStyle: UnwindType.body,
-              )
-            else
-              // 제목과 같은 세로선에서 시작해야 한다 — 좌우 패딩 0
-              UnwindPressable(
-                onTap: () => setState(() => _memoOpen = true),
-                depth: 0,
-                pressScale: 0.98,
-                semanticLabel: l10n.addMemo,
-                child: SizedBox(
-                  height: 40,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      l10n.addMemo,
-                      style: UnwindType.body.copyWith(
-                        color: UnwindColors.textMuted,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            const SizedBox(height: UnwindSpacing.s8),
+            // 메모 — 항상 열려 있는 진짜 입력란 (개정 2026-08-15).
+            // 이전의 "탭하면 펼쳐지는 라벨"은 눌러도 입력란이 바로 활성화되지
+            // 않았고, 라벨("Add a note")과 힌트("Note")가 이중으로 보였다.
+            // 힌트 하나("Add a note")를 단 필드로 통일 — 탭하면 즉시 입력.
+            UnwindTextField(
+              controller: _memoController,
+              hint: l10n.addMemo,
+              maxLength: 2000,
+              minLines: 1,
+              maxLines: 3,
+              bare: true,
+              textStyle: UnwindType.body,
+              // 첫 글자 자동 대문자 (개정 2026-08-15)
+              textCapitalization: TextCapitalization.sentences,
+            ),
 
             // ── 언제 ───────────────────────────────────────────
             const _SectionGap(),

@@ -81,6 +81,20 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
     )..where((t) => t.id.equals(entry.id.value))).getSingle();
   }
 
+  /// 일괄 완료 (전등 줄, 개정 2026-08-15) — 그날의 pending 등을 전부 끈다.
+  /// completedAt은 줄을 당긴 시각 — 청구서의 등 사용 시간 계산과 일치한다.
+  Future<void> completeAllPending(String date, DateTime completedAt) {
+    return (update(todos)
+          ..where((t) => t.date.equals(date))
+          ..where((t) => t.status.equalsValue(TodoStatus.pending)))
+        .write(
+          TodosCompanion(
+            status: const Value(TodoStatus.done),
+            completedAt: Value(completedAt),
+          ),
+        );
+  }
+
   /// 완료 토글 (§6.1: 탭 → 토글)
   Future<void> setDone(String id, bool done) {
     return (update(todos)..where((t) => t.id.equals(id))).write(

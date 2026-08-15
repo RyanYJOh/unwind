@@ -52,10 +52,24 @@ void main() {
         is_active INTEGER NOT NULL
       )
     ''');
+    // v1 당시에도 days 테이블은 존재했다 — v3 마이그레이션(restless 추가)이
+    // 이 테이블 위에서 동작해야 한다.
+    raw.execute('''
+      CREATE TABLE days (
+        date TEXT NOT NULL PRIMARY KEY,
+        peak_progress REAL NOT NULL,
+        lights_out_at INTEGER,
+        final_t REAL
+      )
+    ''');
     raw.execute(
       "INSERT INTO todos VALUES "
       "('legacy', '기존 할 일', NULL, '$d', 'pending', 0, 0, NULL, NULL, NULL)",
     );
+    // 불을 남긴 밤(finalT<1.0) / 잘 끈 밤(1.0) / 빈 방(0.15)
+    raw.execute("INSERT INTO days VALUES ('$d', 0.5, NULL, 0.5)");
+    raw.execute("INSERT INTO days VALUES ('2026-08-01', 1.0, NULL, 1.0)");
+    raw.execute("INSERT INTO days VALUES ('2026-08-02', 0.15, NULL, 0.15)");
     raw.execute('PRAGMA user_version = 1');
 
     final migrated = UnwindDatabase.withExecutor(NativeDatabase.opened(raw));
@@ -64,6 +78,10 @@ void main() {
     expect(todo.id, 'legacy');
     expect(todo.autoDefer, false);
     expect(todo.scheduledTimeMinutes, isNull);
+    // v3 (세계관 2026-08-15): 불을 남긴 채 봉인된 밤만 restless로 소급된다
+    expect((await migrated.dayDao.getDay(d))?.restless, true);
+    expect((await migrated.dayDao.getDay('2026-08-01'))?.restless, false);
+    expect((await migrated.dayDao.getDay('2026-08-02'))?.restless, false);
     await migrated.close();
   });
 
@@ -229,6 +247,23 @@ void main() {
     expect(tombstone.status, TodoStatus.deferred);
   });
 
+  test('전등 줄(개정 2026-08-15): 일괄 소등은 남은 등을 전부 체크한다', () async {
+    final todos = [
+      for (var i = 0; i < 3; i++) await repo.add(title: '할 일 $i', date: d),
+    ];
+    await repo.setDone(todos[0], true);
+    final at = DateTime(2026, 8, 6, 22, 0);
+    await repo.pullCord(d, at);
+
+    final after = await db.todoDao.getByDate(d);
+    expect(after.every((t) => t.status == TodoStatus.done), true);
+    // 나중에 끈 등의 completedAt = 줄을 당긴 시각 (청구서 계산과 일치)
+    expect(
+      after.where((t) => t.id != todos[0].id).every((t) => t.completedAt == at),
+      true,
+    );
+  });
+
   test('깨우기(개정 2026-08-07): 취침 기록 삭제 + §5.2 규칙으로 재계산', () async {
     final todos = [
       for (var i = 0; i < 2; i++) await repo.add(title: '할 일 \$i', date: d),
@@ -241,11 +276,12 @@ void main() {
     final day = (await db.dayDao.getDay(d))!;
     expect(day.lightsOutAt, isNull); // 취침 기록 삭제
     expect(day.finalT, isNull);
-    expect(day.peakProgress, closeTo(0.5, 1e-9)); // raw로 재계산
+    // 일괄 소등이 전부 체크했으므로(개정 2026-08-15) raw = 1.0
+    expect(day.peakProgress, 1.0);
 
-    // 깨운 뒤 완료 취소하면 §5.2대로 더 내려간다
-    await repo.setDone(todos[0], false);
-    expect((await db.dayDao.getDay(d))!.peakProgress, 0.0);
+    // 깨운 뒤 완료 취소하면 §5.2대로 내려간다 (취침 중 스위치 ON 흐름)
+    await repo.setDone(todos[1], false);
+    expect((await db.dayDao.getDay(d))!.peakProgress, closeTo(0.5, 1e-9));
   });
 
   test('수용 기준: 전등 줄 후 추가해도 lightsOutAt/peak=1.0 유지', () async {
@@ -283,6 +319,38 @@ void main() {
       await service.sealPastDays(DateTime(2026, 8, 6, 12));
       service.dispose();
       expect(await db.dayDao.getDay('2026-08-05'), isNull);
+    });
+
+    test('불을 남긴 밤은 restless로 봉인된다 — 다음날 다크서클의 근거', () async {
+      final done = await repo.add(title: '끈 등', date: '2026-08-05');
+      await repo.add(title: '남긴 등', date: '2026-08-05');
+      await repo.setDone(done, true);
+      final service = DayRolloverService(
+        db: db,
+        onRollover: (_) {},
+        now: DateTime(2026, 8, 6, 12),
+      );
+      await service.sealPastDays(DateTime(2026, 8, 6, 12));
+      service.dispose();
+
+      expect((await db.dayDao.getDay('2026-08-05'))!.restless, true);
+    });
+
+    test('모든 등을 껐거나 전등 줄을 당긴 밤은 restless가 아니다', () async {
+      final allDone = await repo.add(title: '다 끈 등', date: '2026-08-04');
+      await repo.setDone(allDone, true);
+      await repo.add(title: '당긴 방의 등', date: '2026-08-05');
+      await repo.pullCord('2026-08-05', DateTime(2026, 8, 5, 22));
+      final service = DayRolloverService(
+        db: db,
+        onRollover: (_) {},
+        now: DateTime(2026, 8, 6, 12),
+      );
+      await service.sealPastDays(DateTime(2026, 8, 6, 12));
+      service.dispose();
+
+      expect((await db.dayDao.getDay('2026-08-04'))!.restless, false);
+      expect((await db.dayDao.getDay('2026-08-05'))!.restless, false);
     });
 
     test('이미 finalT가 있으면 덮어쓰지 않는다', () async {

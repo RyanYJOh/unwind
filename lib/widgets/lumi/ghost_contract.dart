@@ -11,6 +11,7 @@ abstract final class GhostContract {
   static const vmAllDone = 'allDone'; // Boolean
   static const vmHappy = 'happy'; // Boolean
   static const vmPoke = 'poke'; // Trigger (개편 2026-08-12)
+  static const vmDarkCircles = 'darkCircles'; // Boolean (세계관 2026-08-15)
 }
 
 /// 브리프 §0 — 이산 이벤트
