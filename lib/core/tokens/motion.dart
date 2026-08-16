@@ -58,7 +58,7 @@ abstract final class UnwindMotion {
   static const cordZoomScale = 1.02;
   static const dominoIntervalMs = 70; // 등 간격 고정 — "타라라락"
   static const silenceAfterLastMs = 500; // 정적. 아무 일도 일어나지 않는다.
-  static const lumiFallAsleepMs = 1400;
+  static const toddFallAsleepMs = 1400;
   static const starsFadeInMs = 2000;
 
   // §6.4 전등 줄 제스처
@@ -71,12 +71,27 @@ abstract final class UnwindMotion {
   static const billEnterMs = 600; // settle
   static const pageMs = 280;
 
+  /// 바텀시트 드래그 닫기 — 높이의 이 비율 이상 내리면 닫힌다
+  static const sheetDismissFraction = 0.35;
+
+  /// 아래로 이 속도(px/s) 이상이면 비율과 무관하게 닫힌다
+  static const sheetDismissVelocity = 800.0;
+
+  /// 전등 줄 코치마크 구멍 링이 숨 쉬는 주기
+  static const coachPulseMs = 1400;
+
+  /// 온보딩 청구서 아이콘 — 눌러 보라고 주기적으로 살짝 흔든다.
+  static const billWigglePeriodMs = 1500;
+
+  /// 최대 기울기 (rad, ≈8°)
+  static const billWiggleAmp = 0.14;
+
   // §9.5 Reduce Motion — 도미노 대신 전체 페이드
   static const reducedFadeMs = 400;
 
-  // §7.3 Lumi
-  static const lumiReactScale = 0.03; // 몸이 0.03 커졌다 돌아옴
-  static const lumiReactMs = 150;
-  static const lumiBlinkMinS = 4, lumiBlinkMaxS = 8; // t 0.0–0.3
-  static const lumiYawnMinS = 12, lumiYawnMaxS = 20; // t 0.3–0.6
+  // §7.3 Todd
+  static const toddReactScale = 0.03; // 몸이 0.03 커졌다 돌아옴
+  static const toddReactMs = 150;
+  static const toddBlinkMinS = 4, toddBlinkMaxS = 8; // t 0.0–0.3
+  static const toddYawnMinS = 12, toddYawnMaxS = 20; // t 0.3–0.6
 }

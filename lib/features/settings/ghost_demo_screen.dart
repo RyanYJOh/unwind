@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/models/lumi_state.dart' show LumiMode, LumiDayActivity;
-import '../../widgets/lumi/ghost_view.dart';
+import '../../domain/models/todd_state.dart' show ToddMode, ToddDayActivity;
+import '../../widgets/todd/ghost_view.dart';
 
 /// Rive 브리프 §6.4 — 검증용 데모 화면 (개발 전용, 배포 빌드에서 제거).
 /// 슬라이더로 sleepiness를 스크럽하고 트리거 4종을 발사한다.
@@ -26,8 +26,8 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
   int _tick = 0;
 
   /// 생활 모드 프리뷰 (개편 2026-08-08). null = 레거시(슬라이더).
-  LumiMode? _mode;
-  LumiDayActivity? _activity;
+  ToddMode? _mode;
+  ToddDayActivity? _activity;
   double _dazzle = 0.8;
 
   /// 전날 못 잔 밤의 다크서클 (세계관 2026-08-15) — 모든 모드와 조합 가능
@@ -40,9 +40,9 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
     });
   }
 
-  void _setActivity(LumiDayActivity a) {
+  void _setActivity(ToddDayActivity a) {
     setState(() {
-      _mode = LumiMode.day;
+      _mode = ToddMode.day;
       _activity = a;
       _event = null;
       _tick++;
@@ -81,17 +81,17 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
               runSpacing: 4,
               alignment: WrapAlignment.center,
               children: [
-                for (final a in LumiDayActivity.values)
+                for (final a in ToddDayActivity.values)
                   ChoiceChip(
                     label: Text(a.name),
-                    selected: _mode == LumiMode.day && _activity == a,
+                    selected: _mode == ToddMode.day && _activity == a,
                     onSelected: (_) => _setActivity(a),
                   ),
                 ChoiceChip(
                   label: const Text('night 눈부심'),
-                  selected: _mode == LumiMode.nightAwake && _dazzle > 0.5,
+                  selected: _mode == ToddMode.nightAwake && _dazzle > 0.5,
                   onSelected: (_) => setState(() {
-                    _mode = LumiMode.nightAwake;
+                    _mode = ToddMode.nightAwake;
                     _activity = null;
                     _dazzle = 0.9;
                     _event = null;
@@ -100,9 +100,9 @@ class _GhostDemoScreenState extends State<GhostDemoScreen> {
                 ),
                 ChoiceChip(
                   label: const Text('night 꾸벅'),
-                  selected: _mode == LumiMode.nightAwake && _dazzle <= 0.5,
+                  selected: _mode == ToddMode.nightAwake && _dazzle <= 0.5,
                   onSelected: (_) => setState(() {
-                    _mode = LumiMode.nightAwake;
+                    _mode = ToddMode.nightAwake;
                     _activity = null;
                     _dazzle = 0.15;
                     _event = null;

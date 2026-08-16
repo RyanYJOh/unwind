@@ -13,8 +13,11 @@ import '../../core/tokens/typography.dart';
 import '../../core/utils/dates.dart';
 import '../../data/db/database.dart';
 import '../../data/repositories/bill_repository.dart';
+import '../../domain/models/todd_state.dart';
 import '../../domain/services/bill_calculator.dart';
+import '../../domain/services/bill_money.dart';
 import '../../ui/ui.dart';
+import '../../widgets/todd/todd_view.dart';
 import '../today/providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 
@@ -27,17 +30,29 @@ abstract final class _Paper {
   static const inkSoft = Color(0xFF6B5B45);
   static const inkFaint = Color(0xFF9C8B72);
   static const rule = Color(0xFFDCD0BB);
-  static const mark = Color(0xFFE09512); // 소등한 밤 표시 (앰버 계열)
+  static const mark = Color(0xFFE09512); // 소등한 밤 · 완벽한 잠 (앰버)
+  static const card = Color(0xFFF6EDD8); // Todd 상태 카드
+  static const cardEdge = Color(0xFFE8D4A8);
+  static const closed = Color(0xFF2F9E5A); // 그날 요금 0
+  static const leftover = Color(0xFFE24B3A); // 불을 남긴 밤
+}
+
+/// 월요일 외 요일 — 같은 영수증 화면에 안내만 넣는다.
+Future<void> showBillMondayOnly(BuildContext context) {
+  return Navigator.of(context, rootNavigator: true).push(_BillRoute());
 }
 
 /// §6.5 주간 청구서 — 영수증 형태. §9.4: 위에서 내려옴 600ms settle.
 Future<void> showBillScreen(BuildContext context, WeeklyBill bill) {
-  return Navigator.of(context, rootNavigator: true).push(_BillRoute(bill));
+  return Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push(_BillRoute(bill: bill));
 }
 
 class _BillRoute extends PopupRoute<void> {
-  final WeeklyBill bill;
-  _BillRoute(this.bill);
+  final WeeklyBill? bill;
+  _BillRoute({this.bill});
 
   @override
   Color? get barrierColor => UnwindColors.scrim;
@@ -63,14 +78,18 @@ class _BillRoute extends PopupRoute<void> {
         begin: const Offset(0, -1),
         end: Offset.zero,
       ).animate(CurvedAnimation(parent: animation, curve: UnwindMotion.settle)),
-      child: BillScreen(bill: bill),
+      child: bill == null ? const _LockedBillScreen() : BillScreen(bill: bill!),
     );
   }
 }
 
 class BillScreen extends ConsumerStatefulWidget {
   final WeeklyBill bill;
-  const BillScreen({super.key, required this.bill});
+
+  /// 테스트용. 없으면 기기 지역 통화.
+  final BillCurrency? currency;
+
+  const BillScreen({super.key, required this.bill, this.currency});
 
   @override
   ConsumerState<BillScreen> createState() => _BillScreenState();
@@ -117,7 +136,7 @@ class _BillScreenState extends ConsumerState<BillScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final bill = widget.bill;
-    final days = decodeBillPayload(bill.payload);
+    final contents = decodeBillPayload(bill.payload);
     final monday = parseDayKey(bill.weekStart);
     final sunday = addDays(monday, 6);
     final months = l10n.monthsShort.split(',');
@@ -127,13 +146,20 @@ class _BillScreenState extends ConsumerState<BillScreen> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(UnwindSpacing.s24),
+              padding: const EdgeInsets.fromLTRB(
+                UnwindSpacing.s16,
+                UnwindSpacing.s12,
+                UnwindSpacing.s16,
+                UnwindSpacing.s8,
+              ),
               child: RepaintBoundary(
                 key: _receiptKey,
                 child: _Receipt(
                   bill: bill,
-                  days: days,
+                  contents: contents,
                   previous: _previous,
+                  money: widget.currency ?? BillCurrency.resolve(context),
+                  languageCode: Localizations.localeOf(context).languageCode,
                   periodLabel:
                       '${l10n.monthDay(months[monday.month - 1], monday.month, monday.day)}'
                       ' – '
@@ -168,17 +194,110 @@ class _BillScreenState extends ConsumerState<BillScreen> {
   }
 }
 
+/// 월요일 외 — 같은 영수증 껍데기에 안내만.
+class _LockedBillScreen extends StatelessWidget {
+  const _LockedBillScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return UnwindScreen(
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(UnwindSpacing.s24),
+              child: _ReceiptPaper(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      l10n.billTitle,
+                      textAlign: TextAlign.center,
+                      style: UnwindType.label.copyWith(color: _Paper.inkSoft),
+                    ),
+                    const SizedBox(height: UnwindSpacing.s16),
+                    const _DashedDivider(),
+                    const SizedBox(height: UnwindSpacing.s32),
+                    Text(
+                      l10n.billMondayOnly,
+                      textAlign: TextAlign.center,
+                      style: UnwindType.headline.copyWith(color: _Paper.ink),
+                    ),
+                    const SizedBox(height: UnwindSpacing.s8),
+                    Text(
+                      l10n.billMondayOnlyBody,
+                      textAlign: TextAlign.center,
+                      style: UnwindType.body.copyWith(color: _Paper.inkSoft),
+                    ),
+                    const SizedBox(height: UnwindSpacing.s32),
+                    const _DashedDivider(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              UnwindSpacing.s20,
+              0,
+              UnwindSpacing.s20,
+              UnwindSpacing.s16,
+            ),
+            child: UnwindButton.ghost(
+              label: l10n.close,
+              expand: true,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 밝은 종이 영수증 껍데기 — 실청구서와 월요일 안내가 공유한다.
+class _ReceiptPaper extends StatelessWidget {
+  final Widget child;
+  const _ReceiptPaper({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _Paper.bg,
+        borderRadius: BorderRadius.circular(UnwindRadius.md),
+        boxShadow: const [
+          BoxShadow(
+            color: UnwindColors.solid,
+            offset: Offset(0, UnwindDepth.base),
+            blurRadius: 0,
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(UnwindSpacing.s20),
+        child: child,
+      ),
+    );
+  }
+}
+
 /// 영수증 본체 — 문구 톤 (§6.5): 사실만 진술, 탓하지 않는다.
 class _Receipt extends StatelessWidget {
   final WeeklyBill bill;
-  final List<DayBill> days;
+  final BillContents contents;
   final WeeklyBill? previous;
+  final BillCurrency money;
+  final String languageCode;
   final String periodLabel;
 
   const _Receipt({
     required this.bill,
-    required this.days,
+    required this.contents,
     required this.previous,
+    required this.money,
+    required this.languageCode,
     required this.periodLabel,
   });
 
@@ -188,117 +307,198 @@ class _Receipt extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final weekdayLabels = l10n.weekdaysShort.split(',');
-    final avgSleep = (bill.sleepMinutes / 7).round();
-    final nights = days.where((d) => d.lightsOut).length;
-    final diff = previous != null ? bill.amount - previous!.amount : null;
+    final days = contents.days;
+    final grade = sleepGrade(contents.sleepScore);
+    final total = money.charge(bill.kwh);
+    final prev = previous == null ? null : money.charge(previous!.kwh);
+    final diff = prev == null ? null : total - prev;
+    final reduce = MediaQuery.disableAnimationsOf(context);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _Paper.bg,
-        borderRadius: BorderRadius.circular(UnwindRadius.md),
-        boxShadow: const [
-          // §11 — 블러 없는 압출면
-          BoxShadow(
-            color: UnwindColors.solid,
-            offset: Offset(0, UnwindDepth.base),
-            blurRadius: 0,
+    return _ReceiptPaper(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l10n.billTitle,
+            textAlign: TextAlign.center,
+            style: UnwindType.label.copyWith(color: _Paper.inkSoft),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(UnwindSpacing.s24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              l10n.billTitle,
-              textAlign: TextAlign.center,
-              style: UnwindType.label.copyWith(color: _Paper.inkSoft),
-            ),
-            const SizedBox(height: UnwindSpacing.s4),
-            Text(
-              periodLabel,
-              textAlign: TextAlign.center,
-              style: UnwindType.caption.copyWith(color: _Paper.inkFaint),
-            ),
-            const SizedBox(height: UnwindSpacing.s16),
-            const _DashedDivider(),
-            const SizedBox(height: UnwindSpacing.s16),
-            // 주간 총액 — 모노스페이스 (§6.5)
-            Text(
-              l10n.wonAmount(_formatWon(bill.amount)),
-              textAlign: TextAlign.center,
-              style: _mono.copyWith(fontSize: 34, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: UnwindSpacing.s4),
-            Text(
-              l10n.billTotalCaption(
-                bill.kwh.toStringAsFixed(2),
-                l10n.wonAmount('$kBaseFee'),
+          const SizedBox(height: UnwindSpacing.s2),
+          Text(
+            periodLabel,
+            textAlign: TextAlign.center,
+            style: UnwindType.caption.copyWith(color: _Paper.inkFaint),
+          ),
+          const SizedBox(height: UnwindSpacing.s12),
+          // 1. Todd 상태 — 카드로 강조
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: _Paper.card,
+              borderRadius: BorderRadius.circular(UnwindRadius.sm),
+              border: Border.all(
+                color: _Paper.cardEdge,
+                width: UnwindStroke.base,
               ),
-              textAlign: TextAlign.center,
-              style: UnwindType.caption.copyWith(color: _Paper.inkFaint),
             ),
-            const SizedBox(height: UnwindSpacing.s16),
-            const _DashedDivider(),
-            const SizedBox(height: UnwindSpacing.s12),
-            // 일별 명세
-            for (var i = 0; i < days.length; i++)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: UnwindSpacing.s4),
-                child: Row(
-                  children: [
-                    Text(
-                      weekdayLabels[i],
-                      style: UnwindType.caption.copyWith(color: _Paper.inkSoft),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                UnwindSpacing.s12,
+                UnwindSpacing.s8,
+                UnwindSpacing.s16,
+                UnwindSpacing.s8,
+              ),
+              child: Row(
+                children: [
+                  ExcludeSemantics(
+                    child: ToddView(
+                      size: 72,
+                      reduceMotion: reduce,
+                      state: _toddStateFor(grade),
                     ),
-                    const SizedBox(width: UnwindSpacing.s12),
-                    // 소등한 밤 표시 — 점 하나 (숫자·등급 금지)
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: days[i].lightsOut ? _Paper.mark : _Paper.rule,
-                      ),
+                  ),
+                  const SizedBox(width: UnwindSpacing.s12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _sleepText(l10n, grade),
+                          style: UnwindType.bodyStrong.copyWith(
+                            color: _sleepColor(grade),
+                          ),
+                        ),
+                        if (diff != null) ...[
+                          const SizedBox(height: UnwindSpacing.s4),
+                          Text(
+                            diff == 0
+                                ? l10n.diffSame
+                                : diff < 0
+                                ? l10n.diffLess(
+                                    money.format(
+                                      -diff,
+                                      languageCode: languageCode,
+                                    ),
+                                  )
+                                : l10n.diffMore(
+                                    money.format(
+                                      diff,
+                                      languageCode: languageCode,
+                                    ),
+                                  ),
+                            style: UnwindType.caption.copyWith(
+                              color: _Paper.inkFaint,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    const Spacer(),
-                    Text(
-                      '${days[i].kwh.toStringAsFixed(2)} kWh',
-                      style: _mono.copyWith(fontSize: 13),
-                    ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: UnwindSpacing.s12),
+          // 2. 완수 — 세 구역 중 가장 낮음
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                l10n.billTasksClosed(contents.completed, contents.total),
+                style: _mono.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _Paper.inkFaint,
                 ),
               ),
-            const SizedBox(height: UnwindSpacing.s12),
-            const _DashedDivider(),
-            const SizedBox(height: UnwindSpacing.s16),
-            // Lumi 수면 요약 — 서술형만 (§6.5)
-            Text(
-              _sleepText(l10n, sleepGrade(avgSleep)),
-              style: UnwindType.bodyStrong.copyWith(color: _Paper.ink),
-            ),
-            const SizedBox(height: UnwindSpacing.s4),
-            Text(
-              nights > 0 ? l10n.nightsOut(nights) : l10n.allNightsLit,
-              style: UnwindType.label.copyWith(color: _Paper.inkSoft),
-            ),
-            if (diff != null) ...[
-              const SizedBox(height: UnwindSpacing.s8),
+              const SizedBox(width: UnwindSpacing.s8),
               Text(
-                diff == 0
-                    ? l10n.diffSame
-                    : diff < 0
-                    ? l10n.diffLess(l10n.wonAmount(_formatWon(-diff)))
-                    : l10n.diffMore(l10n.wonAmount(_formatWon(diff))),
+                l10n.billTasksCaption,
                 style: UnwindType.caption.copyWith(color: _Paper.inkFaint),
               ),
             ],
-          ],
-        ),
+          ),
+          const SizedBox(height: UnwindSpacing.s12),
+          const _DashedDivider(),
+          const SizedBox(height: UnwindSpacing.s12),
+          // 3. 전기요금 — 메인
+          Text(
+            money.format(total, languageCode: languageCode),
+            textAlign: TextAlign.center,
+            style: _mono.copyWith(fontSize: 34, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: UnwindSpacing.s2),
+          Text(
+            l10n.billTotalCaption(bill.kwh.toStringAsFixed(2)),
+            textAlign: TextAlign.center,
+            style: UnwindType.caption.copyWith(color: _Paper.inkFaint),
+          ),
+          const SizedBox(height: UnwindSpacing.s8),
+          for (var i = 0; i < days.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: UnwindSpacing.s2),
+              child: Row(
+                children: [
+                  Text(
+                    weekdayLabels[i],
+                    style: UnwindType.caption.copyWith(color: _Paper.inkSoft),
+                  ),
+                  const SizedBox(width: UnwindSpacing.s12),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                        color: days[i].lightsOut
+                            ? _Paper.closed
+                            : _Paper.leftover,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    money.format(
+                      money.charge(days[i].kwh),
+                      languageCode: languageCode,
+                    ),
+                    style: _mono.copyWith(fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
+
+  ToddState _toddStateFor(SleepGrade grade) => switch (grade) {
+    SleepGrade.deep || SleepGrade.well => const ToddState(
+      brightness: 1,
+      isAsleep: true,
+      mode: ToddMode.asleep,
+    ),
+    SleepGrade.tossed => const ToddState(
+      brightness: 0.55,
+      mode: ToddMode.nightAwake,
+      dazzle: 0.28,
+    ),
+    SleepGrade.barely => const ToddState(
+      brightness: 0.28,
+      mode: ToddMode.nightAwake,
+      dazzle: 0.58,
+    ),
+    SleepGrade.none => const ToddState(
+      brightness: 0,
+      mode: ToddMode.nightAwake,
+      dazzle: 0.92,
+    ),
+  };
+
+  Color _sleepColor(SleepGrade grade) => switch (grade) {
+    SleepGrade.deep => _Paper.mark,
+    SleepGrade.well => _Paper.ink,
+    SleepGrade.tossed => _Paper.inkSoft,
+    SleepGrade.barely => _Paper.inkFaint,
+    SleepGrade.none => UnwindColors.danger,
+  };
 
   String _sleepText(AppLocalizations l10n, SleepGrade grade) => switch (grade) {
     SleepGrade.deep => l10n.sleepDeep,
@@ -307,16 +507,6 @@ class _Receipt extends StatelessWidget {
     SleepGrade.barely => l10n.sleepBarely,
     SleepGrade.none => l10n.sleepNone,
   };
-
-  String _formatWon(int won) {
-    final s = won.toString();
-    final buf = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-      buf.write(s[i]);
-    }
-    return buf.toString();
-  }
 }
 
 class _DashedDivider extends StatelessWidget {

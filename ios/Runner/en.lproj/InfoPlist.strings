@@ -1,0 +1,3 @@
+/* Home-screen name. Fallback for every non-Korean locale. */
+"CFBundleDisplayName" = "Todd";
+"CFBundleName" = "Todd";

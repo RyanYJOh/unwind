@@ -9,7 +9,7 @@ import '../today/providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// §6.2 하단 주간 스트립 — 골목에서 이웃집 창을 보는 은유.
-/// 각 날은 작은 창문: 그날 남은 빛 + 그날 밤 Lumi의 눈.
+/// 각 날은 작은 창문: 그날 남은 빛 + 그날 밤 Todd의 눈.
 ///   - 불이 남은 밝은 창 = 못 자고 크게 졸린 눈
 ///   - 꺼진 캄캄한 창 = 만족스럽게 감긴 눈
 ///   - 아직 오지 않은 날 = 빈 창 (얼굴 없음)
@@ -164,7 +164,7 @@ class _DayCell extends StatelessWidget {
 }
 
 /// 창문 하나. 밝기 = 방에 남아 있는 불빛(1 - t).
-/// 안에는 그날 밤 Lumi의 눈 — 밝으면 못 자 졸린 눈, 캄캄하면 감긴 눈.
+/// 안에는 그날 밤 Todd의 눈 — 밝으면 못 자 졸린 눈, 캄캄하면 감긴 눈.
 class _Window extends StatelessWidget {
   final WindowInfo info;
   final double currentT;
@@ -213,7 +213,7 @@ class _Window extends StatelessWidget {
   }
 }
 
-/// 창 안의 눈 — 그날 밤의 Lumi.
+/// 창 안의 눈 — 그날 밤의 Todd.
 /// light 1.0(대낮같이 밝음) = 무겁게 졸린 실눈 / 0.0(소등) = 감긴 곡선.
 /// [satisfied]면 잔잔한 미소도 — "다 끄고 만족스럽게 잤다".
 class _WindowFacePainter extends CustomPainter {

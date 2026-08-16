@@ -7,17 +7,17 @@
 // 램프 팔레트에 묶여 있어 v2에서 제거했다. 되살리려면 git 히스토리의
 // `RoomDesign` enum과 `widgets/ceiling_light.dart`를 참조할 것.
 
-/// Lumi 몸통 렌더 방식 (개편 2026-08-12).
+/// Todd 몸통 렌더 방식 (개편 2026-08-12).
 ///
-/// - [LumiBodyStyle.image]: **기본** — 몸통(실루엣+음영+아웃라인)은
+/// - [ToddBodyStyle.image]: **기본** — 몸통(실루엣+음영+아웃라인)은
 ///   `assets/images/ghost_body.png`, 얼굴(눈·눈꺼풀·입·볼)과 소품은
 ///   지금처럼 Dart 코드가 그 위에 그린다. 몸통 아트를 코드 밖에서
 ///   교체할 수 있고, 이미지에는 §11 제약 없이 부드러운 음영을 구울 수 있다.
-/// - [LumiBodyStyle.painted]: 이전 방식 — 몸통까지 전부 CustomPainter.
+/// - [ToddBodyStyle.painted]: 이전 방식 — 몸통까지 전부 CustomPainter.
 /// **롤백은 아래 상수 한 줄만 바꾸면 된다.**
-enum LumiBodyStyle { painted, image }
+enum ToddBodyStyle { painted, image }
 
-const kLumiBodyStyle = LumiBodyStyle.image;
+const kToddBodyStyle = ToddBodyStyle.image;
 
 /// ghost_body.png 안에서 유령이 차지하는 불투명 영역 (픽셀, 측정값).
 /// 렌더 시 이 영역을 캐릭터 좌표계에 정합시킨다.

@@ -63,7 +63,7 @@ void main() {
     await tester.drag(find.byType(PullCord), const Offset(0, 250));
     // 도미노: 5등 × 70ms + 소등 220ms ≈ 500ms
     await tester.pump(const Duration(milliseconds: 600));
-    // 정적 500ms + Lumi 1400ms + 별 2000ms
+    // 정적 500ms + Todd 1400ms + 별 2000ms
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pump(const Duration(milliseconds: 2500));
     // 리셋 노출 대기 (시퀀스 후 3초)

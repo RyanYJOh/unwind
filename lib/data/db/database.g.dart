@@ -1548,7 +1548,7 @@ class Day extends DataClass implements Insertable<Day> {
   final double? finalT;
 
   /// 불을 남긴 채 넘어간 밤 (세계관 2026-08-15): 미완 항목이 남아
-  /// Lumi가 제대로 못 잔 날. 다음날 다크서클의 근거가 된다.
+  /// Todd가 제대로 못 잔 날. 다음날 다크서클의 근거가 된다.
   /// 롤오버 봉인 시에만 기록한다 — autoDefer가 항목을 옮기기 전의 진실.
   final bool restless;
   const Day({

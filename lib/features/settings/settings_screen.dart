@@ -9,6 +9,7 @@ import '../../ui/ui.dart';
 import '../dev/design_gallery_screen.dart';
 import '../onboarding/onboarding_flow.dart';
 import 'ghost_demo_screen.dart';
+import 'push_settings_screen.dart';
 import 'settings_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 
@@ -44,7 +45,7 @@ class SettingsScreen extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.only(bottom: UnwindSpacing.s48),
         children: [
-          // Lumi의 하루 (세계관 2026-08-15) — 기상·취침시간이 하루의 축이다
+          // Todd의 하루 (세계관 2026-08-15) — 기상·취침시간이 하루의 축이다
           UnwindSectionLabel(l10n.sectionDay),
           UnwindListRow.value(
             label: l10n.wakeTime,
@@ -75,17 +76,14 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           UnwindSectionLabel(l10n.sectionNotifications),
-          UnwindListRow.toggle(
-            label: l10n.nightReminder,
-            caption: l10n.nightReminderCaption,
-            value: settings.nightReminderEnabled,
-            onChanged: ctrl.setNightReminderEnabled,
-          ),
-          UnwindListRow.toggle(
-            label: l10n.billNotification,
-            caption: l10n.billNotificationCaption,
-            value: settings.billNotificationEnabled,
-            onChanged: ctrl.setBillNotificationEnabled,
+          UnwindListRow(
+            label: l10n.pushSettings,
+            caption: l10n.pushSettingsCaption,
+            onTap: () => showPushSettingsScreen(context),
+            trailing: Text(
+              '›',
+              style: UnwindType.title.copyWith(color: UnwindColors.textMuted),
+            ),
           ),
 
           UnwindSectionLabel(l10n.sectionFeel),

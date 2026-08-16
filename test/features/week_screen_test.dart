@@ -130,7 +130,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(await db.todoDao.getByDate(mondayKey), isEmpty);
-    expect(find.text('Taken out of the room'), findsOneWidget);
+    expect(find.text('To-do deleted'), findsOneWidget);
 
     await tester.tap(find.text('Undo'));
     await tester.pump();

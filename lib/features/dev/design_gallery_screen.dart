@@ -126,6 +126,35 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
             ],
           ),
 
+          const UnwindSectionLabel('Badge dot', padding: _labelPad),
+          Row(
+            children: [
+              UnwindBadgeDot(
+                child: Image.asset(
+                  'assets/images/bill.png',
+                  width: UnwindSpacing.s40,
+                  height: UnwindSpacing.s40,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(width: UnwindSpacing.s24),
+              const UnwindBadgeDot(
+                child: SizedBox(
+                  width: UnwindSpacing.s40,
+                  height: UnwindSpacing.s40,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: UnwindColors.surfaceAlt,
+                      borderRadius: BorderRadius.all(
+                        Radius.circular(UnwindRadius.sm),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
           const UnwindSectionLabel('Todo tile', padding: _labelPad),
           Column(
             children: [
@@ -241,6 +270,9 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
               ],
             ),
           ),
+
+          const UnwindSectionLabel('Coach mark', padding: _labelPad),
+          const _CoachMarkPreview(),
         ],
       ),
     );
@@ -333,4 +365,68 @@ class _Swatches extends StatelessWidget {
         ),
     ],
   );
+}
+
+/// 코치마크는 전역 좌표의 구멍을 뚫으므로, 갤러리에선 가짜 손잡이를 재서 얹는다.
+class _CoachMarkPreview extends StatefulWidget {
+  const _CoachMarkPreview();
+
+  @override
+  State<_CoachMarkPreview> createState() => _CoachMarkPreviewState();
+}
+
+class _CoachMarkPreviewState extends State<_CoachMarkPreview> {
+  final _handle = GlobalKey();
+  Offset? _hole;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+  }
+
+  void _measure() {
+    final box = _handle.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize || !mounted) return;
+    setState(() => _hole = box.localToGlobal(box.size.center(Offset.zero)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(UnwindRadius.md),
+      child: SizedBox(
+        height: 180,
+        child: Stack(
+          children: [
+            const ColoredBox(color: UnwindColors.ink, child: SizedBox.expand()),
+            Positioned(
+              right: UnwindSpacing.s24,
+              top: UnwindSpacing.s40,
+              child: DecoratedBox(
+                key: _handle,
+                decoration: const BoxDecoration(
+                  color: UnwindColors.accent,
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox(
+                  width: UnwindSpacing.s20,
+                  height: UnwindSpacing.s20,
+                ),
+              ),
+            ),
+            if (_hole != null)
+              Positioned.fill(
+                child: UnwindCoachMark(
+                  holeCenter: _hole!,
+                  holeRadius: UnwindSpacing.s24,
+                  message: 'Pull the handle all the way down.',
+                  onDismiss: () {},
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }

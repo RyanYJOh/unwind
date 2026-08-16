@@ -15,8 +15,8 @@ DateTime parseDayKey(String key) {
   return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
 }
 
-/// 하루의 경계 = Lumi 기상시간(wakeHour, 기본 5시) 기준의 "논리적 오늘"
-/// (세계관 통합 2026-08-15: Lumi가 일어나는 순간 새 하루가 시작된다).
+/// 하루의 경계 = Todd 기상시간(wakeHour, 기본 5시) 기준의 "논리적 오늘"
+/// (세계관 통합 2026-08-15: Todd가 일어나는 순간 새 하루가 시작된다).
 /// 새벽 2시는 아직 어제의 방이다.
 DateTime logicalToday(DateTime now, {int dayStartHour = 5}) {
   final shifted = now.subtract(Duration(hours: dayStartHour));
@@ -35,3 +35,16 @@ DateTime nextRolloverAt(DateTime now, {int dayStartHour = 5}) {
 
 DateTime addDays(DateTime day, int n) =>
     DateTime(day.year, day.month, day.day + n);
+
+/// 그 날짜가 속한 주의 월요일 dayKey (ISO 요일: 월=1)
+String mondayKeyOf(String key) {
+  final d = parseDayKey(key);
+  return dayKey(addDays(d, -(d.weekday - 1)));
+}
+
+/// [todayKey] 기준 지난주 월요일
+String lastMondayKeyOf(String todayKey) =>
+    dayKey(addDays(parseDayKey(mondayKeyOf(todayKey)), -7));
+
+/// 청구서는 논리적 월요일에만 연다 (§6.5)
+bool isMondayKey(String key) => parseDayKey(key).weekday == DateTime.monday;

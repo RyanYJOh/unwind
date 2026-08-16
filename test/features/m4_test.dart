@@ -1,10 +1,13 @@
 import 'package:drift/native.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:unwind/core/haptics/haptics.dart';
 import 'package:unwind/data/db/database.dart';
+import 'package:unwind/features/settings/push_settings_screen.dart';
 import 'package:unwind/features/settings/settings_controller.dart';
 import 'package:unwind/features/today/providers.dart';
+import 'package:unwind/l10n/generated/app_localizations.dart';
 import 'package:unwind/main.dart';
 import 'package:unwind/ui/ui.dart';
 
@@ -37,6 +40,9 @@ void main() {
       final c = await makeContainer(tester);
       var s = await c.read(settingsControllerProvider.future);
       expect(s.nightReminderEnabled, true);
+      expect(s.billNotificationEnabled, true);
+      expect(s.morningGreetingEnabled, true);
+      expect(s.todoReminderEnabled, true);
       expect(s.soundEnabled, true);
       expect(s.hapticsEnabled, true);
       // 세계관 통합 (2026-08-15): 기상 05시 · 취침 22시
@@ -73,6 +79,44 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
     });
+
+    testWidgets('설정 > 푸시에서 네 가지 알림을 끄고 켠다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [databaseProvider.overrideWithValue(db)],
+          child: UnwindHapticsScope(
+            haptics: UnwindHaptics(enabled: false),
+            child: const MaterialApp(
+              locale: Locale('en'),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: PushSettingsScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Morning hello'), findsOneWidget);
+      expect(find.text('Unwind reminder'), findsOneWidget);
+      expect(find.text('Timed tasks'), findsOneWidget);
+      expect(find.text('Bill arrival'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Morning hello'));
+      await tester.pump();
+      expect(await db.settingsDao.getValue('morningGreetingEnabled'), 'false');
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 50));
+    });
   });
 
   group('온보딩 (§6.6, 전면 개편 2026-08-15)', () {
@@ -84,7 +128,7 @@ void main() {
         null;
 
     testWidgets('첫 실행: 환영 1초 잠금 → 밤 → 소등 체험은 전부 꺼야 통과', (tester) async {
-      // 커진 Lumi(200) 아래 타일 3개가 다 보이도록 실기기 크기로
+      // 커진 Todd(200) 아래 타일 3개가 다 보이도록 실기기 크기로
       tester.view.physicalSize = const Size(1170, 2532);
       tester.view.devicePixelRatio = 3.0;
       addTearDown(tester.view.reset);
@@ -97,7 +141,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       // 1. 환영 — CTA는 1초 뒤에야 열린다
-      expect(find.text('Get things done with Lumi'), findsOneWidget);
+      expect(find.text('Hey! I\'m Todd.'), findsOneWidget);
       expect(ctaEnabled(tester, 'Next'), false);
       await tester.pump(const Duration(milliseconds: 1100));
       expect(ctaEnabled(tester, 'Next'), true);
@@ -109,14 +153,22 @@ void main() {
 
       // 2. 눈부신 밤 + 소등 체험 (병합 2026-08-15 2차) —
       //    반드시 전부 꺼야 다음으로 (발주자 요구)
-      expect(find.text('At night, Lumi needs to sleep'), findsOneWidget);
+      expect(find.text('I need to sleep but..'), findsOneWidget);
       expect(find.byType(UnwindTodoTile), findsNWidgets(3));
       expect(ctaEnabled(tester, 'Next'), false);
       for (var i = 0; i < 3; i++) {
         await tester.tap(find.byType(UnwindLampSwitch).at(i));
         await tester.pump(const Duration(milliseconds: 250));
       }
-      expect(find.text('All lights out — sweet dreams, Lumi'), findsOneWidget);
+      expect(find.text("That's perfect!"), findsOneWidget);
+      expect(
+        find.text('I can finally get some\ngood sleep tonight. Thanks!'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('The light is too bright to sleep in.\nFlip a switch to turn it off!'),
+        findsNothing,
+      );
       expect(ctaEnabled(tester, 'Next'), true);
 
       await tester.pumpWidget(const SizedBox());
@@ -133,7 +185,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.text('Get things done with Lumi'), findsNothing);
+      expect(find.text('Hey! I\'m Todd.'), findsNothing);
       expect(find.text('Today'), findsWidgets); // 홈
 
       await tester.pumpWidget(const SizedBox());

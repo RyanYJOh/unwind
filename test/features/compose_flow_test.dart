@@ -6,8 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:unwind/core/utils/dates.dart';
 import 'package:unwind/data/db/database.dart';
 import 'package:unwind/data/db/tables/tables.dart';
-import 'package:unwind/domain/models/lumi_state.dart';
-import 'package:unwind/widgets/lumi/lumi_view.dart';
+import 'package:unwind/domain/models/todd_state.dart';
+import 'package:unwind/widgets/todd/todd_view.dart';
 import 'package:unwind/features/compose/date_bar.dart';
 import 'package:unwind/features/today/providers.dart';
 import 'package:unwind/main.dart';
@@ -46,7 +46,7 @@ void main() {
     await pumpApp(tester);
 
     // 빈 상태 문구 (§6.1) — v2: textPrimary 크로스페이드 폐기, 한 겹
-    expect(find.text('No lights to keep on today'), findsOneWidget);
+    expect(find.text('No to-do items'), findsOneWidget);
 
     // FAB 탭
     await tester.tap(find.bySemanticsLabel('Add a task'));
@@ -68,6 +68,25 @@ void main() {
 
     // DB → 스트림 → 등 1개
     expect(find.byType(UnwindTodoTile), findsOneWidget);
+
+    await teardownApp(tester);
+  });
+
+  testWidgets('입력 시트를 핸들로 아래로 드래그하면 닫힌다', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.bySemanticsLabel('Add a task'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(DateBar), findsOneWidget);
+
+    await tester.timedDrag(
+      find.byKey(const ValueKey('unwindSheetHandle')),
+      const Offset(0, 500),
+      const Duration(milliseconds: 200),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(DateBar), findsNothing);
 
     await teardownApp(tester);
   });
@@ -113,11 +132,11 @@ void main() {
       await tester.pump();
     }
 
-    expect(find.text('Move to tomorrow automatically'), findsOneWidget);
+    expect(find.text('Postpone automatically'), findsOneWidget);
     expect(find.text('Time'), findsOneWidget);
     expect(chip('No repeat').selected, true);
 
-    await tapText('Move to tomorrow automatically');
+    await tapText('Postpone automatically');
     expect(autoDefer(), true);
 
     // 반복을 고르면 자동 미루기가 풀린다 (상호 배제)
@@ -130,7 +149,7 @@ void main() {
     expect(chip('Every day').selected, false);
     expect(chip('No repeat').selected, true);
 
-    await tapText('Move to tomorrow automatically');
+    await tapText('Postpone automatically');
     await tapText('Time'); // 값 행을 열면 기본 09:00이 잡힌다
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -212,7 +231,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(await db.todoDao.getByDate(todayKey), isEmpty);
-    expect(find.text('Taken out of the room'), findsOneWidget);
+    expect(find.text('To-do deleted'), findsOneWidget);
 
     await tester.tap(find.text('Undo'));
     await tester.pump();
@@ -266,30 +285,30 @@ void main() {
     await teardownApp(tester);
   });
 
-  testWidgets('Lumi를 톡 건드리면 반응하고, 잠들었을 땐 무반응', (tester) async {
+  testWidgets('Todd를 톡 건드리면 반응하고, 잠들었을 땐 무반응', (tester) async {
     final todayKey = logicalTodayKey(DateTime.now());
     await db.todoDao.insertTodo(title: '남은 일', date: todayKey);
     await pumpApp(tester);
 
-    LumiState lumi() => tester.widget<LumiView>(find.byType(LumiView)).state;
-    expect(lumi().isAsleep, isFalse);
+    ToddState todd() => tester.widget<ToddView>(find.byType(ToddView)).state;
+    expect(todd().isAsleep, isFalse);
 
-    final before = lumi().eventTick;
-    await tester.tap(find.byType(LumiView));
+    final before = todd().eventTick;
+    await tester.tap(find.byType(ToddView));
     await tester.pump();
-    expect(lumi().event, LumiEvent.poke);
-    expect(lumi().eventTick, greaterThan(before));
+    expect(todd().event, ToddEvent.poke);
+    expect(todd().eventTick, greaterThan(before));
 
     // 소등 → 잠든 방. 이제 아무리 건드려도 반응하지 않는다.
     await db.dayDao.markLightsOut(todayKey, DateTime.now());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
-    expect(lumi().isAsleep, isTrue);
+    expect(todd().isAsleep, isTrue);
 
-    final asleepTick = lumi().eventTick;
-    await tester.tap(find.byType(LumiView));
+    final asleepTick = todd().eventTick;
+    await tester.tap(find.byType(ToddView));
     await tester.pump();
-    expect(lumi().eventTick, asleepTick, reason: '잠든 Lumi는 깨우지 않는다');
+    expect(todd().eventTick, asleepTick, reason: '잠든 Todd는 깨우지 않는다');
 
     await teardownApp(tester);
   });

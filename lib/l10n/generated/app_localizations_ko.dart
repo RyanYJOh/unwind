@@ -9,13 +9,16 @@ class AppLocalizationsKo extends AppLocalizations {
   AppLocalizationsKo([String locale = 'ko']) : super(locale);
 
   @override
+  String get appName => '토드';
+
+  @override
   String get today => '오늘';
 
   @override
-  String get emptyRoomTitle => '오늘은 켜둘 불이 없어요';
+  String get emptyRoomTitle => '할 일이 없어';
 
   @override
-  String get emptyRoomSubtitle => '할 일을 적으면 이 방에 불이 켜져요';
+  String get emptyRoomSubtitle => '잠깐.. 그럼 불을 어떻게 끄지..?';
 
   @override
   String get billBadge => '청구서';
@@ -25,6 +28,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get endDayLabel => '하루 마치기';
+
+  @override
+  String get pullCordCoach => '손잡이를 아래로 쭉 당겨 봐.';
 
   @override
   String get lampOn => '켜짐';
@@ -41,10 +47,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get weekProgressLabel => '이번 주 진행';
 
   @override
-  String get weekAllDone => '이번 주 할 일을 다 했어요';
+  String get weekAllDone => '이번 주 할 일을 다 했어';
 
   @override
-  String get weekEmpty => '이번 주엔 아직 계획이 없어요';
+  String get weekEmpty => '이번 주엔 아직 계획이 없어';
 
   @override
   String addToDay(String day) {
@@ -110,22 +116,22 @@ class AppLocalizationsKo extends AppLocalizations {
   String get addMemo => '메모 추가';
 
   @override
-  String get lumiSleepingNotice => 'Lumi가 자고 있어요. 내일 방에 놓아둘게요';
+  String get toddSleepingNotice => '토드가 자고 있어. 내일로 넣어둘게';
 
   @override
-  String get lumiPokeLabel => '루미';
+  String get toddPokeLabel => '토드';
 
   @override
-  String get lumiAway => 'Lumi는 오늘의 방에 있어요';
+  String get toddAway => '토드는 오늘의 방에 있어';
 
   @override
-  String get toastTaskDeleted => '방에서 치웠어요';
+  String get toastTaskDeleted => '삭제되었어';
 
   @override
   String get undo => '되돌리기';
 
   @override
-  String get toastTaskAdded => '새 불이 켜졌어요';
+  String get toastTaskAdded => '새 불이 켜졌어';
 
   @override
   String get dateToday => '오늘';
@@ -185,9 +191,23 @@ class AppLocalizationsKo extends AppLocalizations {
   String get billTitle => 'Unwind 전기요금 청구서';
 
   @override
-  String billTotalCaption(String kwh, String fee) {
-    return '총 $kwh kWh · 기본료 $fee 포함';
+  String billTasksClosed(int done, int total) {
+    return '$done / $total';
   }
+
+  @override
+  String get billTasksCaption => '지난주에 끝낸 일';
+
+  @override
+  String billTotalCaption(String kwh) {
+    return '밤새 켜 둔 불 $kwh kWh';
+  }
+
+  @override
+  String get billMondayOnly => '청구서는 매주 월요일에만 열 수 있어';
+
+  @override
+  String get billMondayOnlyBody => '그때까지 이번 주 할 일들을 잘 해나가 보자!';
 
   @override
   String wonAmount(String amount) {
@@ -195,51 +215,59 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get sleepDeep => 'Lumi는 푹 잤어요';
+  String get sleepDeep => '토드가 완벽하게 잤어요';
 
   @override
-  String get sleepWell => 'Lumi는 잘 잤어요';
+  String get sleepWell => '토드가 잘 잤어요';
 
   @override
-  String get sleepTossed => 'Lumi는 조금 뒤척였어요';
+  String get sleepTossed => '토드가 조금 뒤척였어요';
 
   @override
-  String get sleepBarely => 'Lumi는 겨우 눈을 붙였어요';
+  String get sleepBarely => '토드가 겨우 눈을 붙였어요';
 
   @override
-  String get sleepNone => 'Lumi는 밤새 깨어 있었어요';
+  String get sleepNone => '토드가 밤새 깨어 있었어요';
 
   @override
   String nightsOut(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '이번 주엔 $count일 밤 불을 껐어요',
+      other: '이번 주엔 $count일 밤 불을 껐어',
     );
     return '$_temp0';
   }
 
   @override
-  String get allNightsLit => '이번 주의 밤은 모두 불이 켜져 있었어요';
+  String get allNightsLit => '이번 주의 밤은 모두 불이 켜져 있었어';
 
   @override
   String diffLess(String amount) {
-    return '지난주보다 $amount 적어요';
+    return '지난주보다 $amount 적어';
   }
 
   @override
   String diffMore(String amount) {
-    return '지난주보다 $amount 많아요';
+    return '지난주보다 $amount 많아';
   }
 
   @override
-  String get diffSame => '지난주와 같은 요금이에요';
+  String get diffSame => '지난주와 같은 요금이야';
 
   @override
-  String get notifNightReminder => 'Lumi가 잘 시간인데 아직 불이 켜져 있어요';
+  String get notifNightReminder => '토드가 잘 시간인데 아직 불이 켜져 있어';
 
   @override
-  String get notifBillArrived => '지난주 청구서가 도착했어요';
+  String get notifBillArrived => '지난주 청구서가 도착했어';
+
+  @override
+  String get notifMorningGreeting => '좋은 아침! 난 방금 일어났어';
+
+  @override
+  String notifMorningGreetingNamed(String name) {
+    return '좋은 아침이야, $name! 난 방금 일어났어';
+  }
 
   @override
   String get settingsTitle => '설정';
@@ -248,16 +276,37 @@ class AppLocalizationsKo extends AppLocalizations {
   String get sectionNotifications => '알림';
 
   @override
-  String get nightReminder => '취침 알림';
+  String get pushSettings => '푸시';
 
   @override
-  String get nightReminderCaption => '취침시간에 불이 남아 있으면 알려드려요';
+  String get pushSettingsCaption => '아침 인사, 하루 마무리, 시간 알림, 청구서';
+
+  @override
+  String get pushSettingsTitle => '푸시';
+
+  @override
+  String get morningGreeting => '아침 인사';
+
+  @override
+  String get morningGreetingCaption => '토드가 일어난 지 한 시간 뒤에';
+
+  @override
+  String get nightReminder => '하루 마무리';
+
+  @override
+  String get nightReminderCaption => '취침 30분 전에 불이 남아 있으면 알려줄게';
+
+  @override
+  String get todoReminder => '시간 알림';
+
+  @override
+  String get todoReminderCaption => '시간이 있는 할 일 10분 전에';
 
   @override
   String get billNotification => '청구서 도착';
 
   @override
-  String get billNotificationCaption => '매주 월요일 아침에 지난주 청구서를 알려드려요';
+  String get billNotificationCaption => '매주 월요일 아침에 지난주 청구서를 알려줄게';
 
   @override
   String get sectionFeel => '감각';
@@ -269,19 +318,19 @@ class AppLocalizationsKo extends AppLocalizations {
   String get haptics => '햅틱';
 
   @override
-  String get sectionDay => 'Lumi의 하루';
+  String get sectionDay => '토드의 하루';
 
   @override
   String get wakeTime => '기상시간';
 
   @override
-  String get wakeTimeCaption => 'Lumi가 일어나면 새 하루가 시작돼요';
+  String get wakeTimeCaption => '토드가 일어나면 새 하루가 시작돼';
 
   @override
   String get bedtime => '취침시간';
 
   @override
-  String get bedtimeCaption => '이 시각까지는 불을 다 꺼 줘야 해요';
+  String get bedtimeCaption => '이 시각까지는 불을 다 꺼 줘야 해';
 
   @override
   String hourLabel(int hour) {
@@ -301,10 +350,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get eraseData => '데이터 초기화';
 
   @override
-  String get eraseDataCaption => '모든 할 일과 기록을 지워요';
+  String get eraseDataCaption => '모든 할 일과 기록을 지워';
 
   @override
-  String get eraseDataDialogBody => '모든 할 일과 기록이 지워져요. 되돌릴 수 없어요.';
+  String get eraseDataDialogBody => '모든 할 일과 기록이 지워져. 되돌릴 수 없어.';
 
   @override
   String get erase => '지우기';
@@ -313,96 +362,100 @@ class AppLocalizationsKo extends AppLocalizations {
   String get fullResetDev => '완전 초기화 (개발용)';
 
   @override
-  String get fullResetDevCaption => '설정까지 전부 지우고 첫 실행 상태로 돌아가요';
+  String get fullResetDevCaption => '설정까지 전부 지우고 첫 실행 상태로 돌아가';
 
   @override
   String get obNext => '다음';
 
   @override
-  String get obWelcomeTitle => 'Lumi와 함께, 오늘을 잘 끝내요';
+  String get obWelcomeTitle => '안녕! 난 토드야.';
 
   @override
-  String get obWelcomeBody =>
-      '당신의 방에 사는 꼬마 유령 Lumi예요. 당신이 하루를 잘 끝내야 Lumi가 잠들 수 있어요.';
+  String get obWelcomeBody => '내가 매일 밤 잠들 수 있도록 도와줄래?';
 
   @override
-  String get obNightTitle => '밤이 되면 Lumi는 자야 해요';
+  String get obNightTitle => '밤엔 자야 하는데..';
 
   @override
-  String get obNightBody =>
-      '방의 불이 눈부셔서 도무지 잠들 수가 없어요. 끝낸 일의 스위치를 내리면 불이 꺼져요 — 전부 꺼 보세요.';
+  String get obNightBody => '빛이 너무 밝아서 잠들 수가 없어.\n할 일을 체크해서 불을 꺼줄래?';
 
   @override
-  String get obLightsDone => '모든 불이 꺼졌어요 — 잘 자요, Lumi';
+  String get obLightsDone => '완벽해!';
+
+  @override
+  String get obLightsDoneBody => '오늘 밤은 드디어 푹 잘 수 있겠다.\n고마워!';
 
   @override
   String get obDummy1 => '물 2L 마시기';
 
   @override
-  String get obDummy2 => '운동하기';
+  String get obDummy2 => '헬스장 가기';
 
   @override
   String get obDummy3 => '30분 책 읽기';
 
   @override
-  String get obBillTitle => '매주 월요일, 청구서가 도착해요';
+  String get obBillTitle => '매주 월요일,\n청구서가 도착해.';
 
   @override
-  String get obBillBody => '밤에 남긴 불빛은 밤새 전기를 써요. 청구서를 눌러 영수증을 미리 봐요.';
+  String get obBillBody => '지난주에 불을 얼마나 켜뒀는지 보자..';
 
   @override
-  String get obQuestionsTitle => '이제 몇 가지만 물어볼게요';
+  String get obBillOnMe => '걱정 마 — 내가 낼게!';
 
   @override
-  String get obQuestionsBody => 'Lumi가 당신의 하루에 맞춰 지내려고요.';
+  String get obQuestionsTitle => '이제 물어볼 게\n몇 가지 있어!';
 
   @override
-  String get obHabitsTitle => '매일 꼭 하는 일이 있나요?';
+  String get obQuestionsBody => '너의 하루가 궁금해.';
 
   @override
-  String get obHabitsBody => '한 번 적어 두면, 매일 아침 등이 미리 켜져 있을 거예요.';
+  String get obHabitsTitle => '매일 하는 루틴이 있어?';
+
+  @override
+  String get obHabitsBody => '아니면 앞으로 하고 싶은 거라도! 하나라도 좋아.';
 
   @override
   String get obHabitsHint => '예: 5분 스트레칭';
 
   @override
-  String get obHabitsNone => '아직 없어요';
+  String get obHabitsNone => '아직 없어';
 
   @override
   String get obHabitsDefault => '물 2L 이상 마시기';
 
   @override
-  String get obSleepQTitle => '보통 몇 시에 잠들어요?';
+  String get obSleepQTitle => '보통 몇 시에 자?';
 
   @override
-  String get obSleepQBody => '잠꾸러기 Lumi는 당신보다 세 시간 먼저 잠들어요.';
+  String get obSleepQBody => '참고로 꽤 일찍 잠드는 편이야.';
 
   @override
   String obSleepQResult(String time) {
-    return 'Lumi의 취침시간은 $time이 돼요';
+    return '나중에 바꿀 수 있어.';
   }
 
   @override
-  String get obWakeQTitle => '보통 몇 시에 일어나요?';
+  String get obWakeQTitle => '보통 몇 시에 일어나?';
 
   @override
-  String get obWakeQBody => 'Lumi는 한 시간 먼저 일어나 하루를 열어 둬요.';
+  String get obWakeQBody => '난 일찍 일어나는 편이야.';
 
   @override
   String obWakeQResult(String time) {
-    return 'Lumi는 $time에 일어날 거예요';
+    return '나중에 바꿀 수 있어';
   }
 
   @override
-  String get obScheduleTitle => 'Lumi의 하루가 정해졌어요';
+  String get obScheduleTitle => '내 하루는 이런 모습이야.';
 
   @override
   String obScheduleBody(String bed, String wake) {
-    return '$bed에 잠들고 $wake에 일어나요 — 언제나 당신보다 조금 먼저요.';
+    return '$bed에 잠들고 $wake에 일어나.';
   }
 
   @override
-  String get obNameTitle => 'Lumi가 뭐라고 부르면 좋을까요?';
+  String get obNameTitle => '마지막. 이름이 뭐야?';
 
   @override
   String get obNameHint => '이름';
@@ -412,11 +465,32 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String obGreeting(String name) {
-    return '만나서 반가워요, $name!';
+    return '만나서 반가워, $name!';
   }
 
   @override
-  String get obGreetingNoName => '만나서 반가워요!';
+  String get obGreetingNoName => '만나서 반가워!';
+
+  @override
+  String get obWidgetTitle => '참, 하나만 더..';
+
+  @override
+  String get obWidgetBody => '위젯을 설치해두면\n할 일을 잊지 않을 수 있어!';
+
+  @override
+  String get obWidgetStep1 => '홈 화면으로 나가서';
+
+  @override
+  String get obWidgetStep2 => '빈 곳을 길게 누른 뒤,';
+
+  @override
+  String get obWidgetStep3 => '\'위젯 추가\'에서 토드를 찾으면 끝!';
+
+  @override
+  String get obWidgetCta => '좋아!';
+
+  @override
+  String get obWidgetPillLeft => '남음';
 
   @override
   String get m0Reset => '처음부터 다시 체험하기 (M0 테스트용)';
@@ -425,7 +499,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get autoDeferTitle => '자동으로 미루기';
 
   @override
-  String get autoDeferSubtitle => '오늘 안 하면 내일의 할 일로 등록돼요';
+  String get autoDeferSubtitle => '오늘 안 하면 내일의 할 일로 등록돼';
 
   @override
   String get taskTime => '시간';
@@ -434,5 +508,5 @@ class AppLocalizationsKo extends AppLocalizations {
   String get taskTimeNone => '시간 없음';
 
   @override
-  String get todoReminderBody => '10분 뒤 이 불을 끌 시간이에요';
+  String get todoReminderBody => '10분 뒤 이 불을 끌 시간이야';
 }

@@ -45,6 +45,22 @@ DateTime todoReminderAt({
   dayStartHour: dayStartHour,
 ).subtract(const Duration(minutes: 10));
 
+/// 취침 알림은 Todd 취침시간 [bedtimeHour]의 **30분 전**.
+/// 자정(0시)이면 전날 23:30 — 호출자가 그 시각을 오늘 날짜에 얹는다.
+({int hour, int minute}) nightReminderClock(int bedtimeHour) {
+  final at = DateTime(
+    2000,
+    1,
+    1,
+    bedtimeHour,
+  ).subtract(const Duration(minutes: 30));
+  return (hour: at.hour, minute: at.minute);
+}
+
+/// 아침 인사는 Todd 기상시간 [wakeHour]의 **1시간 뒤**.
+({int hour, int minute}) morningGreetingClock(int wakeHour) =>
+    (hour: (wakeHour + 1) % 24, minute: 0);
+
 bool shouldScheduleTodoReminder({
   required DateTime dueAt,
   required DateTime now,
@@ -56,10 +72,11 @@ bool shouldScheduleTodoReminder({
 /// - 할 일이 없는 날에는 밤 리마인더를 보내지 않는다
 /// - 이미 전등 줄을 당긴 날에는 보내지 않는다
 /// - 재촉하거나 탓하지 않는다 (`아직도 3개나 남았어요` 금지)
-/// - 권한은 온보딩 종료 후에 요청한다 (첫 실행 즉시 요청 금지, M4에서 연결)
+/// - 권한은 온보딩 인사 화면 도착 0.5초 뒤에 요청한다 (첫 실행 즉시 요청 금지)
 class NotificationService {
   static const _nightReminderId = 1;
   static const _billId = 2;
+  static const _morningId = 3;
   static const _todoIdFloor = 1000;
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -103,7 +120,7 @@ class NotificationService {
     }
   }
 
-  /// 온보딩 종료 후 호출 (§10 — 첫 실행 즉시 요청 금지)
+  /// 온보딩 인사 화면에서 호출 (§10 — 첫 실행 즉시 요청 금지)
   Future<bool> requestPermission() async {
     await init();
     if (!_initialized) return false;
@@ -130,22 +147,24 @@ class NotificationService {
 
   /// 밤 리마인더 (§10): 오늘 lightsOutAt이 없고 pending이 1개 이상일 때만.
   /// 조건은 호출자가 판단해 매일 갱신한다 — 조건이 깨지면 [cancelNightReminder].
+  /// 발송은 Todd 취침시간 [bedtimeHour]의 30분 전. 오늘 그 시각이 지났으면
+  /// 보내지 않는다 (내일 조건은 내일 앱이 열릴 때 다시 판정).
   /// [body]는 호출 시점의 앱 언어로 로컬라이즈해 전달한다.
   Future<void> scheduleNightReminder({
-    required int hour,
-    required int minute,
+    required int bedtimeHour,
     required String body,
   }) async {
     await init();
     if (!_initialized) return;
     final now = tz.TZDateTime.now(tz.local);
+    final clock = nightReminderClock(bedtimeHour);
     var at = tz.TZDateTime(
       tz.local,
       now.year,
       now.month,
       now.day,
-      hour,
-      minute,
+      clock.hour,
+      clock.minute,
     );
     if (!at.isAfter(now)) return; // 오늘 시각이 이미 지났으면 보내지 않는다
 
@@ -166,6 +185,44 @@ class NotificationService {
     await init();
     if (!_initialized) return;
     await _plugin.cancel(id: _nightReminderId);
+  }
+
+  /// 아침 인사: Todd 기상시간 1시간 뒤, 매일 반복.
+  /// 조건 없이 반기는 알림이라 OS가 시각만 맞추면 된다.
+  Future<void> scheduleMorningGreeting({
+    bool enabled = true,
+    required int wakeHour,
+    required String body,
+  }) async {
+    await init();
+    if (!_initialized) return;
+    await _plugin.cancel(id: _morningId);
+    if (!enabled) return;
+
+    final clock = morningGreetingClock(wakeHour);
+    final now = tz.TZDateTime.now(tz.local);
+    var at = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      clock.hour,
+      clock.minute,
+    );
+    if (!at.isAfter(now)) at = at.add(const Duration(days: 1));
+
+    await _plugin.zonedSchedule(
+      id: _morningId,
+      title: null,
+      body: body,
+      scheduledDate: at,
+      notificationDetails: const NotificationDetails(
+        iOS: DarwinNotificationDetails(presentSound: false),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: 'home',
+    );
   }
 
   /// 청구서 도착 (§10): 매주 월요일 09:00 반복

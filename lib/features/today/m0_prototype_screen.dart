@@ -7,11 +7,11 @@ import '../../core/haptics/haptics.dart';
 import '../../core/sound/sound_player.dart';
 import '../../core/tokens/motion.dart';
 import '../../core/tokens/spacing.dart';
-import '../../domain/models/lumi_state.dart';
+import '../../domain/models/todd_state.dart';
 import '../../domain/services/brightness_engine.dart';
 import '../../ui/ui.dart';
 import '../../widgets/corner_glow.dart';
-import '../../widgets/lumi/lumi_view.dart';
+import '../../widgets/todd/todd_view.dart';
 import '../../widgets/night_sky.dart';
 import '../../widgets/pull_cord.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -180,7 +180,7 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
       _sound.click(); // 0ms: 짧은 딸깍
       _engine.onItemCompleted(doneCount: _doneCount, totalCount: _items.length);
       _pulse.forward(from: 0); // 체크 펄스
-      _reactTick++; // Lumi 반응 (§7.3)
+      _reactTick++; // Todd 반응 (§7.3)
     } else {
       _engine.onItemUncompleted(
         doneCount: _doneCount,
@@ -268,7 +268,7 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
     );
     if (!mounted) return;
 
-    // Lumi 잠들기 1400ms + 별/달빛 스며듦 2000ms (동시 시작)
+    // Todd 잠들기 1400ms + 별/달빛 스며듦 2000ms (동시 시작)
     setState(() => _asleep = true);
     if (reduce) {
       _stars.value = 1.0; // 스며듦 없음 — 즉시
@@ -359,11 +359,11 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
                     child: Center(
                       child: AnimatedBuilder(
                         animation: _theme,
-                        builder: (context, _) => LumiView(
-                          state: LumiState(
+                        builder: (context, _) => ToddView(
+                          state: ToddState(
                             brightness: _displayTStatic,
                             isAsleep: _asleep,
-                            event: LumiEvent.react,
+                            event: ToddEvent.react,
                             eventTick: _reactTick,
                           ),
                           reduceMotion: reduce,

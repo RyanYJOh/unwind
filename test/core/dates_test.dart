@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:unwind/core/utils/dates.dart';
 
-/// 하루의 경계 = Lumi 기상시간 (기본 5시, 세계관 통합 2026-08-15)
+/// 하루의 경계 = Todd 기상시간 (기본 5시, 세계관 통합 2026-08-15)
 /// — 이 시각 전까지는 어제의 방이다 (§4.5, §5.3).
 void main() {
   test('새벽 2시는 아직 어제의 방이다', () {
@@ -34,5 +34,13 @@ void main() {
 
   test('dayKey 왕복', () {
     expect(dayKey(parseDayKey('2026-01-05')), '2026-01-05');
+  });
+
+  test('월요일 판정 · 지난주 월요일', () {
+    expect(isMondayKey('2026-08-03'), true); // 월
+    expect(isMondayKey('2026-08-06'), false); // 목
+    expect(mondayKeyOf('2026-08-06'), '2026-08-03');
+    expect(lastMondayKeyOf('2026-08-10'), '2026-08-03'); // 월 → 지난주 월
+    expect(lastMondayKeyOf('2026-08-06'), '2026-07-27');
   });
 }

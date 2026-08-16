@@ -37,7 +37,7 @@ class UnwindApp extends ConsumerWidget {
     final haptics = ref.watch(hapticsProvider);
 
     return MaterialApp(
-      title: 'Unwind',
+      onGenerateTitle: (context) => AppLocalizations.of(context).appName,
       debugShowCheckedModeBanner: false,
       // 앱은 항상 다크다 (디자인 시스템 v2). Material 위젯(TextField·
       // 다이얼로그 등)이 밝은 기본값으로 새는 것을 여기서 막는다.
@@ -67,12 +67,49 @@ class UnwindApp extends ConsumerWidget {
         );
         return MediaQuery(
           data: mq.copyWith(textScaler: TextScaler.linear(scale)),
-          child: UnwindHapticsScope(haptics: haptics, child: child!),
+          child: UnwindHapticsScope(
+            haptics: haptics,
+            child: _WidgetSync(child: child!),
+          ),
         );
       },
       // M0 감각 프로토타입은 lib/features/today/m0_prototype_screen.dart에 유지
       // (실기기 감각 검증용 — §13 M0 승인 전까지 보존)
       home: onboarded == false ? const OnboardingFlow() : const TodayScreen(),
     );
+  }
+}
+
+/// 온보딩·홈 모두에서 위젯 스냅샷을 밀어 넣는다.
+/// 홈으로 나갈 때도 한 번 더 써서, 빈 방 write가 이긴 위젯을 고친다.
+class _WidgetSync extends ConsumerStatefulWidget {
+  const _WidgetSync({required this.child});
+  final Widget child;
+
+  @override
+  ConsumerState<_WidgetSync> createState() => _WidgetSyncState();
+}
+
+class _WidgetSyncState extends ConsumerState<_WidgetSync> {
+  AppLifecycleListener? _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(
+      onInactive: () => ref.invalidate(widgetSyncProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(widgetSyncProvider);
+    return widget.child;
   }
 }

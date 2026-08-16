@@ -12,23 +12,25 @@ import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../data/db/tables/tables.dart';
-import '../../domain/models/lumi_state.dart';
+import '../../domain/models/todd_state.dart';
+import '../../domain/services/bill_money.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../ui/ui.dart';
 import '../../widgets/corner_glow.dart';
-import '../../widgets/lumi/lumi_view.dart';
+import '../../widgets/todd/todd_view.dart';
 import '../settings/settings_controller.dart';
 import '../today/providers.dart';
 import '../today/today_screen.dart';
 
-/// 유저 취침시각 → Lumi 취침시간 (세계관: Lumi는 3시간 먼저 잔다)
-int lumiBedtimeFrom(int userSleepHour) => (userSleepHour - 3 + 24) % 24;
+/// 유저 취침시각 → Todd 취침시간 (세계관: Todd는 3시간 먼저 잔다)
+int toddBedtimeFrom(int userSleepHour) => (userSleepHour - 3 + 24) % 24;
 
-/// 유저 기상시각 → Lumi 기상시간 = 하루의 경계 (1시간 먼저 일어난다)
-int lumiWakeFrom(int userWakeHour) => (userWakeHour - 1 + 24) % 24;
+/// 유저 기상시각 → Todd 기상시간 = 하루의 경계 (1시간 먼저 일어난다)
+int toddWakeFrom(int userWakeHour) => (userWakeHour - 1 + 24) % 24;
 
 /// §6.6 온보딩 (전면 개편 2026-08-15) — 컨셉 소개 → 소등 체험 → 청구서 →
-/// 질문(매일 항목·취침/기상·이름) → 인사. 계정 없음, 저장은 마지막에 한 번.
+/// 질문(매일 항목·취침/기상·이름) → 인사 → 위젯 안내. 계정 없음, 저장은
+/// 이름 직후 한 번 (플래그는 Got it 때).
 ///
 /// [preview]: 개발용 미리보기 (설정 > Onboarding (dev)) — 아무것도 저장하지
 /// 않고 플로우만 체험한 뒤 pop.
@@ -42,7 +44,8 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 }
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
-  static const _pageCount = 10;
+  static const _pageCount = 11;
+  static const _greetingPage = 9;
 
   final _pageCtrl = PageController();
   int _page = 0;
@@ -60,10 +63,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // (페이지 위젯 안에 두면 PageView가 미리 빌드하는 순간 발동할 수 있다)
   int _greetTick = 0;
   Timer? _greetJoy;
+  Timer? _greetPermission;
   Timer? _greetDone;
+  Future<bool>? _permissionRequest;
 
-  int get _lumiBedtime => lumiBedtimeFrom(_userSleepHour);
-  int get _lumiWake => lumiWakeFrom(_userWakeHour);
+  int get _toddBedtime => toddBedtimeFrom(_userSleepHour);
+  int get _toddWake => toddWakeFrom(_userWakeHour);
 
   /// 페이지별 방의 빛 — 플로우가 하나의 CornerGlow를 계속 몰아
   /// 페이지 전환 때 빛이 자연스럽게 이어진다.
@@ -73,12 +78,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     2 => 0.30,
     7 => 0.22,
     9 => 0.50,
+    10 => 0.40,
     _ => 0.32,
   };
 
   @override
   void dispose() {
     _greetJoy?.cancel();
+    _greetPermission?.cancel();
     _greetDone?.cancel();
     _pageCtrl.dispose();
     _nameCtrl.dispose();
@@ -87,12 +94,24 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   void _onPageChanged(int p) {
     setState(() => _page = p);
-    if (p == _pageCount - 1) {
-      // 인사: 한 박자 뒤 까르르 → 잠시 머문 뒤 오늘의 방으로
+    if (p == _greetingPage) {
+      // 인사: 한 박자 뒤 까르르 → 0.5초 뒤 권한 → 위젯 안내로
+      _greetJoy?.cancel();
+      _greetPermission?.cancel();
+      _greetDone?.cancel();
       _greetJoy = Timer(const Duration(milliseconds: 350), () {
         if (mounted) setState(() => _greetTick++);
       });
-      _greetDone = Timer(const Duration(milliseconds: 2100), _complete);
+      if (!widget.preview) {
+        _greetPermission = Timer(const Duration(milliseconds: 500), () {
+          if (!mounted) return;
+          _permissionRequest ??=
+              ref.read(notificationServiceProvider).requestPermission();
+        });
+      }
+      _greetDone = Timer(const Duration(milliseconds: 2100), () {
+        if (mounted && _page == _greetingPage) _next();
+      });
     }
   }
 
@@ -121,8 +140,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     if (!widget.preview) {
       final l10n = AppLocalizations.of(context);
       final ctrl = ref.read(settingsControllerProvider.notifier);
-      await ctrl.setBedtimeHour(_lumiBedtime);
-      await ctrl.setWakeHour(_lumiWake);
+      await ctrl.setBedtimeHour(_toddBedtime);
+      await ctrl.setWakeHour(_toddWake);
       final name = _nameCtrl.text.trim();
       if (name.isNotEmpty) await ctrl.setUserName(name);
 
@@ -140,21 +159,26 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       await ref
           .read(recurrenceExpanderProvider)
           .expand(ref.read(todayKeyProvider));
+      // 위젯 안내 페이지에서 올리기 전에 스냅샷이 디스크에 있어야 한다
+      await flushWidgetSnapshot(ref);
     }
     if (mounted) _next(); // 인사 페이지로
   }
 
-  /// 인사가 끝났다 — 진짜 오늘의 방으로.
+  /// 위젯 안내를 닫았다 — 진짜 오늘의 방으로.
   Future<void> _complete() async {
     if (widget.preview) {
       if (mounted) Navigator.of(context).pop();
       return;
     }
+    // 권한은 인사 화면 도착 0.5초 뒤에 이미 띄웠다. 다이얼로그가
+    // 아직 떠 있으면 홈으로 넘어가기 전에 답을 기다린다 — 플래그를
+    // 먼저 세우면 main.dart의 home이 바뀌어 인사가 잘린다.
+    await _permissionRequest;
+    if (!mounted) return;
     await ref
         .read(settingsControllerProvider.notifier)
         .setOnboardingCompleted();
-    // §10 권한은 온보딩 종료 후에 요청한다 (첫 실행 즉시 요청 금지)
-    await ref.read(notificationServiceProvider).requestPermission();
     if (!mounted) return;
     await Navigator.of(context).pushReplacement(
       PageRouteBuilder(
@@ -169,8 +193,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final reduce = MediaQuery.disableAnimationsOf(context);
-    // 인사 페이지에선 뒤로가기·진행 바를 걷는다 — 마무리는 조용하게
-    final chromeVisible = _page < _pageCount - 1;
+    // 인사·위젯 안내에선 뒤로가기·진행 바를 걷는다 — 마무리는 조용하게
+    final chromeVisible = _page < _greetingPage;
 
     return UnwindScreen(
       safeArea: false,
@@ -235,6 +259,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                       _QuestionsIntroPage(onNext: _next),
                       _HabitsPage(
                         habits: _habits,
+                        autofocus: _page == 4,
                         onChanged: () => setState(() {}),
                         onNext: _next,
                       ),
@@ -245,7 +270,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                         hours: const [19, 20, 21, 22, 23, 0, 1, 2, 3, 4],
                         value: _userSleepHour,
                         resultText: (h) =>
-                            l10n.obSleepQResult(l10n.hourLabel(lumiBedtimeFrom(h))),
+                            l10n.obSleepQResult(l10n.hourLabel(toddBedtimeFrom(h))),
                         onChanged: (h) => setState(() => _userSleepHour = h),
                         onNext: _next,
                       ),
@@ -255,23 +280,25 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                         hours: const [4, 5, 6, 7, 8, 9, 10, 11, 12],
                         value: _userWakeHour,
                         resultText: (h) =>
-                            l10n.obWakeQResult(l10n.hourLabel(lumiWakeFrom(h))),
+                            l10n.obWakeQResult(l10n.hourLabel(toddWakeFrom(h))),
                         onChanged: (h) => setState(() => _userWakeHour = h),
                         onNext: _next,
                       ),
                       _SchedulePage(
-                        bedHour: _lumiBedtime,
-                        wakeHour: _lumiWake,
+                        bedHour: _toddBedtime,
+                        wakeHour: _toddWake,
                         onNext: _next,
                       ),
                       _NamePage(
                         controller: _nameCtrl,
+                        autofocus: _page == 8,
                         onFinish: _finishQuestions,
                       ),
                       _GreetingPage(
                         name: _nameCtrl.text.trim(),
                         pokeTick: _greetTick,
                       ),
+                      _WidgetPage(onDone: _complete),
                     ],
                   ),
                 ),
@@ -340,6 +367,13 @@ class _ObPage extends StatelessWidget {
   /// 할 일 타일처럼, 자기 여백을 가진 콘텐츠용 (개정 2026-08-15 2차).
   final bool fullBleedContent;
 
+  /// hero → 제목 간격 (content가 있을 때만). 위젯 안내처럼 히어로가
+  /// 크면 기본 s8은 붙어 보인다.
+  final double heroGap;
+
+  /// body → content 간격
+  final double afterBodyGap;
+
   const _ObPage({
     required this.title,
     required this.cta,
@@ -350,6 +384,8 @@ class _ObPage extends StatelessWidget {
     this.content,
     this.secondary,
     this.fullBleedContent = false,
+    this.heroGap = UnwindSpacing.s8,
+    this.afterBodyGap = UnwindSpacing.s16,
   });
 
   static const _hPad = EdgeInsets.symmetric(horizontal: UnwindSpacing.s24);
@@ -361,7 +397,10 @@ class _ObPage extends StatelessWidget {
       child: Text(
         title,
         textAlign: TextAlign.center,
-        style: UnwindType.display.copyWith(color: UnwindColors.textPrimary),
+        style: UnwindType.display.copyWith(
+          color: UnwindColors.textPrimary,
+          height: 1.22, // 기본 display 1.15에서 아주 살짝
+        ),
       ),
     );
     final bodyText = body == null
@@ -373,6 +412,7 @@ class _ObPage extends StatelessWidget {
               textAlign: TextAlign.center,
               style: UnwindType.body.copyWith(
                 color: UnwindColors.textSecondary,
+                height: 1.55, // 기본 body 1.45에서 아주 살짝
               ),
             ),
           );
@@ -407,13 +447,13 @@ class _ObPage extends StatelessWidget {
             // 바깥 Column이 stretch라 hero를 그대로 두면 가로로 늘어나
             // CustomPaint가 화면 폭 기준으로 그려진다 — Center로 감싼다
             if (hero != null) Center(child: hero),
-            const SizedBox(height: UnwindSpacing.s8),
+            SizedBox(height: heroGap),
             titleText,
             if (bodyText != null) ...[
-              const SizedBox(height: UnwindSpacing.s8),
+              const SizedBox(height: UnwindSpacing.s12),
               bodyText,
             ],
-            const SizedBox(height: UnwindSpacing.s12),
+            SizedBox(height: afterBodyGap),
             Expanded(
               child: fullBleedContent
                   ? content!
@@ -500,12 +540,12 @@ class _WelcomePageState extends State<_WelcomePage> with _DelayedCta {
         pressScale: 1.0, // 반응은 캐릭터가 한다
         haptic: UnwindHapticKind.tap,
         isButton: false,
-        semanticLabel: l10n.lumiPokeLabel,
-        child: LumiView(
-          state: LumiState(
+        semanticLabel: l10n.toddPokeLabel,
+        child: ToddView(
+          state: ToddState(
             brightness: 0.1,
-            mode: LumiMode.day,
-            event: _pokeTick > 0 ? LumiEvent.poke : null,
+            mode: ToddMode.day,
+            event: _pokeTick > 0 ? ToddEvent.poke : null,
             eventTick: _pokeTick,
           ),
           reduceMotion: MediaQuery.disableAnimationsOf(context),
@@ -535,11 +575,20 @@ class _LightsPage extends StatefulWidget {
 
 class _LightsPageState extends State<_LightsPage> {
   final _done = [false, false, false];
+  ToddEvent? _toddEvent;
+  int _toddTick = 0;
 
   bool get _allDone => _done.every((d) => d);
 
   void _toggle(int i) {
-    setState(() => _done[i] = !_done[i]);
+    final turningOff = !_done[i];
+    setState(() {
+      _done[i] = !_done[i];
+      if (turningOff) {
+        _toddEvent = ToddEvent.react;
+        _toddTick++;
+      }
+    });
     final remaining = _done.where((d) => !d).length;
     widget.onLightChanged(remaining / _done.length);
   }
@@ -551,23 +600,25 @@ class _LightsPageState extends State<_LightsPage> {
     final checked = _done.where((d) => d).length;
 
     return _ObPage(
-      hero: LumiView(
+      hero: ToddView(
         state: _allDone
-            ? const LumiState(
+            ? const ToddState(
                 brightness: 1.0,
                 isAsleep: true,
-                mode: LumiMode.asleep,
+                mode: ToddMode.asleep,
               )
-            : LumiState(
+            : ToddState(
                 brightness: checked / 3,
-                mode: LumiMode.nightAwake,
+                mode: ToddMode.nightAwake,
                 dazzle: (3 - checked) / 3, // 찡그림 + 하품
+                event: _toddEvent,
+                eventTick: _toddTick,
               ),
         reduceMotion: MediaQuery.disableAnimationsOf(context),
         size: 200,
       ),
       title: _allDone ? l10n.obLightsDone : l10n.obNightTitle,
-      body: _allDone ? null : l10n.obNightBody,
+      body: _allDone ? l10n.obLightsDoneBody : l10n.obNightBody,
       // 타일은 홈과 같은 폭 — 자기 여백(s20)을 갖고 있어 풀블리드로 얹는다
       fullBleedContent: true,
       content: ListView(
@@ -603,24 +654,57 @@ class _BillPage extends StatefulWidget {
   State<_BillPage> createState() => _BillPageState();
 }
 
-class _BillPageState extends State<_BillPage>
-    with SingleTickerProviderStateMixin {
+class _BillPageState extends State<_BillPage> with TickerProviderStateMixin {
   late final AnimationController _unroll = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 750),
   );
+  late final AnimationController _wiggle = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: UnwindMotion.billWigglePeriodMs),
+  );
   bool _opened = false;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncWiggle();
+  }
+
+  @override
   void dispose() {
+    _wiggle.dispose();
     _unroll.dispose();
     super.dispose();
+  }
+
+  void _syncWiggle() {
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    if (reduce || _opened) {
+      if (_wiggle.isAnimating) _wiggle.stop();
+      _wiggle.value = 0;
+    } else if (!_wiggle.isAnimating) {
+      _wiggle.repeat();
+    }
   }
 
   void _open() {
     if (_opened) return;
     setState(() => _opened = true);
+    _syncWiggle();
     _unroll.forward();
+  }
+
+  /// 주기의 앞부분만 흔들리고 나머지는 멈춘다 — 계속 떨리면 초조해 보인다.
+  double get _wiggleAngle {
+    const window = 0.28;
+    final t = _wiggle.value;
+    if (t >= window) return 0;
+    final local = t / window;
+    final decay = 1 - Curves.easeOut.transform(local);
+    return math.sin(local * math.pi * 6) *
+        UnwindMotion.billWiggleAmp *
+        decay;
   }
 
   @override
@@ -634,16 +718,21 @@ class _BillPageState extends State<_BillPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              UnwindPressable(
-                onTap: _open,
-                depth: 0,
-                haptic: UnwindHapticKind.tap,
-                semanticLabel: l10n.billBadge,
-                child: Image.asset(
-                  'assets/images/bill.png',
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.contain,
+              AnimatedBuilder(
+                animation: _wiggle,
+                builder: (context, child) =>
+                    Transform.rotate(angle: _wiggleAngle, child: child),
+                child: UnwindPressable(
+                  onTap: _open,
+                  depth: 0,
+                  haptic: UnwindHapticKind.tap,
+                  semanticLabel: l10n.billBadge,
+                  child: Image.asset(
+                    'assets/images/bill.png',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
               // 영수증이 청구서 아래에서 주르륵 인쇄되어 내려온다
@@ -653,9 +742,23 @@ class _BillPageState extends State<_BillPage>
                   curve: Curves.easeOutCubic,
                 ),
                 alignment: Alignment.topCenter,
-                child: const Padding(
-                  padding: EdgeInsets.only(top: UnwindSpacing.s8),
-                  child: _MiniReceipt(),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: UnwindSpacing.s8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const _MiniReceipt(),
+                      const SizedBox(height: UnwindSpacing.s12),
+                      Text(
+                        l10n.obBillOnMe,
+                        textAlign: TextAlign.center,
+                        style: UnwindType.caption.copyWith(
+                          color: UnwindColors.textMuted,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -678,6 +781,11 @@ class _MiniReceipt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final money = BillCurrency.resolve(context);
+    final sample = money.format(
+      money.charge(0.42),
+      languageCode: Localizations.localeOf(context).languageCode,
+    );
     const ink = Color(0xFF1E2430);
     return ClipPath(
       clipper: _ReceiptEdgeClipper(),
@@ -721,7 +829,7 @@ class _MiniReceipt extends StatelessWidget {
             ),
             const SizedBox(height: UnwindSpacing.s8),
             Text(
-              l10n.wonAmount('1,540'),
+              sample,
               style: UnwindType.title.copyWith(color: ink),
             ),
           ],
@@ -765,8 +873,8 @@ class _QuestionsIntroPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return _ObPage(
-      hero: LumiView(
-        state: const LumiState(brightness: 0.2, mode: LumiMode.day),
+      hero: ToddView(
+        state: const ToddState(brightness: 0.2, mode: ToddMode.day),
         reduceMotion: MediaQuery.disableAnimationsOf(context),
         size: 210,
       ),
@@ -782,6 +890,7 @@ class _QuestionsIntroPage extends StatelessWidget {
 
 class _HabitsPage extends StatefulWidget {
   final List<String> habits;
+  final bool autofocus;
   final VoidCallback onChanged;
   final VoidCallback onNext;
 
@@ -789,6 +898,7 @@ class _HabitsPage extends StatefulWidget {
     required this.habits,
     required this.onChanged,
     required this.onNext,
+    this.autofocus = false,
   });
 
   @override
@@ -805,6 +915,20 @@ class _HabitsPageState extends State<_HabitsPage> {
     // 입력이 시작되면 바로 "다음"이 열린다 (개정 2026-08-15 2차) —
     // `+`는 저장 버튼이 아니라 **여러 개 적을 때** 줄을 추가하는 버튼이다.
     _fieldCtrl.addListener(_onField);
+    _focusIfActive();
+  }
+
+  @override
+  void didUpdateWidget(_HabitsPage old) {
+    super.didUpdateWidget(old);
+    if (widget.autofocus && !old.autofocus) _focusIfActive();
+  }
+
+  void _focusIfActive() {
+    if (!widget.autofocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _fieldFocus.requestFocus();
+    });
   }
 
   void _onField() {
@@ -858,6 +982,7 @@ class _HabitsPageState extends State<_HabitsPage> {
                 child: UnwindTextField(
                   controller: _fieldCtrl,
                   focusNode: _fieldFocus,
+                  autofocus: widget.autofocus,
                   hint: l10n.obHabitsHint,
                   maxLength: 200,
                   textCapitalization: TextCapitalization.sentences,
@@ -1006,7 +1131,7 @@ class _HourQuestionPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: UnwindSpacing.s16),
-              // 답을 고르는 즉시 Lumi의 시간이 어떻게 정해지는지 보여준다
+              // 답을 고르는 즉시 Todd의 시간이 어떻게 정해지는지 보여준다
               Text(
                 resultText(value),
                 textAlign: TextAlign.center,
@@ -1022,7 +1147,7 @@ class _HourQuestionPage extends ConsumerWidget {
   }
 }
 
-// ── 9. Lumi의 하루 (원형 타임테이블) ────────────────────────
+// ── 9. Todd의 하루 (원형 타임테이블) ────────────────────────
 
 class _SchedulePage extends StatelessWidget {
   final int bedHour;
@@ -1059,7 +1184,7 @@ class _SchedulePage extends StatelessWidget {
 }
 
 /// 24시간 원형 타임테이블 — 자정이 위. 자는 시간은 차분한 슬레이트,
-/// 깨어 있는 시간은 앰버 호로 돌고, 한가운데에서 Lumi가 잔다.
+/// 깨어 있는 시간은 앰버 호로 돌고, 한가운데에서 Todd가 잔다.
 class _ScheduleRing extends StatelessWidget {
   final int bedHour;
   final int wakeHour;
@@ -1100,11 +1225,11 @@ class _ScheduleRing extends StatelessWidget {
           ],
         ),
       ),
-      child: LumiView(
-        state: const LumiState(
+      child: ToddView(
+        state: const ToddState(
           brightness: 1.0,
           isAsleep: true,
-          mode: LumiMode.asleep,
+          mode: ToddMode.asleep,
         ),
         reduceMotion: reduce,
         size: 110,
@@ -1253,19 +1378,40 @@ class _ScheduleRingPainter extends CustomPainter {
 
 class _NamePage extends StatefulWidget {
   final TextEditingController controller;
+  final bool autofocus;
   final VoidCallback onFinish;
 
-  const _NamePage({required this.controller, required this.onFinish});
+  const _NamePage({
+    required this.controller,
+    required this.onFinish,
+    this.autofocus = false,
+  });
 
   @override
   State<_NamePage> createState() => _NamePageState();
 }
 
 class _NamePageState extends State<_NamePage> {
+  final _focus = FocusNode();
+
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onText);
+    _focusIfActive();
+  }
+
+  @override
+  void didUpdateWidget(_NamePage old) {
+    super.didUpdateWidget(old);
+    if (widget.autofocus && !old.autofocus) _focusIfActive();
+  }
+
+  void _focusIfActive() {
+    if (!widget.autofocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
   }
 
   void _onText() {
@@ -1275,6 +1421,7 @@ class _NamePageState extends State<_NamePage> {
   @override
   void dispose() {
     widget.controller.removeListener(_onText);
+    _focus.dispose();
     super.dispose();
   }
 
@@ -1283,26 +1430,27 @@ class _NamePageState extends State<_NamePage> {
     final l10n = AppLocalizations.of(context);
     final hasName = widget.controller.text.trim().isNotEmpty;
     return _ObPage(
-      hero: LumiView(
-        state: const LumiState(brightness: 0.2, mode: LumiMode.day),
+      hero: ToddView(
+        state: const ToddState(brightness: 0.2, mode: ToddMode.day),
         reduceMotion: MediaQuery.disableAnimationsOf(context),
         size: 200,
       ),
       title: l10n.obNameTitle,
-      content: Center(
-        child: SingleChildScrollView(
-          child: UnwindTextField(
-            controller: widget.controller,
-            hint: l10n.obNameHint,
-            maxLength: 40,
-            textCapitalization: TextCapitalization.words,
-            onSubmitted: (_) {
-              if (widget.controller.text.trim().isNotEmpty) widget.onFinish();
-            },
-          ),
+      content: Align(
+        alignment: Alignment.topCenter,
+        child: UnwindTextField(
+          controller: widget.controller,
+          focusNode: _focus,
+          autofocus: widget.autofocus,
+          hint: l10n.obNameHint,
+          maxLength: 40,
+          textCapitalization: TextCapitalization.words,
+          onSubmitted: (_) {
+            if (widget.controller.text.trim().isNotEmpty) widget.onFinish();
+          },
         ),
       ),
-      // 건너뛰기 없음 (개정 2026-08-15 2차) — Lumi가 부를 이름은 꼭 받는다
+      // 건너뛰기 없음 (개정 2026-08-15 2차) — Todd가 부를 이름은 꼭 받는다
       cta: l10n.obBegin,
       ctaEnabled: hasName,
       onCta: widget.onFinish,
@@ -1327,11 +1475,11 @@ class _GreetingPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          LumiView(
-            state: LumiState(
+          ToddView(
+            state: ToddState(
               brightness: 0.1,
-              mode: LumiMode.day,
-              event: pokeTick > 0 ? LumiEvent.poke : null,
+              mode: ToddMode.day,
+              event: pokeTick > 0 ? ToddEvent.poke : null,
               eventTick: pokeTick,
             ),
             reduceMotion: MediaQuery.disableAnimationsOf(context),
@@ -1341,10 +1489,302 @@ class _GreetingPage extends StatelessWidget {
           Text(
             name.isEmpty ? l10n.obGreetingNoName : l10n.obGreeting(name),
             textAlign: TextAlign.center,
-            style: UnwindType.display.copyWith(color: UnwindColors.textPrimary),
+            style: UnwindType.display.copyWith(
+              color: UnwindColors.textPrimary,
+              height: 1.22,
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── 12. 위젯 안내 ───────────────────────────────────────────
+
+class _WidgetPage extends StatefulWidget {
+  final VoidCallback onDone;
+
+  const _WidgetPage({required this.onDone});
+
+  @override
+  State<_WidgetPage> createState() => _WidgetPageState();
+}
+
+class _WidgetPageState extends State<_WidgetPage> with _DelayedCta {
+  @override
+  void initState() {
+    super.initState();
+    startCtaDelay();
+  }
+
+  @override
+  void dispose() {
+    disposeCtaDelay();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return _ObPage(
+      title: l10n.obWidgetTitle,
+      body: l10n.obWidgetBody,
+      heroGap: UnwindSpacing.s24,
+      afterBodyGap: UnwindSpacing.s24,
+      hero: _HomeScreenPreview(
+        pillLeft: l10n.obWidgetPillLeft,
+        caption: l10n.appName,
+      ),
+      content: SingleChildScrollView(
+        child: UnwindCard(
+          child: Column(
+            children: [
+              _InstallStep(n: 1, text: l10n.obWidgetStep1),
+              const SizedBox(height: UnwindSpacing.s12),
+              _InstallStep(n: 2, text: l10n.obWidgetStep2),
+              const SizedBox(height: UnwindSpacing.s12),
+              _InstallStep(n: 3, text: l10n.obWidgetStep3),
+            ],
+          ),
+        ),
+      ),
+      cta: l10n.obWidgetCta,
+      ctaEnabled: ctaReady,
+      onCta: widget.onDone,
+    );
+  }
+}
+
+/// 홈 화면 한 조각 — 위젯이 아이콘들 사이에 앉아 있는 모습.
+class _HomeScreenPreview extends StatelessWidget {
+  final String pillLeft;
+  final String caption;
+
+  const _HomeScreenPreview({required this.pillLeft, required this.caption});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 248,
+      padding: const EdgeInsets.all(UnwindSpacing.s12),
+      decoration: BoxDecoration(
+        color: UnwindColors.surface,
+        borderRadius: BorderRadius.circular(UnwindRadius.lg),
+        border: Border.all(
+          color: UnwindColors.border,
+          width: UnwindStroke.base,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MiniToddWidget(pillLeft: pillLeft),
+          const SizedBox(width: UnwindSpacing.s12),
+          Expanded(
+            child: Column(
+              children: [
+                const _FakeIconsRow(),
+                const SizedBox(height: UnwindSpacing.s8),
+                const _FakeIconsRow(),
+                const SizedBox(height: UnwindSpacing.s12),
+                Text(
+                  caption,
+                  style: UnwindType.caption.copyWith(
+                    color: UnwindColors.textMuted,
+                    fontVariations: const [FontVariation('wght', 700)],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FakeIconsRow extends StatelessWidget {
+  const _FakeIconsRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const _FakeAppIcon(),
+        const SizedBox(width: UnwindSpacing.s8),
+        const _FakeAppIcon(),
+      ],
+    );
+  }
+}
+
+class _FakeAppIcon extends StatelessWidget {
+  const _FakeAppIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: UnwindColors.surfaceHigh,
+            borderRadius: BorderRadius.circular(UnwindRadius.sm),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 실제 홈 위젯을 축소한 프리뷰 (커피 + 앰버 알약).
+class _MiniToddWidget extends StatelessWidget {
+  final String pillLeft;
+
+  const _MiniToddWidget({required this.pillLeft});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 132,
+      height: 132,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(UnwindRadius.md),
+        child: Stack(
+          children: [
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [UnwindColors.ink, UnwindColors.inkDeep],
+                ),
+              ),
+              child: SizedBox.expand(),
+            ),
+            Positioned(
+              right: -28,
+              top: -36,
+              child: IgnorePointer(
+                child: SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        colors: [
+                          UnwindColors.accent.withValues(alpha: 0.62),
+                          UnwindColors.accent.withValues(alpha: 0.20),
+                          UnwindColors.accent.withValues(alpha: 0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                UnwindSpacing.s8,
+                UnwindSpacing.s4,
+                UnwindSpacing.s8,
+                UnwindSpacing.s8,
+              ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: ToddView(
+                        state: const ToddState(
+                          brightness: 0.25,
+                          mode: ToddMode.day,
+                          activity: ToddDayActivity.coffee,
+                        ),
+                        reduceMotion: MediaQuery.disableAnimationsOf(context),
+                        size: 72,
+                      ),
+                    ),
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: UnwindColors.accentDeep,
+                      borderRadius: BorderRadius.circular(UnwindRadius.pill),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: UnwindDepth.small),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: UnwindColors.accent,
+                          borderRadius: BorderRadius.circular(UnwindRadius.pill),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: UnwindSpacing.s12,
+                            vertical: UnwindSpacing.s4,
+                          ),
+                          child: Text(
+                            '3 $pillLeft',
+                            style: UnwindType.caption.copyWith(
+                              color: UnwindColors.onAccent,
+                              fontVariations: const [FontVariation('wght', 800)],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InstallStep extends StatelessWidget {
+  final int n;
+  final String text;
+
+  const _InstallStep({required this.n, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 28,
+          height: 28,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: UnwindColors.accent,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '$n',
+                style: UnwindType.caption.copyWith(
+                  color: UnwindColors.onAccent,
+                  fontVariations: const [FontVariation('wght', 800)],
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: UnwindSpacing.s12),
+        Expanded(
+          child: Text(
+            text,
+            style: UnwindType.body.copyWith(
+              color: UnwindColors.textPrimary,
+              fontVariations: const [FontVariation('wght', 600)],
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

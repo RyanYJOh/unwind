@@ -1,4 +1,3 @@
-import 'dart:convert' show jsonEncode;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart'
@@ -12,14 +11,13 @@ import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
-import '../../domain/models/lumi_state.dart';
+import '../../domain/models/todd_state.dart';
 import '../../ui/ui.dart';
 import '../../widgets/corner_glow.dart';
-import '../../widgets/lumi/lumi_view.dart';
+import '../../widgets/todd/todd_view.dart';
 import '../../widgets/night_sky.dart';
 import '../../widgets/pull_cord.dart';
 import '../../core/utils/dates.dart';
-import '../../domain/services/bill_calculator.dart';
 import '../bill/bill_screen.dart';
 import '../compose/compose_sheet.dart';
 import '../settings/settings_screen.dart';
@@ -27,6 +25,7 @@ import '../week/week_label.dart';
 import '../week/week_screen.dart';
 import '../week/weekly_strip.dart';
 import 'providers.dart';
+import 'pull_cord_coach.dart';
 import 'todo_actions.dart';
 import '../../l10n/generated/app_localizations.dart';
 
@@ -56,10 +55,13 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   final Set<String> _visualOffOverride = {};
   bool _dominoRunning = false;
 
-  /// Lumi에게 보내는 이벤트 — 체크 반응 / 톡 건드리기.
+  /// Todd에게 보내는 이벤트 — 체크 반응 / 톡 건드리기.
   /// 같은 이벤트를 연속 발사할 수 있도록 tick을 올린다.
-  LumiEvent _lumiEvent = LumiEvent.react;
-  int _lumiTick = 0;
+  ToddEvent _toddEvent = ToddEvent.react;
+  int _toddTick = 0;
+
+  final _cordKey = GlobalKey();
+  Offset? _coachHole;
 
   @override
   void initState() {
@@ -113,6 +115,27 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       setState(() => _tAnim = AlwaysStoppedAnimation(t));
       if (ref.read(isAsleepProvider)) _stars.value = 1.0;
     });
+  }
+
+  int _coachMeasureTries = 0;
+
+  void _presentCoach() {
+    if (!mounted || _coachHole != null) return;
+    final center = PullCord.handleCenterOf(_cordKey);
+    if (center == null) {
+      if (_coachMeasureTries++ < 8) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _presentCoach());
+      }
+      return;
+    }
+    _coachMeasureTries = 0;
+    setState(() => _coachHole = center);
+  }
+
+  void _dismissCoach() {
+    if (_coachHole == null && !ref.read(pullCordCoachVisibleProvider)) return;
+    if (_coachHole != null) setState(() => _coachHole = null);
+    ref.read(pullCordCoachVisibleProvider.notifier).dismiss();
   }
 
   @override
@@ -176,71 +199,57 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       sound.click();
       _pulse.forward(from: 0);
       setState(() {
-        _lumiEvent = LumiEvent.react;
-        _lumiTick++;
+        _toddEvent = ToddEvent.react;
+        _toddTick++;
       });
     }
     await repo.setDone(todo, done); // 동기 쓰기 → 스트림이 UI 갱신 (§3.2)
   }
 
-  // ── Lumi를 톡 건드리기 (개편 2026-08-12) ─────────────────────
+  // ── Todd를 톡 건드리기 (개편 2026-08-12) ─────────────────────
   // 반응 자체는 렌더러가 자기 모드를 보고 고른다(간지럼 / 실눈 두리번).
   // 여기서는 **잠들어 있으면 아무것도 하지 않는다** — 햅틱조차 없다.
-  void _pokeLumi() {
+  void _pokeTodd() {
     if (_dominoRunning) return;
-    final mode = ref.read(lumiModeProvider).mode;
-    if (mode == LumiMode.asleep) return; // 무반응. 깨우지 않는다.
+    final mode = ref.read(toddModeProvider).mode;
+    if (mode == ToddMode.asleep) return; // 무반응. 깨우지 않는다.
 
     final haptics = ref.read(hapticsProvider);
     // 졸린 밤엔 겨우 눈만 뜨니 촉감도 한 번, 낮엔 까르르 두 번
-    if (mode == LumiMode.nightAwake) {
+    if (mode == ToddMode.nightAwake) {
       haptics.tap();
     } else {
       haptics.success();
     }
     setState(() {
-      _lumiEvent = LumiEvent.poke;
-      _lumiTick++;
+      _toddEvent = ToddEvent.poke;
+      _toddTick++;
     });
   }
 
-  // ── 더미 청구서 미리보기 (개발용, 2026-08-08) ────────────────
-  // 실데이터 없이 청구서 화면을 확인하기 위한 가짜 지난주 청구서.
-  void _openDummyBill() {
+  /// 월요일에만 지난주 청구서를 연다. 다른 요일이면 안내 영수증.
+  Future<void> _openBill() async {
     final todayKey = ref.read(todayKeyProvider);
-    final lastMonday = dayKey(
-      addDays(parseDayKey(weekMondayKey(todayKey)), -7),
-    );
-    const kwhByDay = [0.42, 0.30, 0.55, 0.18, 0.36, 0.24, 0.12];
-    const lightsOutByDay = [true, true, false, true, true, false, true];
-    final days = [
-      for (var i = 0; i < 7; i++)
-        DayBill(
-          date: dayKey(addDays(parseDayKey(lastMonday), i)),
-          kwh: kwhByDay[i],
-          lightsOut: lightsOutByDay[i],
-          sleepMinutes: lightsOutByDay[i] ? 420 + i * 10 : 0,
-        ),
-    ];
-    final totalKwh = days.fold<double>(0, (sum, d) => sum + d.kwh);
-    final sleepTotal = days.fold<int>(0, (sum, d) => sum + d.sleepMinutes);
-    showBillScreen(
-      context,
-      WeeklyBill(
-        weekStart: lastMonday,
-        kwh: totalKwh,
-        amount: round10(totalKwh * kUnitPrice + kBaseFee),
-        sleepMinutes: sleepTotal,
-        generatedAt: DateTime.now(),
-        isRead: true,
-        payload: jsonEncode([for (final d in days) d.toJson()]),
-      ),
-    );
+    if (!isMondayKey(todayKey)) {
+      if (!mounted) return;
+      await showBillMondayOnly(context);
+      return;
+    }
+    final bill = await ref
+        .read(billRepositoryProvider)
+        .ensureLastWeekBill(
+          todayKey,
+          wakeHour: ref.read(wakeHourProvider),
+          bedtimeHour: ref.read(bedtimeHourProvider),
+        );
+    if (!mounted || bill == null) return;
+    await showBillScreen(context, bill);
   }
 
   // ── 소등 시퀀스 (§9.3) ──────────────────────────────────────
   Future<void> _runLightsOut() async {
     if (_dominoRunning) return;
+    _dismissCoach();
     // 전등 줄은 오늘을 볼 때만 활성 — viewed == today가 보장된다
     final todos = ref.read(viewedTodosProvider).value ?? const <Todo>[];
     final repo = ref.read(todoRepositoryProvider);
@@ -336,9 +345,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     // 열람 날짜의 방 (개편 2026-08-09) — 기본은 오늘
     final todos = ref.watch(viewedTodosProvider).value ?? const <Todo>[];
     final asleep = ref.watch(isAsleepProvider);
-    // Lumi 생활 모드 (개편 2026-08-08): 시각·체크 상태가 결정
-    final lumiMode = ref.watch(lumiModeProvider);
-    // Lumi는 오직 오늘의 방에만 있다 (개정 2026-08-15) — 과거·미래 열람은
+    // Todd 생활 모드 (개편 2026-08-08): 시각·체크 상태가 결정
+    final toddMode = ref.watch(toddModeProvider);
+    // Todd는 오직 오늘의 방에만 있다 (개정 2026-08-15) — 과거·미래 열람은
     // 빈 자리(바닥 그림자)만 남는다.
     final isViewingToday =
         ref.watch(viewedDayKeyProvider) == ref.watch(todayKeyProvider);
@@ -362,203 +371,219 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     // §10 밤 리마인더 조건 갱신 활성화
     ref.watch(nightReminderSchedulerProvider);
     ref.watch(todoReminderSchedulerProvider);
-    // iOS 홈 위젯 스냅샷 동기화 (PRD 개정 2026-08-15)
-    ref.watch(widgetSyncProvider);
 
-    // §10 알림 탭 라우팅: 청구서 알림 → 청구서 화면
+    // 온보딩 직후, 오늘 방에 할 일을 새로 넣어 2개가 되면 전등 줄 안내
+    ref.listen<bool>(pullCordCoachVisibleProvider, (prev, next) {
+      if (next && prev != true) {
+        Future<void>.delayed(
+          const Duration(milliseconds: UnwindMotion.sheetMs),
+          _presentCoach,
+        );
+      }
+    });
+
+    // §10 알림 탭 라우팅: 청구서 알림 → 월요일 게이트와 같은 경로
     ref.listen<String?>(notificationTapProvider, (prev, next) async {
       if (next == null) return;
       ref.read(notificationTapProvider.notifier).clear();
-      if (next == 'bill') {
-        final bills = await ref
-            .read(billRepositoryProvider)
-            .watchUnread()
-            .first;
-        if (context.mounted && bills.isNotEmpty) {
-          showBillScreen(context, bills.first);
-        }
-      }
+      if (next == 'bill') await _openBill();
       // 'home': 앱이 열리면 홈이 기본 화면
     });
 
     return UnwindScreen(
       safeArea: false,
-      child: AnimatedBuilder(
-        animation: _zoom,
-        builder: (context, inner) {
-          final scale =
-              UnwindMotion.cordZoomScale -
-              (UnwindMotion.cordZoomScale - 1.0) *
-                  UnwindMotion.settle.transform(_zoom.value);
-          return Transform.scale(
-            scale: _zoom.value > 0 ? scale : 1.0,
-            child: inner,
-          );
-        },
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                child: RepaintBoundary(
-                  child: AnimatedBuilder(
-                    animation: _stars,
-                    builder: (context, _) => CustomPaint(
-                      painter: NightSkyPainter(
-                        opacity: Curves.easeInOut.transform(_stars.value),
+      child: Stack(
+        children: [
+          AnimatedBuilder(
+            animation: _zoom,
+            builder: (context, inner) {
+              final scale =
+                  UnwindMotion.cordZoomScale -
+                  (UnwindMotion.cordZoomScale - 1.0) *
+                      UnwindMotion.settle.transform(_zoom.value);
+              return Transform.scale(
+                scale: _zoom.value > 0 ? scale : 1.0,
+                child: inner,
+              );
+            },
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: RepaintBoundary(
+                      child: AnimatedBuilder(
+                        animation: _stars,
+                        builder: (context, _) => CustomPaint(
+                          painter: NightSkyPainter(
+                            opacity: Curves.easeInOut.transform(_stars.value),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            // 코너 글로우: 다크 베이스 위 순수한 빛. 남은 할 일 = 남은 빛.
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: Listenable.merge([_theme, _pulse, _breath]),
-                builder: (context, _) => CornerGlow(
-                  light: 1 - _displayT,
-                  breath: reduce
-                      ? 0
-                      : BreathAnimation(_breath).value * (1 - _displayT),
-                ),
-              ),
-            ),
-            SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _TopBar(
-                    onSettings: () => showSettingsScreen(context),
-                    onBill: (bill) => showBillScreen(context, bill),
-                    onOpenBill: _openDummyBill,
+                // 코너 글로우: 다크 베이스 위 순수한 빛. 남은 할 일 = 남은 빛.
+                Positioned.fill(
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([_theme, _pulse, _breath]),
+                    builder: (context, _) => CornerGlow(
+                      light: 1 - _displayT,
+                      breath: reduce
+                          ? 0
+                          : BreathAnimation(_breath).value * (1 - _displayT),
+                    ),
                   ),
-                  // 유령 영역 — 고정 높이로 체크리스트와의 간격 축소.
-                  // 오늘: Lumi (탭하면 반응, 잠들었을 땐 무반응).
-                  // 과거·미래: Lumi는 오늘의 방에 있다 — 빈 자리만 남는다.
-                  SizedBox(
-                    height: 136,
-                    child: !isViewingToday
-                        ? _LumiAway(label: l10n.lumiAway)
-                        : Center(
-                            child: UnwindPressable(
-                              onTap: _pokeLumi,
-                              depth: 0,
-                              pressScale: 1.0, // 반응은 캐릭터가 한다
-                              haptic:
-                                  UnwindHapticKind.none, // _pokeLumi가 고른다
-                              isButton: false,
-                              semanticLabel: l10n.lumiPokeLabel,
-                              child: Center(
-                                child: AnimatedBuilder(
-                                  animation: _theme,
-                                  builder: (context, _) => LumiView(
-                                    state: LumiState(
-                                      brightness: _displayTStatic,
-                                      // 시각 무관: 전부 체크 시 잠들고,
-                                      // 밤의 빈 방도 잠든다
-                                      isAsleep:
-                                          lumiMode.mode == LumiMode.asleep,
-                                      mode: lumiMode.mode,
-                                      activity: lumiMode.activity,
-                                      dazzle: lumiMode.dazzle,
-                                      // 전날 불을 남겼으면 눈 밑에 다크서클
-                                      darkCircles: ref.watch(
-                                        darkCirclesProvider,
+                ),
+                SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _TopBar(
+                        onSettings: () => showSettingsScreen(context),
+                        onBill: _openBill,
+                      ),
+                      // 유령 영역 — 고정 높이로 체크리스트와의 간격 축소.
+                      // 오늘: Todd (탭하면 반응, 잠들었을 땐 무반응).
+                      // 과거·미래: Todd는 오늘의 방에 있다 — 빈 자리만 남는다.
+                      SizedBox(
+                        height: 136,
+                        child: !isViewingToday
+                            ? _ToddAway(label: l10n.toddAway)
+                            : Center(
+                                child: UnwindPressable(
+                                  onTap: _pokeTodd,
+                                  depth: 0,
+                                  pressScale: 1.0, // 반응은 캐릭터가 한다
+                                  haptic:
+                                      UnwindHapticKind.none, // _pokeTodd가 고른다
+                                  isButton: false,
+                                  semanticLabel: l10n.toddPokeLabel,
+                                  child: Center(
+                                    child: AnimatedBuilder(
+                                      animation: _theme,
+                                      builder: (context, _) => ToddView(
+                                        state: ToddState(
+                                          brightness: _displayTStatic,
+                                          // 시각 무관: 전부 체크 시 잠들고,
+                                          // 밤의 빈 방도 잠든다
+                                          isAsleep:
+                                              toddMode.mode == ToddMode.asleep,
+                                          mode: toddMode.mode,
+                                          activity: toddMode.activity,
+                                          dazzle: toddMode.dazzle,
+                                          // 전날 불을 남겼으면 눈 밑에 다크서클
+                                          darkCircles: ref.watch(
+                                            darkCirclesProvider,
+                                          ),
+                                          event: _toddEvent,
+                                          eventTick: _toddTick,
+                                        ),
+                                        reduceMotion: reduce,
+                                        size: 118,
                                       ),
-                                      event: _lumiEvent,
-                                      eventTick: _lumiTick,
                                     ),
-                                    reduceMotion: reduce,
-                                    size: 118,
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                  ),
-                  Expanded(
-                    child: todos.isEmpty
-                        ? const _EmptyRoom()
-                        : ListView.builder(
-                            padding: const EdgeInsets.only(
-                              top: UnwindSpacing.s4,
-                              bottom: UnwindSpacing.s16,
-                            ),
-                            itemCount: todos.length,
-                            itemBuilder: (context, i) =>
-                                _buildRow(context, l10n, todos[i], asleep),
-                          ),
-                  ),
-                  // 하단 — 주 칩 + 이번 주 스트립 (개편 2026-08-13).
-                  // Bill이 상단으로 갔으니 스트립이 너비를 다 쓴다.
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      UnwindSpacing.s16,
-                      0,
-                      UnwindSpacing.s16,
-                      UnwindSpacing.s8,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // 주 칩과 FAB는 같은 줄에 앉고 **하단 라인을 맞춘다**
-                        // (개정 2026-08-13). 가운데 정렬하면 작은 칩이 위로
-                        // 떠서 스트립과 멀어진다.
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            const _WeekPill(),
-                            const Spacer(),
-                            Opacity(
-                              opacity: asleep ? 0.55 : 1.0,
-                              child: UnwindIconButton(
-                                icon: Icons.add_rounded,
-                                iconSize: 32,
-                                size: 64,
-                                style: UnwindIconButtonStyle.accent,
-                                semanticLabel: l10n.addTaskLabel,
-                                onPressed: () {
-                                  // 과거 날짜 열람 중엔 그 날짜로 추가
-                                  final viewed = ref.read(viewedDayKeyProvider);
-                                  final today = ref.read(todayKeyProvider);
-                                  showComposeSheet(
-                                    context,
-                                    initialDate: viewed != today
-                                        ? viewed
-                                        : null,
-                                  );
-                                },
+                      ),
+                      Expanded(
+                        child: todos.isEmpty
+                            ? const _EmptyRoom()
+                            : ListView.builder(
+                                padding: const EdgeInsets.only(
+                                  top: UnwindSpacing.s4,
+                                  bottom: UnwindSpacing.s16,
+                                ),
+                                itemCount: todos.length,
+                                itemBuilder: (context, i) =>
+                                    _buildRow(context, l10n, todos[i], asleep),
                               ),
+                      ),
+                      // 하단 — 주 칩 + 이번 주 스트립 (개편 2026-08-13).
+                      // Bill이 상단으로 갔으니 스트립이 너비를 다 쓴다.
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          UnwindSpacing.s16,
+                          0,
+                          UnwindSpacing.s16,
+                          UnwindSpacing.s8,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // 주 칩과 FAB는 같은 줄에 앉고 **하단 라인을 맞춘다**
+                            // (개정 2026-08-13). 가운데 정렬하면 작은 칩이 위로
+                            // 떠서 스트립과 멀어진다.
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const _WeekPill(),
+                                const Spacer(),
+                                Opacity(
+                                  opacity: asleep ? 0.55 : 1.0,
+                                  child: UnwindIconButton(
+                                    icon: Icons.add_rounded,
+                                    iconSize: 32,
+                                    size: 64,
+                                    style: UnwindIconButtonStyle.accent,
+                                    semanticLabel: l10n.addTaskLabel,
+                                    onPressed: () {
+                                      // 과거 날짜 열람 중엔 그 날짜로 추가
+                                      final viewed = ref.read(
+                                        viewedDayKeyProvider,
+                                      );
+                                      final today = ref.read(todayKeyProvider);
+                                      showComposeSheet(
+                                        context,
+                                        initialDate: viewed != today
+                                            ? viewed
+                                            : null,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // FAB가 스트립에 붙지 않게 한 칸 띄운다
+                            const SizedBox(height: UnwindSpacing.s12),
+                            AnimatedBuilder(
+                              animation: _theme,
+                              builder: (context, _) =>
+                                  WeeklyStrip(currentT: _displayTStatic),
                             ),
                           ],
                         ),
-                        // FAB가 스트립에 붙지 않게 한 칸 띄운다
-                        const SizedBox(height: UnwindSpacing.s12),
-                        AnimatedBuilder(
-                          animation: _theme,
-                          builder: (context, _) =>
-                              WeeklyStrip(currentT: _displayTStatic),
-                        ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+                // 전등 줄 (§6.4)
+                Positioned(
+                  top: 0,
+                  right: UnwindSpacing.s24,
+                  child: SafeArea(
+                    child: PullCord(
+                      key: _cordKey,
+                      enabled: cordEnabled && !_dominoRunning,
+                      haptics: haptics,
+                      onPull: _runLightsOut,
                     ),
                   ),
-                ],
-              ),
-            ),
-            // 전등 줄 (§6.4)
-            Positioned(
-              top: 0,
-              right: UnwindSpacing.s24,
-              child: SafeArea(
-                child: PullCord(
-                  enabled: cordEnabled && !_dominoRunning,
-                  haptics: haptics,
-                  onPull: _runLightsOut,
                 ),
+              ],
+            ),
+          ),
+          if (_coachHole != null)
+            Positioned.fill(
+              child: UnwindCoachMark(
+                holeCenter: _coachHole!,
+                holeRadius: UnwindSpacing.s24,
+                message: l10n.pullCordCoach,
+                onDismiss: _dismissCoach,
+                reduceMotion: reduce,
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -636,26 +661,23 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   }
 }
 
-/// 상단 행 — 설정 + 날짜 타이틀 + 미확인 청구서 배지
+/// 상단 행 — 설정 + 날짜 타이틀 + 청구서 (월요일·미확인이면 점)
 class _TopBar extends ConsumerWidget {
   final VoidCallback onSettings;
-  final void Function(WeeklyBill) onBill;
+  final VoidCallback onBill;
 
-  /// 청구서 화면 열기 (현재는 개발용 더미)
-  final VoidCallback onOpenBill;
-
-  const _TopBar({
-    required this.onSettings,
-    required this.onBill,
-    required this.onOpenBill,
-  });
+  const _TopBar({required this.onSettings, required this.onBill});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final viewedKey = ref.watch(viewedDayKeyProvider);
-    final isPast = viewedKey != ref.watch(todayKeyProvider);
+    final todayKey = ref.watch(todayKeyProvider);
+    final isPast = viewedKey != todayKey;
     final unread = ref.watch(unreadBillsProvider).value ?? const <WeeklyBill>[];
+    final lastMonday = lastMondayKeyOf(todayKey);
+    final hasUnread =
+        isMondayKey(todayKey) && unread.any((b) => b.weekStart == lastMonday);
 
     final String title;
     if (isPast) {
@@ -670,34 +692,23 @@ class _TopBar extends ConsumerWidget {
     }
 
     // 개편 2026-08-13: 청구서가 좌측 끝(이전 설정 자리)으로, 설정은 제목
-    // 오른쪽으로 작게. 미확인 배지는 청구서 바로 옆에 **코랄**로 — 앰버는
-    // 앱 전체가 쓰는 색이라 알림으로 읽히지 않는다.
+    // 오른쪽으로 작게. 미확인이면 아이콘 우측 상단에 코랄 점
+    // (개정 2026-08-16: 옆의 "Bill" 칩에서 점으로).
     return UnwindHeader(
       title: title,
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          UnwindPressable(
-            onTap: onOpenBill,
-            depth: 0,
-            semanticLabel: l10n.billBadge,
-            child: Image.asset(
-              'assets/images/bill.png',
-              width: 40,
-              height: 40,
-              fit: BoxFit.contain,
-            ),
+      leading: UnwindPressable(
+        onTap: onBill,
+        depth: 0,
+        semanticLabel: hasUnread ? l10n.notifBillArrived : l10n.billBadge,
+        child: UnwindBadgeDot(
+          visible: hasUnread,
+          child: Image.asset(
+            'assets/images/bill.png',
+            width: UnwindSpacing.s40,
+            height: UnwindSpacing.s40,
+            fit: BoxFit.contain,
           ),
-          if (unread.isNotEmpty) ...[
-            const SizedBox(width: UnwindSpacing.s4),
-            UnwindPill(
-              label: l10n.billBadge,
-              tone: UnwindPillTone.danger,
-              semanticLabel: l10n.notifBillArrived,
-              onTap: () => onBill(unread.first),
-            ),
-          ],
-        ],
+        ),
       ),
       titleTrailing: UnwindIconButton(
         icon: Icons.settings_outlined,
@@ -733,14 +744,14 @@ class _WeekPill extends ConsumerWidget {
   }
 }
 
-/// Lumi의 빈 자리 (개정 2026-08-15) — 과거·미래 날짜의 방.
-/// Lumi는 오직 오늘의 방에만 있으므로 떠 있던 자리 아래 바닥 그림자만
+/// Todd의 빈 자리 (개정 2026-08-15) — 과거·미래 날짜의 방.
+/// Todd는 오직 오늘의 방에만 있으므로 떠 있던 자리 아래 바닥 그림자만
 /// 남긴다 (문구는 뺐다 — 2차 개정 2026-08-15: 그림자만으로 부재가 읽힌다).
 /// 탭해도 반응 없음. [label]은 스크린 리더용 설명으로만 쓴다.
-class _LumiAway extends StatelessWidget {
+class _ToddAway extends StatelessWidget {
   final String label;
 
-  const _LumiAway({required this.label});
+  const _ToddAway({required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -749,7 +760,7 @@ class _LumiAway extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Lumi가 떠 있던 높이만큼 비워 둔다 — 부재가 읽히는 여백
+          // Todd가 떠 있던 높이만큼 비워 둔다 — 부재가 읽히는 여백
           const SizedBox(height: 58),
           // 바닥 그림자 — 블러 없는 솔리드 타원 (§11, 디자인 시스템 §5.2)
           Container(

@@ -62,7 +62,7 @@ void main() {
       e.pullCord();
       expect(e.t(doneCount: 1, totalCount: 2), 1.0);
 
-      // Lumi 취침 후 항목 추가
+      // Todd 취침 후 항목 추가
       e.onItemAdded(doneCount: 1, totalCount: 3);
       expect(e.t(doneCount: 1, totalCount: 3), 1.0);
     });

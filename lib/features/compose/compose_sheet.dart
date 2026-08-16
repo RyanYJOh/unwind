@@ -11,6 +11,7 @@ import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
 import '../../ui/ui.dart';
 import '../today/providers.dart';
+import '../today/pull_cord_coach.dart';
 import 'date_bar.dart';
 import '../../l10n/generated/app_localizations.dart';
 
@@ -176,10 +177,13 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
 
     // 저장하면 키보드와 함께 시트도 닫힌다 (개정 2026-08-12).
     // 확인 토스트는 없앴다 — 방에 등이 하나 늘어난 것이 곧 피드백이다.
+    final coach = ref.read(pullCordCoachVisibleProvider.notifier);
+    final date = _dateKey;
     if (mounted) {
       ref.read(hapticsProvider).success();
       Navigator.of(context).pop();
     }
+    await coach.onNewTodoAdded(date);
   }
 
   List<(String, RecurrenceRule?)> _repeatOptions(
@@ -232,7 +236,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
           children: [
             if (asleep && !_isEdit) ...[
               Text(
-                l10n.lumiSleepingNotice,
+                l10n.toddSleepingNotice,
                 style: UnwindType.caption.copyWith(
                   color: UnwindColors.textSecondary,
                 ),

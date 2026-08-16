@@ -51,6 +51,19 @@ void main() {
       );
     });
 
+    test('취침 알림은 bedtime 30분 전이다', () {
+      expect(nightReminderClock(22), (hour: 21, minute: 30));
+      expect(nightReminderClock(16), (hour: 15, minute: 30));
+      expect(nightReminderClock(0), (hour: 23, minute: 30));
+      expect(nightReminderClock(1), (hour: 0, minute: 30));
+    });
+
+    test('아침 인사는 wakeHour 1시간 뒤다', () {
+      expect(morningGreetingClock(5), (hour: 6, minute: 0));
+      expect(morningGreetingClock(12), (hour: 13, minute: 0));
+      expect(morningGreetingClock(23), (hour: 0, minute: 0));
+    });
+
     test('Todo 알림 ID는 실행 간 재현 가능한 양수다', () {
       final first = NotificationService.todoNotificationId('todo-123');
       expect(first, NotificationService.todoNotificationId('todo-123'));

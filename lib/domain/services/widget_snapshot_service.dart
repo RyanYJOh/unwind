@@ -1,14 +1,17 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:home_widget/home_widget.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/services.dart';
+
+import '../../data/db/tables/tables.dart';
+import 'brightness_engine.dart';
 
 /// iOS 홈 위젯에 넘기는 오늘의 스냅샷 (PRD 개정 2026-08-15).
 ///
 /// 앱은 로컬 온리라 할 일 변경은 전부 앱 안에서만 일어난다 — 변이 때마다
-/// 이 스냅샷을 App Group UserDefaults에 쓰면 위젯 숫자는 항상 정확하다.
-/// 위젯(Swift)은 이 값 + 자기 시계로 Lumi 모드를 판정한다. 위젯 쪽 판정
-/// 로직은 ios/LumiWidget/LumiWidget.swift — lumiModeProvider(§4)와 규칙을
+/// 이 스냅샷을 App Group에 쓰면 위젯 숫자는 항상 정확하다.
+/// 위젯(Swift)은 이 값 + 자기 시계로 Todd 모드를 판정한다. 위젯 쪽 판정
+/// 로직은 ios/ToddWidget/ToddWidget.swift — toddModeProvider(§4)와 규칙을
 /// 맞춰야 한다.
 class WidgetSnapshot {
   /// 앱이 마지막으로 알고 있던 논리적 오늘. 위젯이 자기 시계로 계산한
@@ -48,39 +51,92 @@ class WidgetSnapshot {
     required this.bedtimeHour,
     required this.languageCode,
   });
+
+  /// 오늘 방의 할 일 상태에서 위젯 스냅샷을 만든다.
+  factory WidgetSnapshot.fromTodos({
+    required String dayKey,
+    required Iterable<TodoStatus> statuses,
+    required bool lightsOut,
+    required double peakProgress,
+    required bool darkCircles,
+    required int wakeHour,
+    required int bedtimeHour,
+    required String languageCode,
+  }) {
+    final counted = statuses.where((s) => s != TodoStatus.deferred);
+    final pending = counted.where((s) => s == TodoStatus.pending).length;
+    final total = counted.length;
+    final double t;
+    if (lightsOut) {
+      t = 1.0;
+    } else if (total == 0) {
+      t = BrightnessEngine.emptyRoomT;
+    } else {
+      t = peakProgress.clamp(0.0, 1.0);
+    }
+    return WidgetSnapshot(
+      dayKey: dayKey,
+      remaining: pending,
+      total: total,
+      lightsOut: lightsOut,
+      brightness: t,
+      darkCircles: darkCircles,
+      wakeHour: wakeHour,
+      bedtimeHour: bedtimeHour,
+      languageCode: languageCode,
+    );
+  }
 }
 
 class WidgetSnapshotService {
-  /// Runner·LumiWidget 양쪽 엔타이틀먼트와 일치해야 한다
+  /// Runner·ToddWidget 양쪽 엔타이틀먼트와 일치해야 한다
   static const appGroupId = 'group.com.unwindapp.unwind';
 
   /// Swift 쪽 Widget kind 문자열과 일치해야 한다
-  static const iOSWidgetName = 'LumiWidget';
+  static const iOSWidgetName = 'ToddWidget';
 
-  bool _groupSet = false;
+  static const _channel = MethodChannel('unwind/widget_snapshot');
 
-  Future<void> write(WidgetSnapshot s) async {
+  int _epoch = 0;
+  Future<void> _chain = Future<void>.value();
+
+  /// 오늘의 스냅샷을 App Group에 쓴다.
+  ///
+  /// [widgetSyncProvider]가 빌드마다 fire-and-forget으로 부르므로, 빈 방
+  /// write와 할 일 있는 write가 겹치면 빈 방이 나중에 끝나 `total=0`으로
+  /// 남을 수 있다. 세대 번호로 직렬화해 **마지막 스냅샷만** 반영한다.
+  Future<void> write(WidgetSnapshot s) {
+    final epoch = ++_epoch;
+    _chain = _chain.catchError((_) {}).then((_) async {
+      if (epoch != _epoch) return;
+      await _persist(s);
+    });
+    return _chain;
+  }
+
+  Future<void> _persist(WidgetSnapshot s) async {
     // 홈 위젯은 iOS만 (발주자 결정 2026-08-15). 테스트·macOS에선 no-op.
     if (kIsWeb || !Platform.isIOS) return;
     try {
-      if (!_groupSet) {
-        await HomeWidget.setAppGroupId(appGroupId);
-        _groupSet = true;
-      }
-      await Future.wait([
-        HomeWidget.saveWidgetData('dayKey', s.dayKey),
-        HomeWidget.saveWidgetData('remaining', s.remaining),
-        HomeWidget.saveWidgetData('total', s.total),
-        HomeWidget.saveWidgetData('lightsOut', s.lightsOut),
-        HomeWidget.saveWidgetData('brightness', s.brightness),
-        HomeWidget.saveWidgetData('darkCircles', s.darkCircles),
-        HomeWidget.saveWidgetData('wakeHour', s.wakeHour),
-        HomeWidget.saveWidgetData('bedtimeHour', s.bedtimeHour),
-        HomeWidget.saveWidgetData('languageCode', s.languageCode),
-      ]);
-      await HomeWidget.updateWidget(iOSName: iOSWidgetName);
-    } catch (_) {
-      // 위젯 미설치·플러그인 부재 — 앱 동작에 영향을 주지 않는다
+      // 네이티브 브리지가 UserDefaults를 플러시하고 JSON 파일을 원자적으로
+      // 쓴 뒤에 타임라인을 리로드한다 — home_widget saveWidgetData는
+      // 디스크 반영 전에 reload해서 첫 설치 위젯이 빈 폴백에 고정됐다.
+      await _channel.invokeMethod<bool>('persist', {
+        'appGroupId': appGroupId,
+        'kind': iOSWidgetName,
+        'dayKey': s.dayKey,
+        'remaining': s.remaining,
+        'total': s.total,
+        'lightsOut': s.lightsOut,
+        'brightness': s.brightness,
+        'darkCircles': s.darkCircles,
+        'wakeHour': s.wakeHour,
+        'bedtimeHour': s.bedtimeHour,
+        'languageCode': s.languageCode,
+      });
+    } catch (e, st) {
+      // 위젯 미설치여도 앱은 계속 돌아야 한다. 삼키되 원인은 남긴다.
+      debugPrint('WidgetSnapshot persist failed: $e\n$st');
     }
   }
 }

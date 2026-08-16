@@ -9,14 +9,16 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get appName => 'Todd';
+
+  @override
   String get today => 'Today';
 
   @override
-  String get emptyRoomTitle => 'No lights to keep on today';
+  String get emptyRoomTitle => 'No to-do items';
 
   @override
-  String get emptyRoomSubtitle =>
-      'Write down a task, and a light turns on in this room';
+  String get emptyRoomSubtitle => 'Wait.. the light can\'t be turned off?';
 
   @override
   String get billBadge => 'Bill';
@@ -26,6 +28,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get endDayLabel => 'End the day';
+
+  @override
+  String get pullCordCoach => 'Pull the handle all the way down.';
 
   @override
   String get lampOn => 'On';
@@ -111,17 +116,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addMemo => 'Add a note';
 
   @override
-  String get lumiSleepingNotice =>
-      'Lumi is asleep. This will go in tomorrow\'s room';
+  String get toddSleepingNotice => 'Todd\'s asleep. This will go in tomorrow';
 
   @override
-  String get lumiPokeLabel => 'Lumi';
+  String get toddPokeLabel => 'Todd';
 
   @override
-  String get lumiAway => 'Lumi is in today\'s room';
+  String get toddAway => 'I\'m in today\'s room';
 
   @override
-  String get toastTaskDeleted => 'Taken out of the room';
+  String get toastTaskDeleted => 'To-do deleted';
 
   @override
   String get undo => 'Undo';
@@ -185,12 +189,27 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get billTitle => 'Unwind Electric Bill';
+  String get billTitle => 'Weekly Electric Bill';
 
   @override
-  String billTotalCaption(String kwh, String fee) {
-    return 'Total $kwh kWh · includes $fee base fee';
+  String billTasksClosed(int done, int total) {
+    return '$done / $total';
   }
+
+  @override
+  String get billTasksCaption => 'tasks closed last week';
+
+  @override
+  String billTotalCaption(String kwh) {
+    return '$kwh kWh left burning overnight';
+  }
+
+  @override
+  String get billMondayOnly => 'The bill opens on Mondays';
+
+  @override
+  String get billMondayOnlyBody =>
+      'Meanwhile, let\'s smash\nthis week\'s to-dos!';
 
   @override
   String wonAmount(String amount) {
@@ -198,19 +217,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get sleepDeep => 'Lumi slept deeply';
+  String get sleepDeep => 'Todd had perfect sleep';
 
   @override
-  String get sleepWell => 'Lumi slept well';
+  String get sleepWell => 'Todd slept fine';
 
   @override
-  String get sleepTossed => 'Lumi tossed and turned a little';
+  String get sleepTossed => 'Todd tossed and turned a little';
 
   @override
-  String get sleepBarely => 'Lumi barely closed an eye';
+  String get sleepBarely => 'Todd barely closed an eye';
 
   @override
-  String get sleepNone => 'Lumi stayed awake all night';
+  String get sleepNone => 'Todd stayed awake all night';
 
   @override
   String nightsOut(int count) {
@@ -241,10 +260,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notifNightReminder =>
-      'It\'s Lumi\'s bedtime — the lights are still on';
+      'It\'s Todd\'s bedtime — the lights are still on';
 
   @override
   String get notifBillArrived => 'Last week\'s bill has arrived';
+
+  @override
+  String get notifMorningGreeting => 'Good morning — Todd\'s already up';
+
+  @override
+  String notifMorningGreetingNamed(String name) {
+    return 'Good morning, $name — Todd\'s already up';
+  }
 
   @override
   String get settingsTitle => 'Settings';
@@ -253,18 +280,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionNotifications => 'Notifications';
 
   @override
-  String get nightReminder => 'Bedtime reminder';
+  String get pushSettings => 'Push Notifications';
 
   @override
-  String get nightReminderCaption =>
-      'A gentle note at bedtime if lights are still on';
+  String get pushSettingsCaption => 'Todd wants to talk to you';
 
   @override
-  String get billNotification => 'Bill arrival';
+  String get pushSettingsTitle => 'Push Notifications';
+
+  @override
+  String get morningGreeting => 'Morning greeting';
+
+  @override
+  String get morningGreetingCaption => 'An hour after Todd wakes up';
+
+  @override
+  String get nightReminder => 'Unwind reminder';
+
+  @override
+  String get nightReminderCaption => '30 minutes before Todd\'s bedtime';
+
+  @override
+  String get todoReminder => 'Timed tasks';
+
+  @override
+  String get todoReminderCaption => '10 minutes before a task with a time';
+
+  @override
+  String get billNotification => 'Weekly Bill';
 
   @override
   String get billNotificationCaption =>
-      'Your last week\'s bill, every Monday morning';
+      'Last week\'s bill, every Monday morning';
 
   @override
   String get sectionFeel => 'Feel';
@@ -276,19 +323,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get haptics => 'Haptics';
 
   @override
-  String get sectionDay => 'Lumi\'s day';
+  String get sectionDay => 'Todd\'s day';
 
   @override
   String get wakeTime => 'Wake-up time';
 
   @override
-  String get wakeTimeCaption => 'A new day begins when Lumi wakes up';
+  String get wakeTimeCaption => 'A new day begins when Todd wakes up';
 
   @override
   String get bedtime => 'Bedtime';
 
   @override
-  String get bedtimeCaption => 'Lumi needs the lights out by then';
+  String get bedtimeCaption => 'Todd needs the lights out by then';
 
   @override
   String hourLabel(int hour) {
@@ -328,50 +375,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obNext => 'Next';
 
   @override
-  String get obWelcomeTitle => 'Get things done with Lumi';
+  String get obWelcomeTitle => 'Hey! I\'m Todd.';
 
   @override
-  String get obWelcomeBody =>
-      'This is Lumi — a little ghost who lives in your room. Finishing your day is what lets Lumi sleep.';
+  String get obWelcomeBody => 'Can you help me\nget to sleep every night?';
 
   @override
-  String get obNightTitle => 'At night, Lumi needs to sleep';
+  String get obNightTitle => 'I need to sleep but..';
 
   @override
   String get obNightBody =>
-      'The lights are far too bright to sleep in. Flip a switch when a task is done — try turning them all off.';
+      'The light is too bright.\nCan you check off the to-dos?';
 
   @override
-  String get obLightsDone => 'All lights out — sweet dreams, Lumi';
+  String get obLightsDone => 'That\'s perfect!';
+
+  @override
+  String get obLightsDoneBody =>
+      'I can finally get some\ngood sleep tonight. Thanks!';
 
   @override
   String get obDummy1 => 'Drink 2L of water';
 
   @override
-  String get obDummy2 => 'Work out';
+  String get obDummy2 => 'Go to the gym';
 
   @override
   String get obDummy3 => 'Read for 30 minutes';
 
   @override
-  String get obBillTitle => 'Every Monday, a bill arrives';
+  String get obBillTitle => 'Every Monday,\nyour bill arrives';
 
   @override
-  String get obBillBody =>
-      'The lights you leave on burn electricity all night. Tap the bill to peek at a receipt.';
+  String get obBillBody => 'Let\'s see how much light\nyou kept on last week.';
 
   @override
-  String get obQuestionsTitle => 'Now, a few quick questions';
+  String get obBillOnMe => 'Don\'t worry — it\'s on me!';
 
   @override
-  String get obQuestionsBody => 'So Lumi can live around your day.';
+  String get obQuestionsTitle => 'Now I got a few\nquick questions!';
 
   @override
-  String get obHabitsTitle => 'Is there something you do every day?';
+  String get obQuestionsBody => 'Let\'s sync our daily routine.';
 
   @override
-  String get obHabitsBody =>
-      'Add it once, and a lamp will be waiting for you every morning.';
+  String get obHabitsTitle => 'Do you have any daily routine?';
+
+  @override
+  String get obHabitsBody => 'Or something you\'re planning to.';
 
   @override
   String get obHabitsHint => 'e.g. Stretch for 5 minutes';
@@ -383,38 +434,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obHabitsDefault => 'Drink 2L of water';
 
   @override
-  String get obSleepQTitle => 'When do you usually fall asleep?';
+  String get obSleepQTitle => 'When do you usually go to bed?';
 
   @override
-  String get obSleepQBody =>
-      'Sleepyhead Lumi dozes off three hours before you.';
+  String get obSleepQBody => 'Btw, I unwind quite early in the evening.';
 
   @override
   String obSleepQResult(String time) {
-    return 'So Lumi\'s bedtime will be $time';
+    return 'You can change this later';
   }
 
   @override
   String get obWakeQTitle => 'When do you usually wake up?';
 
   @override
-  String get obWakeQBody => 'Lumi gets up an hour earlier to open up the day.';
+  String get obWakeQBody => 'I\'m an early-riser, just so you know.';
 
   @override
   String obWakeQResult(String time) {
-    return 'So Lumi will rise at $time';
+    return 'You can change this later';
   }
 
   @override
-  String get obScheduleTitle => 'Lumi\'s day is set';
+  String get obScheduleTitle => 'Got it!\nThis is my day.';
 
   @override
   String obScheduleBody(String bed, String wake) {
-    return 'Asleep at $bed, up at $wake — always a little ahead of you.';
+    return 'Unwind at $bed, get up at $wake.';
   }
 
   @override
-  String get obNameTitle => 'What should Lumi call you?';
+  String get obNameTitle => 'What should I call you?';
 
   @override
   String get obNameHint => 'Your name';
@@ -424,21 +474,42 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String obGreeting(String name) {
-    return 'Nice to meet you, $name!';
+    return 'You\'re all set, $name!';
   }
 
   @override
-  String get obGreetingNoName => 'Nice to meet you!';
+  String get obGreetingNoName => 'You\'re all set!';
+
+  @override
+  String get obWidgetTitle => 'Oh, one last thing...';
+
+  @override
+  String get obWidgetBody =>
+      'Install Todd widget.\nYou won\'t forget your checklist.';
+
+  @override
+  String get obWidgetStep1 => 'Go to the Home Screen';
+
+  @override
+  String get obWidgetStep2 => 'Touch and hold an empty spot';
+
+  @override
+  String get obWidgetStep3 => 'Tap \'Add Widget\', then Todd';
+
+  @override
+  String get obWidgetCta => 'Got it!';
+
+  @override
+  String get obWidgetPillLeft => 'left';
 
   @override
   String get m0Reset => 'Experience again from the start (M0 test)';
 
   @override
-  String get autoDeferTitle => 'Move to tomorrow automatically';
+  String get autoDeferTitle => 'Postpone automatically';
 
   @override
-  String get autoDeferSubtitle =>
-      'If it isn\'t done today, it moves to tomorrow\'s room';
+  String get autoDeferSubtitle => 'If not done today, moves to tomorrow';
 
   @override
   String get taskTime => 'Time';

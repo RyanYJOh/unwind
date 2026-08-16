@@ -39,6 +39,15 @@ class PullCord extends StatefulWidget {
     this.restLength = 148,
   });
 
+  /// 손잡이(구슬) 중심의 전역 좌표 — 코치마크가 가리킬 때 쓴다.
+  static Offset? handleCenterOf(GlobalKey key, {double restLength = 148}) {
+    final ctx = key.currentContext;
+    if (ctx == null) return null;
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return null;
+    return box.localToGlobal(Offset(box.size.width / 2, restLength + 11));
+  }
+
   @override
   State<PullCord> createState() => _PullCordState();
 }

@@ -5,30 +5,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:unwind/data/db/database.dart';
+import 'package:unwind/domain/services/bill_money.dart';
 import 'package:unwind/features/bill/bill_screen.dart';
 import 'package:unwind/features/today/providers.dart';
 import 'package:unwind/l10n/generated/app_localizations.dart';
 
 /// §6.5 청구서 화면 — 영수증 렌더링 + 문구 톤 스모크
 void main() {
-  testWidgets('영수증: 총액·일별 명세·수면 서술·읽음 처리', (tester) async {
+  testWidgets('영수증: 완수·총액·일별 요금·Todd 상태·읽음 처리', (tester) async {
     final db = UnwindDatabase.withExecutor(NativeDatabase.memory());
 
-    final payload = jsonEncode([
-      for (var i = 0; i < 7; i++)
-        {
-          'date': '2026-07-2${7 + i > 9 ? 7 : 7 + i}',
-          'kwh': 0.42,
-          'lightsOut': i < 4, // 4일 밤 불을 껐다
-          'sleepMinutes': i < 4 ? 450 : 0,
-        },
-    ]);
+    final payload = jsonEncode({
+      'completed': 12,
+      'total': 18,
+      'sleepScore': 0.71,
+      'days': [
+        for (var i = 0; i < 7; i++)
+          {
+            'date': '2026-07-${27 + i}',
+            'kwh': i == 2 ? 0.42 : 0.0,
+            'lightsOut': i != 2,
+            'sleepMinutes': i != 2 ? 420 : 0,
+            'leftover': i == 2 ? 1 : 0,
+            'amount': i == 2 ? 64 : 0,
+            'sleepScore': i != 2 ? 1 : 0,
+          },
+      ],
+    });
     await db.billDao.insertBill(
       WeeklyBillsCompanion.insert(
         weekStart: '2026-07-27',
-        kwh: 2.94,
-        amount: 1180,
-        sleepMinutes: 1800,
+        kwh: 0.42,
+        amount: 60,
+        sleepMinutes: 2520,
         generatedAt: DateTime(2026, 8, 3, 9),
         isRead: false,
         payload: payload,
@@ -42,28 +51,47 @@ void main() {
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: BillScreen(bill: bill),
+          home: BillScreen(bill: bill, currency: BillCurrency.usd),
         ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 100));
 
-    // 주간 총액 (모노스페이스) + 일별 명세 + 서술형 문구
-    expect(find.text('₩1,180'), findsOneWidget);
-    expect(
-      find.text('You turned the lights out on 4 nights this week'),
-      findsOneWidget,
-    );
-    // 수면 평균 1800/7 ≈ 257분(4.3h) → '조금 뒤척였어요'
-    expect(find.text('Lumi tossed and turned a little'), findsOneWidget);
-    // 퍼센트·점수·등급 문자열이 없어야 한다 (§1.3)
+    expect(find.text('12 / 18'), findsOneWidget);
+    expect(find.text(r'$0.07'), findsWidgets);
+    expect(find.text('Todd tossed and turned a little'), findsOneWidget);
     expect(find.textContaining('%'), findsNothing);
 
-    // 열람 → 읽음 처리 (§6.5 배지 해제)
     await tester.pump(const Duration(milliseconds: 100));
     expect((await db.billDao.getBill('2026-07-27'))!.isRead, true);
 
     await tester.pumpWidget(const SizedBox());
     await db.close();
+  });
+
+  testWidgets('월요일이 아니면 같은 영수증에 안내', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showBillMondayOnly(context),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(find.text('Weekly Electric Bill'), findsOneWidget);
+    expect(find.text('The bill opens on Mondays'), findsOneWidget);
+    expect(
+      find.text('Come back Monday to see last week’s lights.'),
+      findsOneWidget,
+    );
+    expect(find.text('Share'), findsNothing);
   });
 }

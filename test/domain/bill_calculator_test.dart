@@ -1,57 +1,58 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:unwind/data/db/database.dart';
+import 'package:unwind/data/db/tables/tables.dart';
 import 'package:unwind/data/repositories/bill_repository.dart';
 import 'package:unwind/data/repositories/todo_repository.dart';
 import 'package:unwind/domain/services/bill_calculator.dart';
 
 /// §6.5 청구서 계산 — 단위 테스트 필수 (§13 M3)
 void main() {
-  group('litHours — 점등 시간', () {
-    final day = DateTime(2026, 8, 3); // 월요일
-
-    test('06:00 이전에 만든 항목은 06:00부터 계산한다', () {
-      final h = BillCalculator.litHours(
-        dayStart: day,
-        createdAt: DateTime(2026, 8, 3, 2, 0), // 새벽 2시 등록
-        completedAt: DateTime(2026, 8, 3, 8, 0),
-      );
-      expect(h, closeTo(2.0, 1e-9)); // 06~08시
+  group('nightLengthHours', () {
+    test('기본 22→05 = 7시간', () {
+      expect(nightLengthHours(22, 5), 7);
     });
 
-    test('06:00 이후 등록은 등록 시각부터', () {
-      final h = BillCalculator.litHours(
-        dayStart: day,
-        createdAt: DateTime(2026, 8, 3, 10, 0),
-        completedAt: DateTime(2026, 8, 3, 13, 30),
+    test('자정 넘김 01→05 = 4시간', () {
+      expect(nightLengthHours(1, 5), 4);
+    });
+  });
+
+  group('하루 요금 — 남긴 등 × 밤', () {
+    test('소등한 날은 0원', () {
+      final day = BillCalculator.calcDay(
+        dateKey: '2026-08-03',
+        todos: const [],
+        day: null,
       );
-      expect(h, closeTo(3.5, 1e-9));
+      expect(day.lightsOut, true);
+      expect(day.kwh, 0);
+      expect(day.amount, 0);
+      expect(day.sleepScore, 1);
     });
 
-    test('미완료 + 전등 줄 당김 → lightsOutAt까지', () {
-      final h = BillCalculator.litHours(
-        dayStart: day,
-        createdAt: DateTime(2026, 8, 3, 10, 0),
-        lightsOutAt: DateTime(2026, 8, 3, 22, 0),
+    test('미완 2개 · 미소등 → 2 × 7h × 0.06 kWh', () {
+      Todo pending(String id) => Todo(
+        id: id,
+        title: id,
+        date: '2026-08-03',
+        status: TodoStatus.pending,
+        sortIndex: 0,
+        createdAt: DateTime(2026, 8, 3, 10),
+        autoDefer: false,
       );
-      expect(h, closeTo(12.0, 1e-9));
-    });
-
-    test('미완료 + 당기지 않음 → 그날 24:00까지', () {
-      final h = BillCalculator.litHours(
-        dayStart: day,
-        createdAt: DateTime(2026, 8, 3, 18, 0),
+      final day = BillCalculator.calcDay(
+        dateKey: '2026-08-03',
+        todos: [pending('a'), pending('b')],
+        day: null,
+        wakeHour: 5,
+        bedtimeHour: 22,
       );
-      expect(h, closeTo(6.0, 1e-9));
-    });
-
-    test('음수가 되지 않는다 (자정 직전 등록 후 즉시 완료 등)', () {
-      final h = BillCalculator.litHours(
-        dayStart: day,
-        createdAt: DateTime(2026, 8, 3, 23, 59),
-        completedAt: DateTime(2026, 8, 3, 23, 58), // 비정상 입력
-      );
-      expect(h, 0.0);
+      expect(day.lightsOut, false);
+      expect(day.leftover, 2);
+      expect(day.kwh, closeTo(0.84, 1e-9));
+      expect(day.amount, 128); // 0.84 * 152
+      expect(day.sleepScore, 0);
     });
   });
 
@@ -62,29 +63,28 @@ void main() {
       expect(round10(1236.7), 1240);
     });
 
-    test('주간 요금 = BASE_FEE + round10(kWh × UNIT_PRICE)', () {
-      // 등 1개, 06~16시(10h) 켜짐 → 0.6 kWh → 91.2원 → 90원 + 730원
+    test('빈 주(매일 닫힘)는 0원', () {
       final result = BillCalculator.calcWeek(
         weekStartKey: '2026-08-03',
         todosByDate: {},
         daysByDate: {},
       );
-      expect(result.amount, kBaseFee); // 빈 주는 기본료만
+      expect(result.amount, 0);
       expect(result.kwh, 0.0);
+      expect(result.sleepScore, 1.0);
+      expect(result.completed, 0);
+      expect(result.total, 0);
     });
   });
 
-  group('Lumi 수면 (§6.5)', () {
-    test('취침 22:30 → 기상 다음날 06:00 = 450분', () {
-      // calcDay를 직접 검증하려면 Day 행이 필요 — 통합 케이스에서 확인
-      expect(sleepGrade(450), SleepGrade.deep); // 7.5h
-    });
-
+  group('Todd 수면 등급', () {
     test('서술 등급 경계', () {
-      expect(sleepGrade(7 * 60), SleepGrade.deep);
-      expect(sleepGrade(5 * 60), SleepGrade.well);
-      expect(sleepGrade(3 * 60), SleepGrade.tossed);
-      expect(sleepGrade(60), SleepGrade.barely);
+      expect(sleepGrade(1.0), SleepGrade.deep);
+      expect(sleepGrade(0.80), SleepGrade.well);
+      expect(sleepGrade(0.79), SleepGrade.tossed);
+      expect(sleepGrade(0.50), SleepGrade.tossed);
+      expect(sleepGrade(0.20), SleepGrade.barely);
+      expect(sleepGrade(0.19), SleepGrade.none);
       expect(sleepGrade(0), SleepGrade.none);
     });
   });
@@ -103,28 +103,54 @@ void main() {
     tearDown(() => db.close());
 
     test('지난주에 활동이 있으면 청구서가 생성된다 (한 번만)', () async {
-      // 지난주 화요일(7/28)에 항목 1개 + 전등 줄
       final t = await todoRepo.add(title: '지난주 일', date: '2026-07-28');
       await todoRepo.setDone(t, true);
       await todoRepo.pullCord('2026-07-28', DateTime(2026, 7, 28, 22, 0));
 
       final bill = await billRepo.ensureLastWeekBill('2026-08-06');
       expect(bill, isNotNull);
-      expect(bill!.weekStart, '2026-07-27'); // 지난주 월요일
+      expect(bill!.weekStart, '2026-07-27');
       expect(bill.isRead, false);
-      expect(bill.amount, greaterThanOrEqualTo(kBaseFee));
-      // 수면: 22:00 → 다음날 06:00 = 480분
-      expect(bill.sleepMinutes, 480);
+      expect(bill.amount, 0); // 소등한 날 + 빈 날 = 전부 닫힘
+      expect(bill.sleepMinutes, greaterThan(0));
 
-      // payload 파싱 + 재생성 안 함
-      expect(decodeBillPayload(bill.payload).length, 7);
+      final contents = decodeBillPayload(bill.payload);
+      expect(contents.days.length, 7);
+      expect(contents.completed, 1);
+      expect(contents.total, 1);
+      expect(contents.sleepScore, 1.0);
+
       final again = await billRepo.ensureLastWeekBill('2026-08-06');
       expect(again!.generatedAt, bill.generatedAt);
     });
 
-    test('빈 주에는 청구서를 만들지 않는다', () async {
+    test('빈 주도 0원 청구서를 만든다', () async {
       final bill = await billRepo.ensureLastWeekBill('2026-08-06');
-      expect(bill, isNull);
+      expect(bill, isNotNull);
+      expect(bill!.amount, 0);
+      expect(bill.kwh, 0);
+      expect(decodeBillPayload(bill.payload).sleepScore, 1.0);
+    });
+
+    test('미소등 날은 남긴 등 × 밤만큼 청구한다', () async {
+      await todoRepo.add(title: '남은 등', date: '2026-07-28');
+      // 소등 없음 → leftover 1 × 7h × 0.06 = 0.42 kWh → 64원 → 60원
+      final bill = await billRepo.ensureLastWeekBill(
+        '2026-08-06',
+        wakeHour: 5,
+        bedtimeHour: 22,
+      );
+      expect(bill, isNotNull);
+      expect(bill!.kwh, closeTo(0.42, 1e-9));
+      expect(bill.amount, 60);
+      final contents = decodeBillPayload(bill.payload);
+      expect(contents.completed, 0);
+      expect(contents.total, 1);
+      expect(contents.sleepScore, closeTo(6 / 7, 1e-9));
+      final lit = contents.days.where((d) => !d.lightsOut).toList();
+      expect(lit, hasLength(1));
+      expect(lit.first.leftover, 1);
+      expect(lit.first.amount, 64); // 0.42 * 152
     });
   });
 }

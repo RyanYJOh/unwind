@@ -7,10 +7,10 @@
 ## 1. 컨셉 (절대 훼손 금지)
 
 **하루를 끝내는 앱.** 할 일 하나 = 방의 등(전등 스위치) 하나. 체크할 때마다
-방이 어두워지고, 마지막 불을 끄면(또는 전등 줄을 당기면) 유령 **Lumi**가
+방이 어두워지고, 마지막 불을 끄면(또는 전등 줄을 당기면) 유령 **Todd**가
 만족스럽게 잠든다. 생산성 앱이 아니라 "오늘을 잘 닫는" 릴랙스 앱이다.
 
-**Lumi의 세계관 (정착 2026-08-15)**: Lumi에겐 취침시간(기본 22시)과
+**Todd의 세계관 (정착 2026-08-15)**: Todd에겐 취침시간(기본 22시)과
 기상시간(기본 05시)이 있다. 깨어 있는 낮엔 불 켜진 방을 좋아하며 혼자
 일과를 보낸다(커피·독서·산책…). 그러나 잠이 많아 취침시간엔 꼭 자야
 하는데, 방의 불(할 일)이 남아 있으면 눈이 부셔 못 자고 하품하며 꾸벅꾸벅
@@ -59,30 +59,32 @@ lib/
   domain/services/   brightness_engine, bill_calculator(순수 계산, 테스트 필수),
                      widget_snapshot_service(iOS 홈 위젯 스냅샷, §8.5),
                      recurrence_expander, day_rollover_service, notification_service
-  domain/models/     lumi_state.dart — LumiState/LumiMode/LumiDayActivity (렌더러 계약)
+  domain/models/     todd_state.dart — ToddState/ToddMode/ToddDayActivity (렌더러 계약)
   features/
     today/           providers.dart(앱 상태의 중심) + today_screen.dart(홈)
                      + todo_actions.dart(편집·삭제 공용 — 주간 뷰와 공유)
+                     + pull_cord_coach.dart(온보딩 직후 전등 줄 안내)
     week/            weekly_strip.dart(하단 주 단위 스트립) · week_screen.dart
                      (주간 뷰) · week_label.dart(주 이름 — 칩과 제목이 공유)
     compose/         입력 시트 + date_bar
     bill/            주간 청구서 (영수증 렌더 + 이미지 공유)
-    settings/        설정 + ghost_demo_screen(dev)
+    settings/        설정 + push_settings_screen(푸시 4종 on/off)
+                     + ghost_demo_screen(dev)
     dev/             design_gallery_screen(dev) — 컴포넌트 전수 검증
     onboarding/      10페이지 온보딩 (전면 개편 2026-08-15 — §8.5)
   widgets/           pull_cord(전등 줄), corner_glow(핵심 조명), night_sky,
-                     lumi/(캐릭터)
+                     todd/(캐릭터)
 ```
 
 ## 4. 상태 아키텍처 (features/today/providers.dart)
 
-### 세계관 시계 (통합 2026-08-15) — Lumi의 취침·기상시간
+### 세계관 시계 (통합 2026-08-15) — Todd의 취침·기상시간
 - `wakeHourProvider` — **기상시간 = 하루의 경계** (기본 05시).
-  "Lumi가 일어나는 순간 새 하루가 시작된다." 구 dayStartHour를 흡수했다
+  "Todd가 일어나는 순간 새 하루가 시작된다." 구 dayStartHour를 흡수했다
   (설정 키 `wakeHour`, 옛 `dayStartHour` 값은 읽기 폴백).
 - `bedtimeHourProvider` — **취침시간** (기본 22시, 자정 넘김 허용).
-  이 시각부터 Lumi는 자야 하고, 취침 알림도 이 시각에 발송한다.
-- 온보딩에서 받을 예정(아직 미구현) — 지금은 설정 > Lumi의 하루에서 변경.
+  이 시각부터 Todd는 자야 하고, 취침 알림은 이 시각 30분 전에 발송한다.
+- 온보딩에서 받을 예정(아직 미구현) — 지금은 설정 > Todd의 하루에서 변경.
 
 ### 날짜 축 — 두 계열을 절대 섞지 말 것
 - `todayKeyProvider` — **실제 오늘** (기상시간 기본 05시 기준 롤오버).
@@ -90,7 +92,7 @@ lib/
   (`todayTodosProvider`/`todayDayProvider`).
 - `selectedDateProvider`(null=오늘 따라감) → `viewedDayKeyProvider` — **화면이
   보여주는 날짜**. 하단 스트립에서 과거 날짜를 고르면 홈 전체(리스트·조도·
-  Lumi·타이틀)가 그 날짜의 방으로 바뀐다. 화면용 데이터는
+  Todd·타이틀)가 그 날짜의 방으로 바뀐다. 화면용 데이터는
   `viewedTodosProvider`/`viewedDayProvider`.
 
 ### 조도 t — 단일 진실
@@ -105,10 +107,14 @@ lib/
 - `stripDaysByKeyProvider` — 하단 스트립용 days 행 (이번 주 ±52주)
 - `stripWeekOffsetProvider` — 스트립이 보고 있는 주 (0=이번 주). 좌하단 칩이 따라감
 - `weekTodosForProvider(mondayKey)` — 임의의 주의 할 일 (주간 뷰가 아무 주나 연다)
-- `lumiModeProvider` — Lumi 생활 모드 (아래 §6)
+- `toddModeProvider` — Todd 생활 모드 (아래 §6)
 - `darkCirclesProvider` — 전날 밤 불을 남겼는가 (열람 날짜의 전날
-  `days.restless`) → Lumi 눈 밑 다크서클 (§6)
+  `days.restless`) → Todd 눈 밑 다크서클 (§6)
 - `clockProvider` — 1분 시계 (시간대 전환 감지)
+- `widgetSyncProvider` — iOS 홈 위젯 스냅샷. UnwindApp 루트가 watch
+  (온보딩 중에도 커밋 후 위젯을 올리면 데이터가 있어야 한다).
+  온보딩 질문 커밋 직후엔 `flushWidgetSnapshot`이 스트림을 기다리지 않고
+  DB에서 바로 쓴다.
 
 ## 5. 디자인 시스템 v2 (2026-08-12 전면 개편)
 
@@ -123,7 +129,7 @@ lib/
   주간 스트립 창의 밝기(`UnwindColors.window(light)`). "남은 할 일 = 남은 빛"
   은유는 그대로다.
 - **CornerGlow는 눈부실 만큼 밝아야 한다** (3차 재조정 2026-08-13): 할 일이
-  **하나라도** 남은 방은 Lumi가 눈이 부셔 잠들 수 없을 정도여야 하고, 그래야
+  **하나라도** 남은 방은 Todd가 눈이 부셔 잠들 수 없을 정도여야 하고, 그래야
   하나씩 끌 때 어두워지는 게 읽힌다. 빛 응답은 **선형**이다 — easeOut을 쓰면
   위쪽 구간이 평평해져 등을 하나 꺼도 차이가 보이지 않는다. 좌하단은 언제나
   어둠에 남는다.
@@ -132,7 +138,7 @@ lib/
   아이콘은 `textSecondary`가 아니라 `textPrimary`를 쓴다 — 기본값이면 2.2:1로
   떨어져 §12(UI 요소 3:1)를 깬다. 더 밝히려면 헤더를 불투명 면에 얹는 게 먼저다.
 - 이렇게 밝아지면 상단은 배경 대비가 흔들린다. 그 위에 얹는 것은 **불투명
-  채움**을 가져야 한다 (타일·토스트·청구서 배지 모두 그렇게 되어 있다).
+  채움**을 가져야 한다 (타일·토스트·미확인 점 모두 그렇게 되어 있다).
 - 중립은 슬레이트-네이비 한 계열: `ink`(배경) → `surface` → `surfaceAlt` →
   `surfaceHigh`, 테두리 `border`/`borderStrong`, 압출면 `solid`.
 - **포인트 컬러는 둘뿐. 새 색 추가 금지.**
@@ -185,10 +191,12 @@ lib/
 | `UnwindLampSwitch` / `UnwindToggle` | 세로 벽 로커 / 가로 설정 토글 |
 | `UnwindTextField` | 포커스 시 테두리가 앰버로 |
 | `UnwindChip` | **선택** 알약 (반복 등 상호배타 선택 전용) |
-| `UnwindPill` | **이동·알림** 알약 (주 칩, 청구서 배지). 칩과 역할이 다르다. 압출 4pt · neutral/accent/danger. 중립 압출면은 `pillDeep` — `solid`는 `ink`와 명도 차가 없어 그림자가 안 보인다. 이동용은 `chevron: true`로 작은 `›`를 단다 (재도입 2026-08-15 — 주 칩) |
-| `UnwindSheet` + `showUnwindSheet` | 바텀시트 (§9.4 320ms) |
+| `UnwindPill` | **이동** 알약 (주 칩). 칩과 역할이 다르다. 압출 4pt · neutral/accent/danger. 중립 압출면은 `pillDeep` — `solid`는 `ink`와 명도 차가 없어 그림자가 안 보인다. 이동용은 `chevron: true`로 작은 `›`를 단다 (재도입 2026-08-15 — 주 칩) |
+| `UnwindBadgeDot` | 아이콘 우측 상단의 미확인 점 (코랄). 청구서 버튼 등에 얹는다 (개정 2026-08-16) |
+| `UnwindSheet` + `showUnwindSheet` | 바텀시트 (§9.4 320ms). 핸들을 아래로 드래그하면 닫힌다 |
 | `showUnwindConfirm` / `showUnwindActions` | 확인·선택 (Cupertino 시트 대체) |
-| `showUnwindToast` | 상단 푸시형 토스트 (`actionLabel`/`onAction`으로 되돌리기) |
+| `showUnwindToast` | 상단 푸시형 토스트 (`actionLabel`/`onAction`으로 되돌리기). 삭제 되돌리기는 **2초**. 탭 또는 **위로 스와이프**로 닫는다 |
+| `UnwindCoachMark` | 스크림에 원형 구멍을 뚫어 손잡이 등을 가리키는 안내. 구멍 안은 히트가 통과한다 |
 | `UnwindScreen` + `UnwindHeader` | 화면 껍데기 (다크 배경·상태바·기본 글자) |
 
 검증: 설정 > **Design gallery (dev)** 에서 전 변형을 한 화면으로 본다.
@@ -201,30 +209,30 @@ lib/
   (`test/core/palette_test.dart`가 팔레트 전 조합을 자동 검증),
   Reduce Motion 시 장식 애니메이션 정지, 제스처(당기기)엔 Semantics 대체 액션.
 
-## 6. Lumi (캐릭터) — widgets/lumi/
+## 6. Todd (캐릭터) — widgets/todd/
 
-렌더 계층: `LumiView`(앱 계약: LumiState) → `GhostView`(Rive 브리프 계약)
+렌더 계층: `ToddView`(앱 계약: ToddState) → `GhostView`(Rive 브리프 계약)
 → `.riv` 있으면 Rive / 없으면 **`GhostPainterView`가 실제 렌더러** (현재 .riv 없음).
 
 **하이브리드 렌더 (2026-08-12 현행)**: 몸통(실루엣·음영·아웃라인)은
 `assets/images/ghost_body.png`를 그리고, 얼굴(눈·눈꺼풀·입·볼)과 소품·zzz는
-Dart 코드가 그 위에 그린다. `design_variant.dart`의 `kLumiBodyStyle` 한 줄로
+Dart 코드가 그 위에 그린다. `design_variant.dart`의 `kToddBodyStyle` 한 줄로
 painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*`)을
 캐릭터 좌표계 세로 py(98)~py(425)에 균등 스케일로 정합한다 — 몸통 아트를
 교체하면 이 측정값만 갱신하면 된다(**이미지 좌표는 top-down**; Y축을
 뒤집어 재면 머리 꼭대기가 잘리는 사고가 실제로 있었다). 이미지 모드에선
 밑단 물결 애니메이션이 없다(정적 아트).
 
-### 생활 모드 (lumiModeProvider가 결정 · 취침/기상시간 반영 2026-08-15)
+### 생활 모드 (toddModeProvider가 결정 · 취침/기상시간 반영 2026-08-15)
 1. **asleep** — 소등했거나 / 전부 체크(시간 무관) / 취침시간 이후의 빈 방 /
    과거 날짜의 완료된 밤. 감은 ∪눈 + 만족 미소 + zzz + 손 처짐.
 2. **day** (기상시간~취침시간, 기본 05~22시) — 행복한 펫. 일과 10종
    (개정 2026-08-15: doodle·dance·bubbles 신설). 슬롯은 **기상~취침을 활동
    개수로 균등 분할**한다 (enum 순서 = 하루 흐름 — 활동이 10개가 되며
    2시간 고정 슬롯으로는 하루에 다 담기지 않아 개정. iOS 위젯
-   `LumiWidget.swift`의 `daySlot`이 같은 공식을 미러링하므로 함께 고칠 것):
+   `ToddWidget.swift`의 `daySlot`이 같은 공식을 미러링하므로 함께 고칠 것):
    stretch → coffee → read → doodle(낙서: 종이 위로 크레용이 고리를 그려
-   나감, 시선 아래) → walk → hum → snack → dance(춤: 큰 스텝·바운스 +
+   나감, 시선 아래) → walk(산책: 좌우로 통통 걸음) → hum → snack → dance(춤: 큰 스텝·바운스 +
    앰버 반짝이 별) → bubbles(비눗방울: 오므린 O 입에서 방울이 오른쪽
    대각선 위로 — 얼굴을 가로지르지 않게 sqrt 궤적) → rest. 소품(잔·책·
    안경·쿠키·음표·종이/크레용·반짝이·비눗방울)은 본체와 분리된 레이어 —
@@ -269,7 +277,7 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
   목적이라 확실히 보여야 한다. Reduce Motion에선 점프·별·표정 없이 기존
   통통만. / allDone(잠들기) / wakeUpHappy(기상 기지개) /
   **poke(톡 건드리기)** — `eventTick` 증가로 같은 이벤트 연속 발사.
-- **톡 건드리기 (개편 2026-08-12)**: 홈에서 Lumi를 탭하면 반응한다.
+- **톡 건드리기 (개편 2026-08-12)**: 홈에서 Todd를 탭하면 반응한다.
   **어떤 반응인지는 화면이 아니라 렌더러가 자기 모드를 보고 고른다** —
   화면은 이벤트만 쏘고 햅틱만 맞춰 준다.
   - 깨어 있음(낮·말똥말똥) → **간지럼**: 몸을 부르르 떨고(5.5주기, 감쇠),
@@ -278,7 +286,7 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
     0.34, 왼쪽은 0.72로 거의 감김) 좌 → 우 → 정면으로 천천히 훑은 뒤 다시
     감는다. 고개도 시선을 조금 따라간다. 2.2초.
   - **잠들었으면 무반응** — 애니메이션도 햅틱도 없다. 깨우지 않는 게 이 앱의
-    예의다. 어댑터(`lumi_view.dart`)가 `isAsleep`이면 이벤트 자체를 막는다.
+    예의다. 어댑터(`todd_view.dart`)가 `isAsleep`이면 이벤트 자체를 막는다.
   - 검증: 설정 > Ghost demo (dev) 의 `poke (톡)` 버튼 + 모드 칩 조합.
 - **다크서클 (세계관 2026-08-15)**: 전날 밤 불을 남긴 채 넘어왔다면
   (전날 `days.restless` — 미완 항목 존재 + 소등 안 함) 오늘 하루 종일
@@ -287,19 +295,22 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
   (118pt) 절제하면 안 보인다 — 채운 초승달 음영 + 굵은 가장자리 선, 세기가
   높을수록 넓고 굵어진다. 감은 눈·웃는 눈 밑에도 그려진다 (렌더러에서
   눈 모양 분기보다 먼저 그림). 빈 방·전부 체크·소등한 밤은 해당 없음.
-  `LumiState.darkCircles` → `GhostView.darkCircles`로 배선되며 졸림 기반
+  `ToddState.darkCircles` → `GhostView.darkCircles`로 배선되며 졸림 기반
   다크서클과는 max 합성. 검증: Ghost demo의 `다크서클` 칩.
 - 금지: 화난 표정. (찡그림은 2026-08-09부터 밤 눈부심에 한해 허용.)
 - `mode == null`이면 레거시(brightness→졸림) — 온보딩이 이 모드를 쓴다.
 
 ## 7. 홈 화면 구성 (today_screen.dart, 위→아래)
 
-1. 상단 (개편 2026-08-13): **좌측 끝 청구서 버튼** + 미확인 배지(**코랄** —
-   앰버는 앱 전체가 쓰는 색이라 알림으로 안 읽힌다) + 날짜 타이틀
-   ("Today" / 과거면 "Aug 7") + **작은 설정 아이콘**(제목 오른쪽, 32pt)
-2. Lumi (고정 높이 136pt, size 118) — **탭하면 반응한다** (§6 톡 건드리기).
-   **Lumi는 오직 오늘의 방에만 있다** (개정 2026-08-15): 과거·미래 날짜를
-   열람하면 캐릭터 대신 **빈 자리**(바닥 그림자 타원만, `_LumiAway`)를
+1. 상단 (개편 2026-08-13): **좌측 끝 청구서 버튼** — **월요일에만** 지난주
+   영수증을 연다 (개정 2026-08-16). 다른 요일이면 같은 영수증 화면에
+   월요일 안내. 미확인 코랄
+   점도 월요일에만 (옆의 "Bill" 칩에서 점으로. 앰버는 앱 전체가 쓰는 색이라
+   알림으로 안 읽힌다) + 날짜 타이틀 ("Today" / 과거면 "Aug 7") +
+   **작은 설정 아이콘**(제목 오른쪽, 32pt)
+2. Todd (고정 높이 136pt, size 118) — **탭하면 반응한다** (§6 톡 건드리기).
+   **Todd는 오직 오늘의 방에만 있다** (개정 2026-08-15): 과거·미래 날짜를
+   열람하면 캐릭터 대신 **빈 자리**(바닥 그림자 타원만, `_ToddAway`)를
    그린다. 문구는 넣지 않는다(2차 개정 — 그림자만으로 부재가 읽힌다;
    스크린 리더용 Semantics 라벨만 유지). 탭해도 반응 없음.
 3. 체크리스트 — `UnwindTodoTile`: 좌 텍스트(완료 시 삭선), 우 벽 로커 스위치.
@@ -320,7 +331,7 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
    (Bill이 상단으로 갔다).
    - **스트립은 주 단위 페이징**이다: 한 페이지 = 월~일 한 주, 가로로 넘기면
      주가 바뀐다(이번 주 ±52주, 미래 1년 상한). 셀 라벨은 날짜가 아니라
-     **요일**(Mon·Tue…). 셀 = 정방형 창(그날의 조도 색) + 그날 밤 Lumi의
+     **요일**(Mon·Tue…). 셀 = 정방형 창(그날의 조도 색) + 그날 밤 Todd의
      눈(밝을수록 졸린 실눈 / 소등이면 감은 눈, 기록 있는 완주 날엔 스마일).
      **아직 오지 않은 날은 얼굴을 그리지 않는다** — 감은 눈은 "잘 잤다"는
      뜻이라 미래에 그리면 거짓말이 된다. 셀 탭 = 그 날짜 열람.
@@ -345,6 +356,10 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
    원위치를 처음 지나칠 때 아주 가벼운 틱 하나.
    ⚠️ 이전 구현은 `max(0, spring.value)`로 **오버슈트를 잘라내** 튕김이
    보이지 않았다. 물리는 `test/features/pull_cord_test.dart`가 지킨다.
+   **온보딩 직후 코치마크 (2026-08-16)**: 온보딩을 마친 뒤 (`pullCordCoachAwaiting`)
+   유저가 **새** 할 일을 넣어 오늘 방에 2개 이상이 되면, 손잡이에 최초 1회
+   안내(`pullCordCoachShown`). 편집은 해당 없음. 기존 유저(이 플래그 없이
+   온보딩을 끝낸 사람)에게는 뜨지 않는다.
 7. 상단 토스트(`showUnwindToast`)는 **삭제 되돌리기**에만 쓴다. 항목 추가
    토스트는 2026-08-12에 제거했다 — 시트가 닫히고 등이 하나 늘어나는 것이
    이미 피드백이다.
@@ -376,18 +391,29 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
 
 ## 8. 도메인 규칙 요약
 
-- **롤오버**: 기상시간(wakeHour, 기본 05시) 전까지는 어제의 방 — Lumi가
+- **롤오버**: 기상시간(wakeHour, 기본 05시) 전까지는 어제의 방 — Todd가
   일어나는 순간 새 하루가 시작된다. 과거 방의 finalT를 먼저 봉인한 뒤
   (**이때 미완 항목이 남았고 소등도 안 한 밤은 `restless`로 함께 봉인** —
   다음날 다크서클의 근거. autoDefer가 행을 옮기기 전에 판정해야 진실이다)
   `pending && autoDefer` 원본 행을 오늘로 이동하고, 반복 전개와
   지난주 청구서 생성을 수행한다. 자동 미루기는 반복과 상호 배제한다.
-- **청구서** (§6.5): 등 하나 = 0.06kWh/h, 152원/kWh + 기본료 730원, 10원 반올림.
-  bill_calculator는 순수 로직 + 단위 테스트 필수. 월요일 아침 알림.
-- **알림** (§10): 취침 알림(Lumi 취침시간 정각, 미완+미소등일 때만 — 별도
-  리마인더 시각 없음), 청구서 도착, 시간 지정 Todo의 10분 전 알림.
-  Todo 알림은 실제 기기 타임존을 사용하고, 완료·삭제·시간 제거·오늘 소등 시
-  취소한다. 권한 요청은 온보딩 종료 후.
+- **청구서** (§6.5, 개정 2026-08-16): **월요일에만** 지난주(월~일)를 연다.
+  다른 요일이면 같은 영수증에 "매주 월요일에만 열 수 있다" 안내. 영수증은 세 구역 —
+  ① Todd 상태(카드, 이미지+문구 한 줄) ② 완수한 일 `n / m`(가장 낮음)
+  ③ 전기요금(요일별 합산, 메인).
+  요금은 **밤에 남긴 등**만 본다: 등 하나 × 취침~기상(기본 7h) × 0.06kWh.
+  표시 통화는 **기기 지역** (한화·달러·유로 등, 단가는 대략치). 하루를 닫으면
+  (소등·전부 완료·빈 방) 그날 0. **7일을 모두 닫으면 주간 총액 0.**
+  기본료는 없다. Todd 수면 등급은
+  소등한 밤/7 — 100% perfect / 80~100% fine / 50~80% tossed /
+  20~50% barely / 20% 미만 awake. bill_calculator는 순수 로직 + 테스트
+  필수. 월요일 09:00 알림.
+- **알림** (§10): 네 종류. 설정 > **푸시**에서 각각 on/off.
+  ① 아침 인사(기상시간 +1h, 매일 반복) ② 하루 마무리/Unwind(취침
+  30분 전, 미완+미소등일 때만) ③ 시간 지정 Todo 10분 전 ④ 청구서
+  (월요일 09:00). Todo 알림은 실제 기기 타임존을 사용하고, 완료·삭제·
+  시간 제거·오늘 소등 시 취소한다. 권한 요청은 온보딩 인사 화면 도착
+  0.5초 후.
 - **반복**: 규칙 저장 → recurrence_expander가 롤오버마다 인스턴스 생성.
   주간/월간 라벨은 선택 날짜 기준 `Every Monday`/`Every 3rd`처럼 표시하며,
   규칙의 지정 시간은 모든 생성 회차에 전파한다.
@@ -414,39 +440,49 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
 ## 8.5 온보딩 (전면 개편 2026-08-15, features/onboarding/onboarding_flow.dart)
 
 `onboardingCompleted` 플래그가 false면 main.dart가 홈 대신 온보딩을 띄운다.
-PageView **10페이지**(2차 개정 2026-08-15: 밤 안내와 소등 체험을 병합),
-스와이프 금지(CTA로만 진행), 상단 진행 바 + 뒤로가기. CornerGlow는 플로우가
-하나로 몰아 페이지 전환 때 빛이 이어진다. **Lumi는 크게 그린다**(hero
-200~210 — 130 수준으로 줄이지 말 것, 2차 개정).
+PageView **11페이지**(2026-08-16: 인사 뒤에 위젯 안내 추가. 2차 개정
+2026-08-15: 밤 안내와 소등 체험을 병합), 스와이프 금지(CTA로만 진행),
+상단 진행 바 + 뒤로가기. CornerGlow는 플로우가 하나로 몰아 페이지 전환
+때 빛이 이어진다. **Todd는 크게 그린다**(hero 200~210 — 130 수준으로
+줄이지 말 것, 2차 개정). 위젯 안내는 홈 위젯 프리뷰가 히어로라 예외.
 
-1. **환영** — "Get things done with Lumi", Lumi 크게(탭하면 간지럼).
+1. **환영** — "Get things done with Todd", Todd 크게(탭하면 간지럼).
    CTA는 진입 1초 뒤 활성.
-2. **눈부신 밤 + 소등 체험** (병합) — 글로우 최대, Lumi nightAwake(찡그림·
+2. **눈부신 밤 + 소등 체험** (병합) — 글로우 최대, Todd nightAwake(찡그림·
    하품), 켜진 더미 등 3개(물 2L·운동·30분 독서)를 **바로** 끌 수 있다.
    타일은 홈과 같은 폭(fullBleedContent). 끌수록 방이 어두워지고,
-   **전부 꺼야만 다음으로**. 다 끄면 Lumi가 잠들고 타이틀이 바뀐다.
-3. **청구서** — 청구서 아이콘을 탭하면 지그재그 절취선 영수증이 아래로
+   **전부 꺼야만 다음으로**. 다 끄면 Todd가 잠들고 타이틀·본문이 바뀐다.
+3. **청구서** — 아이콘이 주기적으로 살짝 흔들려 눌러 보라고 한다
+   (Reduce Motion이면 정지). 탭하면 지그재그 절취선 영수증이 아래로
    인쇄되어 내려온다(한 번 눌러야 다음 활성).
 4. **질문 인트로** → 5. **매일 하는 일** — 입력을 시작하면 바로 "다음"이
    열리고, "다음"은 쓰다 만 입력도 저장하고 넘어간다. `+`는 저장이 아니라
    **여러 개 적을 때 줄 추가** 용도. 0개면 "아직 없어요"로 스킵(커밋 시
    디폴트 "물 2L 이상 마시기" 생성) — 전부 **매일 반복 규칙**으로 등록 →
-   6. **취침시각**(유저 -3h = Lumi 취침) → 7. **기상시각**(유저 -1h = Lumi
+   6. **취침시각**(유저 -3h = Todd 취침) → 7. **기상시각**(유저 -1h = Todd
    기상) — 피커(224pt, 굴러갈 때 selection 햅틱) 밑에 계산 결과가 라이브로
-   보인다. 매핑은 `lumiBedtimeFrom`/`lumiWakeFrom` (단위 테스트 있음).
+   보인다. 매핑은 `toddBedtimeFrom`/`toddWakeFrom` (단위 테스트 있음).
    계산값은 클램프 없이 그대로 저장(발주자 결정) — 설정 피커 범위를 그만큼
    넓혀 뒀다 (기상 1~12시, 취침 16~새벽 2시).
 5. 8. **원형 타임테이블** — 24시간 링(자정이 위), 수면 호(슬레이트+달)·
-   활동 호(앰버+해), 중앙에 잠든 Lumi, 경계 점+시각 라벨.
-6. 9. **이름** — "What should Lumi call you?" — **필수** (건너뛰기 없음,
+   활동 호(앰버+해), 중앙에 잠든 Todd, 경계 점+시각 라벨.
+6. 9. **이름** — "What should Todd call you?" — **필수** (건너뛰기 없음,
    2차 개정), `userName` 설정으로 저장 → 답변 일괄 커밋(플래그 제외).
-7. 10. **인사** — "만나서 반가워요, {이름}!" + 까르르. 2.1초 뒤
-   onboardingCompleted 세우고 알림 권한 요청 후 홈으로 페이드.
+7. 10. **인사** — "만나서 반가워요, {이름}!" + 까르르. 도착 0.5초 뒤
+   알림 권한 요청, 2.1초 뒤 **위젯 안내로** (홈으로 바로 가지 않는다).
    연출 타이머는 **플로우가 페이지 도착 시점에** 건다 (페이지 위젯 안에
    두면 PageView 프리빌드 순간 발동한다).
-- 제목은 진행 바에 붙지 않게 위에 s20 여유를 둔다 (2차 개정).
+8. 11. **위젯 안내** — "Oh, one last thing.." + 홈 화면 프리뷰(커피 Todd +
+   앰버 알약) + 설치 3단계(홈으로 → 길게 누르기 → 위젯 추가에서 Todd).
+   CTA **Got it!** 이 플래그를 세우고 홈으로 페이드 (권한 다이얼로그가
+   아직 떠 있으면 답을 기다린다). 인사·위젯 페이지는 진행 바·뒤로가기를
+   걷는다.
+   - 제목은 진행 바에 붙지 않게 위에 s20 여유를 둔다 (2차 개정).
 - 커밋 순서 주의: 플래그를 먼저 세우면 main.dart의 home이 바뀌어 인사가
-  잘린다. 설정·반복 커밋 → 인사 → 플래그 → 권한 → 홈.
+  잘린다. 설정·반복 커밋 → `flushWidgetSnapshot` → 인사 → 권한(0.5초) →
+  위젯 안내 → Got it → 플래그 → 홈.
+  `setOnboardingCompleted`가 `pullCordCoachAwaiting`도 켠다 — 홈에서 할 일을
+  새로 넣어 2개가 되면 전등 줄 코치마크가 한 번 뜬다.
 - `_ObPage` 공통 뼈대의 바깥 Column은 stretch — hero는 반드시 Center로
   감싼다 (아니면 CustomPaint가 화면 폭 기준으로 그려진다).
 - **개발 진입점**: 설정 > Onboarding (dev) — `OnboardingFlow(preview: true)`,
@@ -454,25 +490,30 @@ PageView **10페이지**(2차 개정 2026-08-15: 밤 안내와 소등 체험을 
 
 ## 8.5 iOS 홈 위젯 (신설 2026-08-15, 발주자 컨펌)
 
-소형(2×2) 한 종, `ios/LumiWidget/`(WidgetKit·Swift). 시간에 따른 Lumi +
+소형(2×2) 한 종, `ios/ToddWidget/`(WidgetKit·Swift). 시간에 따른 Todd +
 남은 할 일 **숫자** — 위젯은 '흘끗 보는 자리'로 규정되어 숫자가 허용된다
 (§1 완화의 두 번째 적용, prd-amendments 2026-08-15).
 
 - **데이터**: 로컬 온리라 서버가 필요 없다. `widgetSyncProvider`(providers.dart,
-  TodayScreen이 watch)가 오늘 상태가 바뀔 때마다
-  `WidgetSnapshotService`(home_widget)로 App Group
-  (`group.com.unwindapp.unwind`) UserDefaults에 스냅샷을 쓰고 타임라인을
-  리로드한다. 키·의미는 `widget_snapshot_service.dart` ↔ `LumiWidget.swift`가
-  계약이다.
-- **Lumi 렌더**: 위젯 안에서는 Flutter가 안 돈다 — 앱 페인터로 **사전
+  UnwindApp 루트가 watch)가 오늘 상태가 바뀔 때마다
+  `WidgetSnapshotService` → `ios/Runner/WidgetSnapshotBridge.swift`가
+  App Group (`group.com.unwindapp.unwind`)에 JSON 파일+UserDefaults를
+  플러시한 뒤 타임라인을 리로드한다. 위젯은 파일을 먼저 읽고 UserDefaults는
+  폴백. 키·의미는 `widget_snapshot_service.dart` ↔ `ToddWidget.swift`가
+  계약이다. 온보딩은 습관 커밋 직후 `flushWidgetSnapshot`으로 위젯 안내
+  페이지 전에 스냅샷을 밀어 넣는다 (첫 설치에서 "Good morning!" 폴백에
+  고정되던 버그, 2026-08-16).
+- **Todd 렌더**: 위젯 안에서는 Flutter가 안 돈다 — 앱 페인터로 **사전
   렌더한 스프라이트 PNG**(모드 13종 × 다크서클 유무 = 26장)를 번들한다.
   **캐릭터 외형을 바꾸면 반드시 재추출**:
   `SPRITE_EXPORT=1 flutter test test/tools/widget_sprite_export_test.dart`
-  (출력이 곧 위젯 에셋 카탈로그. 평소 flutter test에서는 skip).
-- **모드 판정 미러**: `LumiWidget.swift`의 TimelineProvider가
-  `lumiModeProvider`(§4)의 규칙(기상~취침 균등 슬롯·취침 후 눈부심 0.45
+  (출력이 곧 위젯 에셋 카탈로그. 720×720 PNG는 **3x**로 표기할 것 —
+  1x면 WidgetKit이 720pt로 읽어 홈 위젯이 placeholder에 고정된다.
+  평소 flutter test에서는 skip).
+- **모드 판정 미러**: `ToddWidget.swift`의 TimelineProvider가
+  `toddModeProvider`(§4)의 규칙(기상~취침 균등 슬롯·취침 후 눈부심 0.45
   분기·다크서클)을 Swift로 복제해 매시 엔트리를 예약한다 — 앱이 꺼져
-  있어도 표정이 바뀐다. **앱 쪽 규칙·`LumiDayActivity` 순서가 바뀌면 Swift도
+  있어도 표정이 바뀐다. **앱 쪽 규칙·`ToddDayActivity` 순서가 바뀌면 Swift도
   함께 고칠 것** (배열 `daySlotNames`).
 - **새벽 공백**: 롤오버(자동 미루기·반복 전개)는 앱에서만 실행되므로,
   기상시간이 지났는데 앱이 안 열렸으면(dayKey 불일치) **개수를 숨기고 아침
@@ -482,11 +523,14 @@ PageView **10페이지**(2차 개정 2026-08-15: 밤 안내와 소등 체험을 
   (§11 블러 금지 준수), 개수는 듀오링고식 3D 압출 알약(blur 0 오프셋),
   숫자는 SF Rounded heavy (Pretendard는 위젯에 번들하지 않는다 — 큰 숫자
   중심이라 rounded가 톤에 더 맞고 폰트 등록 리스크가 없다).
-- **Xcode 배선**: 타깃 `LumiWidget`(iOS 17, appex)은 pbxproj에 직접
+- **Xcode 배선**: 타깃 `ToddWidget`(iOS 17, appex)은 pbxproj에 직접
   기록돼 있다(UUID 접두 `FAB1E5`). Runner가 임베드하며 버전은
   Generated.xcconfig의 FLUTTER_BUILD_NAME/NUMBER를 그대로 써서 앱과 항상
-  일치한다. 양쪽 엔타이틀먼트(Runner.entitlements·LumiWidget.entitlements)의
+  일치한다. 양쪽 엔타이틀먼트(Runner.entitlements·ToddWidget.entitlements)의
   App Group id가 서비스 상수와 일치해야 한다.
+- **홈 화면 이름**: 기기 언어가 한국어면 `토드`, 그 외 `Todd`
+  (`Runner`·`ToddWidget`의 `en.lproj`/`ko.lproj/InfoPlist.strings`).
+  앱 안 언어 설정이 아니라 기기 언어를 따른다.
 
 ## 9. 개발용 기능 (배포 전 제거 대상)
 
@@ -494,17 +538,14 @@ PageView **10페이지**(2차 개정 2026-08-15: 밤 안내와 소등 체험을 
   여기서 검증하는 것이 가장 빠르다.
 - 설정 > **Design gallery (dev)** — `lib/ui/` 컴포넌트 전수 프리뷰. 디자인
   작업 시 여기서 검증한다.
-- 설정 > **Full reset (dev)**, 홈의 **Bill 버튼은 현재 더미 데이터**
-  (`_openDummyBill` — 지난주 가짜 청구서).
+- 설정 > **Full reset (dev)**.
 - `features/today/m0_prototype_screen.dart` — 온보딩 2단계가 재사용 (보존).
 
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **108개** 전부 통과가 기준선 (2026-08-15 세계관 정착에서
-   +8: 취침시간 경계 3 + 다크서클 프로바이더 2 + restless 봉인 2 + 기상시간
-   유틸 1 — `test/features/lumi_world_test.dart` 등. +1: 전등 줄 일괄 완료.
-   +1: 온보딩 시간 매핑. 온보딩 게이트 테스트는 m4_test에서 교체).
+2. `flutter test` — **125개** 전부 통과가 기준선 (2026-08-16 위젯 스냅샷 +3.
+   이전 122: 현지 통화).
    UI 변경 시 위젯 테스트가 히트 영역 겹침·오버플로 같은 실제 버그를 잡아 온
    전적이 있다.
    시트/오버레이를 여는 위젯 테스트는 `pump()` 한 번 뒤에 `pump(duration)`을

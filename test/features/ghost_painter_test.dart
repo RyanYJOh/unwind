@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:unwind/domain/models/lumi_state.dart';
-import 'package:unwind/widgets/lumi/ghost_contract.dart';
-import 'package:unwind/widgets/lumi/ghost_painter_view.dart';
+import 'package:unwind/domain/models/todd_state.dart';
+import 'package:unwind/widgets/todd/ghost_contract.dart';
+import 'package:unwind/widgets/todd/ghost_painter_view.dart';
 
 /// GhostPainterView — 브리프 계약 스모크 (블렌드 스크럽 + 이벤트 + 정리)
 void main() {
@@ -71,12 +71,12 @@ void main() {
   });
 
   testWidgets('모든 낮 활동과 밤 눈꺼풀 상태가 크래시 없이 그려진다', (tester) async {
-    for (final activity in LumiDayActivity.values) {
+    for (final activity in ToddDayActivity.values) {
       await pump(
         tester,
         GhostPainterView(
           sleepiness: 0.1,
-          mode: LumiMode.day,
+          mode: ToddMode.day,
           activity: activity,
           reduceMotion: true,
         ),
@@ -90,7 +90,7 @@ void main() {
         tester,
         GhostPainterView(
           sleepiness: 0.6,
-          mode: LumiMode.nightAwake,
+          mode: ToddMode.nightAwake,
           dazzle: dazzle,
           reduceMotion: true,
         ),

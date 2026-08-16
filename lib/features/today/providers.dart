@@ -9,7 +9,7 @@ import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
 import '../../data/repositories/bill_repository.dart';
 import '../../data/repositories/todo_repository.dart';
-import '../../domain/models/lumi_state.dart';
+import '../../domain/models/todd_state.dart';
 import '../../domain/services/brightness_engine.dart';
 import '../../domain/services/day_rollover_service.dart';
 import '../../domain/services/notification_service.dart';
@@ -58,16 +58,16 @@ final soundPlayerProvider = Provider<SoundPlayer>((ref) {
   return p;
 });
 
-/// Lumi 기상시간 = 하루의 경계 (세계관 통합 2026-08-15), 기본 05시.
-/// Lumi가 일어나는 순간 새 하루가 시작된다 — 롤오버·반복 전개·청구서
+/// Todd 기상시간 = 하루의 경계 (세계관 통합 2026-08-15), 기본 05시.
+/// Todd가 일어나는 순간 새 하루가 시작된다 — 롤오버·반복 전개·청구서
 /// 생성이 전부 이 시각에 일어난다.
 final wakeHourProvider = Provider<int>(
   (ref) => ref.watch(settingsControllerProvider).value?.wakeHour ?? 5,
 );
 
-/// Lumi 취침시간 (세계관 2026-08-15), 기본 22시.
-/// 이 시각부터 Lumi는 자야 한다 — 불(미완 항목)이 남아 있으면 못 자고,
-/// 취침 알림도 이 시각에 발송한다.
+/// Todd 취침시간 (세계관 2026-08-15), 기본 22시.
+/// 이 시각부터 Todd는 자야 한다 — 불(미완 항목)이 남아 있으면 못 자고,
+/// 취침 알림은 이 시각 30분 전에 발송한다.
 final bedtimeHourProvider = Provider<int>(
   (ref) => ref.watch(settingsControllerProvider).value?.bedtimeHour ?? 22,
 );
@@ -94,7 +94,13 @@ class TodayKeyNotifier extends Notifier<String> {
       onRollover: (newKey) {
         state = newKey;
         expander.expand(newKey); // §4.2 롤오버 시 전개
-        ref.read(billRepositoryProvider).ensureLastWeekBill(newKey); // §6.5
+        ref
+            .read(billRepositoryProvider)
+            .ensureLastWeekBill(
+              newKey,
+              wakeHour: dayStart,
+              bedtimeHour: ref.read(bedtimeHourProvider),
+            ); // §6.5
       },
     );
     _service?.dispose();
@@ -104,7 +110,11 @@ class TodayKeyNotifier extends Notifier<String> {
       await expander.expand(service.todayKey);
       await ref
           .read(billRepositoryProvider)
-          .ensureLastWeekBill(service.todayKey);
+          .ensureLastWeekBill(
+            service.todayKey,
+            wakeHour: dayStart,
+            bedtimeHour: ref.read(bedtimeHourProvider),
+          );
     });
     ref.onDispose(service.dispose);
     return service.todayKey;
@@ -149,7 +159,7 @@ final viewedDayKeyProvider = Provider<String>(
   (ref) => ref.watch(selectedDateProvider) ?? ref.watch(todayKeyProvider),
 );
 
-/// 열람 날짜의 할 일 스트림 — 화면(리스트·조도·Lumi)이 쓴다
+/// 열람 날짜의 할 일 스트림 — 화면(리스트·조도·Todd)이 쓴다
 final viewedTodosProvider = StreamProvider<List<Todo>>((ref) {
   final repo = ref.watch(todoRepositoryProvider);
   return repo.watchTodos(ref.watch(viewedDayKeyProvider));
@@ -186,13 +196,13 @@ final pullCordEnabledProvider = Provider<bool>((ref) {
   return isToday && todos.isNotEmpty && day?.lightsOutAt == null;
 });
 
-/// Lumi 취침 여부 — 열람 날짜 기준 (§6.1 FAB 동작 분기에도 사용)
+/// Todd 취침 여부 — 열람 날짜 기준 (§6.1 FAB 동작 분기에도 사용)
 final isAsleepProvider = Provider<bool>(
   (ref) => ref.watch(viewedDayProvider).value?.lightsOutAt != null,
 );
 
-// ── Lumi 하루 (개편 2026-08-08 · 세계관 통합 2026-08-15) ────
-// 밤의 시작은 상수(19시)가 아니라 Lumi의 취침시간(bedtimeHourProvider)이다.
+// ── Todd 하루 (개편 2026-08-08 · 세계관 통합 2026-08-15) ────
+// 밤의 시작은 상수(19시)가 아니라 Todd의 취침시간(bedtimeHourProvider)이다.
 
 /// 1분 시계 — 일과 슬롯·낮밤 전환 감지용
 final clockProvider = StreamProvider<DateTime>((ref) async* {
@@ -200,21 +210,21 @@ final clockProvider = StreamProvider<DateTime>((ref) async* {
   yield* Stream.periodic(const Duration(minutes: 1), (_) => DateTime.now());
 });
 
-class LumiModeState {
-  final LumiMode mode;
-  final LumiDayActivity? activity;
+class ToddModeState {
+  final ToddMode mode;
+  final ToddDayActivity? activity;
   final double dazzle;
 
-  const LumiModeState({required this.mode, this.activity, this.dazzle = 0.0});
+  const ToddModeState({required this.mode, this.activity, this.dazzle = 0.0});
 }
 
-/// Lumi 생활 모드 (개편 2026-08-08 · 취침/기상시간 반영 2026-08-15):
+/// Todd 생활 모드 (개편 2026-08-08 · 취침/기상시간 반영 2026-08-15):
 /// - 소등했거나, 전부 체크됐거나(시간 무관), 취침시간 이후의 빈 방 → 만족스러운 잠
 /// - 낮(기상시간~취침시간) → 행복한 일과. 기상~취침을 균등 분할한 슬롯마다
 ///   활동이 바뀐다 (개정 2026-08-15)
 /// - 취침시간 이후 + 미완 항목 → 못 자는 상태. 눈부심 = 방에 남은 빛(1 - t):
 ///   불이 많이 남았으면 눈부셔 못 자고, 몇 개 안 남았으면 꾸벅꾸벅 존다
-final lumiModeProvider = Provider<LumiModeState>((ref) {
+final toddModeProvider = Provider<ToddModeState>((ref) {
   final now = ref.watch(clockProvider).value ?? DateTime.now();
   final todos = ref.watch(viewedTodosProvider).value ?? const <Todo>[];
   final roomAsleep = ref.watch(isAsleepProvider);
@@ -232,10 +242,10 @@ final lumiModeProvider = Provider<LumiModeState>((ref) {
   // 불을 다 껐으면 만족스러운 잠, 남겼으면 그 빛에 못 잔 모습.
   if (isViewingPast) {
     if (roomAsleep || allDone || counted.isEmpty) {
-      return const LumiModeState(mode: LumiMode.asleep);
+      return const ToddModeState(mode: ToddMode.asleep);
     }
-    return LumiModeState(
-      mode: LumiMode.nightAwake,
+    return ToddModeState(
+      mode: ToddMode.nightAwake,
       dazzle: (1 - t).clamp(0.0, 1.0),
     );
   }
@@ -247,27 +257,27 @@ final lumiModeProvider = Provider<LumiModeState>((ref) {
   final isDaytime = dayLength == 0 || sinceWake < dayLength;
 
   if (roomAsleep || allDone || (!isDaytime && counted.isEmpty)) {
-    return const LumiModeState(mode: LumiMode.asleep);
+    return const ToddModeState(mode: ToddMode.asleep);
   }
   if (isDaytime) {
     // 순서 = 하루의 흐름. 기상~취침을 활동 개수로 균등 분할한다
     // (개정 2026-08-15 — 활동 10개는 2시간 고정 슬롯에 다 담기지 않는다).
-    // iOS 위젯(LumiWidget.swift)이 같은 공식을 미러링한다 — 함께 고칠 것.
-    const acts = LumiDayActivity.values;
+    // iOS 위젯(ToddWidget.swift)이 같은 공식을 미러링한다 — 함께 고칠 것.
+    const acts = ToddDayActivity.values;
     final len = dayLength == 0 ? 24 : dayLength;
     final slot = (sinceWake * acts.length ~/ len).clamp(0, acts.length - 1);
-    return LumiModeState(mode: LumiMode.day, activity: acts[slot]);
+    return ToddModeState(mode: ToddMode.day, activity: acts[slot]);
   }
-  return LumiModeState(
-    mode: LumiMode.nightAwake,
+  return ToddModeState(
+    mode: ToddMode.nightAwake,
     dazzle: (1 - t).clamp(0.0, 1.0),
   );
 });
 
 /// 다크서클 (세계관 2026-08-15): 전날 밤 불을 남긴 채 넘어왔다면
-/// (= 어제의 days 행이 restless로 봉인됐다면) 오늘 하루 종일 Lumi 눈
+/// (= 어제의 days 행이 restless로 봉인됐다면) 오늘 하루 종일 Todd 눈
 /// 밑에 옅은 다크서클이 남는다. 열람 날짜 기준이라 과거의 방을 열어도
-/// "그날의 Lumi"가 맞는 얼굴을 한다.
+/// "그날의 Todd"가 맞는 얼굴을 한다.
 final _dayRowProvider = StreamProvider.family<Day?, String>(
   (ref, key) => ref.watch(todoRepositoryProvider).watchDay(key),
 );
@@ -286,7 +296,12 @@ final widgetSnapshotServiceProvider = Provider<WidgetSnapshotService>(
 
 /// 오늘의 상태가 바뀔 때마다 홈 위젯 스냅샷을 App Group에 쓴다.
 /// 열람 날짜(viewed)가 아니라 **실제 오늘** 기준 — 위젯은 언제나 오늘의 방.
-/// TodayScreen이 watch하는 것으로 활성화된다.
+/// UnwindApp 루트가 watch하는 것으로 활성화된다 (온보딩 중에도 커밋 후
+/// 위젯을 올리면 데이터가 있어야 한다).
+///
+/// 롤오버·반복 전개 전에는 `todayTodos`가 `[]`로 한 번 떨어진다. 그때
+/// `total=0` write와 할 일 write가 겹치면 위젯이 "조용한 방"에 고정된다
+/// — [WidgetSnapshotService.write]가 마지막 스냅샷만 반영한다.
 final widgetSyncProvider = Provider<void>((ref) {
   final service = ref.watch(widgetSnapshotServiceProvider);
   final todayKey = ref.watch(todayKeyProvider);
@@ -294,33 +309,16 @@ final widgetSyncProvider = Provider<void>((ref) {
   final day = ref.watch(todayDayProvider).value;
   if (todos == null) return; // 로딩 중엔 이전 스냅샷 유지
 
-  final counted = todos.where((t) => t.status != TodoStatus.deferred).toList();
-  final remaining = counted
-      .where((t) => t.status == TodoStatus.pending)
-      .length;
-  final lightsOut = day?.lightsOutAt != null;
-
-  // 오늘 기준 조도 — brightnessProvider는 열람 날짜 기준이라 따로 계산한다
-  final double t;
-  if (lightsOut) {
-    t = 1.0;
-  } else if (counted.isEmpty) {
-    t = BrightnessEngine.emptyRoomT;
-  } else {
-    t = (day?.peakProgress ?? 0.0).clamp(0.0, 1.0);
-  }
-
   // 오늘의 다크서클 = 어제의 restless 봉인 (darkCirclesProvider는 열람 기준)
   final prevKey = dayKey(addDays(parseDayKey(todayKey), -1));
   final restless = ref.watch(_dayRowProvider(prevKey)).value?.restless ?? false;
 
   service.write(
-    WidgetSnapshot(
+    WidgetSnapshot.fromTodos(
       dayKey: todayKey,
-      remaining: remaining,
-      total: counted.length,
-      lightsOut: lightsOut,
-      brightness: t,
+      statuses: todos.map((t) => t.status),
+      lightsOut: day?.lightsOutAt != null,
+      peakProgress: day?.peakProgress ?? 0.0,
       darkCircles: restless,
       wakeHour: ref.watch(wakeHourProvider),
       bedtimeHour: ref.watch(bedtimeHourProvider),
@@ -329,6 +327,29 @@ final widgetSyncProvider = Provider<void>((ref) {
     ),
   );
 });
+
+/// 스트림이 아직 안 따라온 시점(온보딩 커밋 직후)에도 스냅샷을 밀어 넣는다.
+Future<void> flushWidgetSnapshot(WidgetRef ref) async {
+  final todayKey = ref.read(todayKeyProvider);
+  final db = ref.read(databaseProvider);
+  final todos = await db.todoDao.getByDate(todayKey);
+  final day = await db.dayDao.getDay(todayKey);
+  final prevKey = dayKey(addDays(parseDayKey(todayKey), -1));
+  final restless = (await db.dayDao.getDay(prevKey))?.restless ?? false;
+  await ref.read(widgetSnapshotServiceProvider).write(
+    WidgetSnapshot.fromTodos(
+      dayKey: todayKey,
+      statuses: todos.map((t) => t.status),
+      lightsOut: day?.lightsOutAt != null,
+      peakProgress: day?.peakProgress ?? 0.0,
+      darkCircles: restless,
+      wakeHour: ref.read(wakeHourProvider),
+      bedtimeHour: ref.read(bedtimeHourProvider),
+      languageCode:
+          ref.read(settingsControllerProvider).value?.languageCode ?? 'en',
+    ),
+  );
+}
 
 /// 입력 시트의 기본 날짜 (§6.1): 취침 후엔 내일
 final composeDefaultDateProvider = Provider<String>((ref) {
@@ -340,10 +361,7 @@ final composeDefaultDateProvider = Provider<String>((ref) {
 // ── 주간 (§6.2) ─────────────────────────────────────────────
 
 /// 이번 주 월요일의 dayKey — 범위는 이번 주 월~일로 통일한다 (§6.2)
-String weekMondayKey(String todayKey) {
-  final d = parseDayKey(todayKey);
-  return dayKey(addDays(d, -(d.weekday - 1)));
-}
+String weekMondayKey(String todayKey) => mondayKeyOf(todayKey);
 
 String weekSundayKey(String todayKey) {
   final d = parseDayKey(todayKey);
@@ -472,37 +490,51 @@ AppLocalizations _l10nFor(Ref ref) => lookupAppLocalizations(
   Locale(ref.read(settingsControllerProvider).value?.languageCode ?? 'en'),
 );
 
+String _morningGreetingBody(Ref ref) {
+  final l10n = _l10nFor(ref);
+  final name = ref.read(settingsControllerProvider).value?.userName?.trim();
+  if (name != null && name.isNotEmpty) {
+    return l10n.notifMorningGreetingNamed(name);
+  }
+  return l10n.notifMorningGreeting;
+}
+
+void _syncRepeatingNotifications(Ref ref, NotificationService service) {
+  final settings = ref.read(settingsControllerProvider).value;
+  service.scheduleBillNotification(
+    enabled: settings?.billNotificationEnabled ?? true,
+    body: _l10nFor(ref).notifBillArrived,
+  );
+  service.scheduleMorningGreeting(
+    enabled: settings?.morningGreetingEnabled ?? true,
+    wakeHour: settings?.wakeHour ?? 5,
+    body: _morningGreetingBody(ref),
+  );
+}
+
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   final service = NotificationService(
     onTap: (payload) => ref.read(notificationTapProvider.notifier).set(payload),
   );
-  service.init().then((_) {
-    final enabled =
-        ref.read(settingsControllerProvider).value?.billNotificationEnabled ??
-        true;
-    service.scheduleBillNotification(
-      enabled: enabled,
-      body: _l10nFor(ref).notifBillArrived,
-    );
-  });
-  // §6.7 청구서 알림 on/off·언어 변경 연동
+  service.init().then((_) => _syncRepeatingNotifications(ref, service));
+  // 청구서·아침 인사: on/off·시각·언어·이름 변경 연동
   ref.listen(settingsControllerProvider, (prev, next) {
-    final enabled = next.value?.billNotificationEnabled;
+    final n = next.value;
+    if (n == null) return;
+    final p = prev?.value;
     final changed =
-        enabled != prev?.value?.billNotificationEnabled ||
-        next.value?.languageCode != prev?.value?.languageCode;
-    if (enabled != null && changed) {
-      service.scheduleBillNotification(
-        enabled: enabled,
-        body: _l10nFor(ref).notifBillArrived,
-      );
-    }
+        n.billNotificationEnabled != p?.billNotificationEnabled ||
+        n.morningGreetingEnabled != p?.morningGreetingEnabled ||
+        n.wakeHour != p?.wakeHour ||
+        n.languageCode != p?.languageCode ||
+        n.userName != p?.userName;
+    if (changed) _syncRepeatingNotifications(ref, service);
   });
   return service;
 });
 
-/// 취침 알림 갱신 (§10 · 통합 2026-08-15): 조건이 성립할 때만
-/// Lumi의 취침시간(기본 22:00)에 예약한다 — 별도 리마인더 시각은 없다.
+/// 취침 알림 갱신 (§10 · 통합 2026-08-15, 30분 전 개정 2026-08-16):
+/// 조건이 성립할 때만 Todd 취침시간 30분 전에 예약한다.
 /// TodayScreen이 watch하는 것으로 활성화된다.
 final nightReminderSchedulerProvider = Provider<void>((ref) {
   final service = ref.watch(notificationServiceProvider);
@@ -517,8 +549,7 @@ final nightReminderSchedulerProvider = Provider<void>((ref) {
 
   if (settings.nightReminderEnabled && pending > 0 && !pulled) {
     service.scheduleNightReminder(
-      hour: settings.bedtimeHour, // Lumi가 자야 하는 시각
-      minute: 0,
+      bedtimeHour: settings.bedtimeHour,
       body: _l10nFor(ref).notifNightReminder,
     );
   } else {
@@ -533,8 +564,14 @@ final todoReminderSchedulerProvider = Provider<void>((ref) {
   final today = ref.watch(todayKeyProvider);
   final todayDay = ref.watch(todayDayProvider).value;
   final dayStartHour = ref.watch(wakeHourProvider);
-  ref.watch(settingsControllerProvider);
+  final settings =
+      ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
   if (todos == null) return;
+
+  if (!settings.todoReminderEnabled) {
+    service.syncTodoReminders(reminders: const [], body: '');
+    return;
+  }
 
   final lightsOut = todayDay?.lightsOutAt != null;
   final reminders = todos

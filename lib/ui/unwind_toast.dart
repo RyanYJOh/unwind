@@ -54,12 +54,13 @@ class _UnwindToast extends StatefulWidget {
 
 class _UnwindToastState extends State<_UnwindToast>
     with SingleTickerProviderStateMixin {
-  /// 머무는 시간. 되돌리기처럼 누를 것이 있으면 더 오래 남는다.
+  /// 머무는 시간. 삭제 되돌리기는 짧게 — 2초면 읽고 스와이프할 여유가 있다.
   static const _visibleMs = 2600;
-  static const _visibleWithActionMs = 5000;
+  static const _visibleWithActionMs = 2000;
 
   late final AnimationController _c;
   Timer? _timer;
+  bool _closing = false;
 
   @override
   void initState() {
@@ -80,9 +81,19 @@ class _UnwindToastState extends State<_UnwindToast>
   }
 
   Future<void> _dismiss() async {
+    if (_closing) return;
+    _closing = true;
     _timer?.cancel();
     if (!mounted) return;
     await _c.reverse();
+    widget.onDismissed();
+  }
+
+  /// 스와이프는 [Dismissible]이 이미 올려 보냈으니 역재생 없이 바로 제거.
+  void _dismissFromSwipe() {
+    if (_closing) return;
+    _closing = true;
+    _timer?.cancel();
     widget.onDismissed();
   }
 
@@ -113,81 +124,87 @@ class _UnwindToastState extends State<_UnwindToast>
             ).animate(CurvedAnimation(parent: _c, curve: UnwindMotion.settle)),
             child: FadeTransition(
               opacity: _c,
-              child: GestureDetector(
-                onTap: _dismiss,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: UnwindSpacing.s16,
-                    vertical: UnwindSpacing.s12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: UnwindColors.surfaceAlt,
-                    borderRadius: BorderRadius.circular(UnwindRadius.md),
-                    border: Border.all(
-                      color: UnwindColors.borderStrong,
-                      width: UnwindStroke.base,
+              child: Dismissible(
+                key: const ValueKey('unwind-toast'),
+                direction: DismissDirection.up,
+                resizeDuration: Duration.zero,
+                onDismissed: (_) => _dismissFromSwipe(),
+                child: GestureDetector(
+                  onTap: _dismiss,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: UnwindSpacing.s16,
+                      vertical: UnwindSpacing.s12,
                     ),
-                    boxShadow: const [
-                      // §11 — 블러 없는 압출면
-                      BoxShadow(
-                        color: UnwindColors.solid,
-                        offset: Offset(0, UnwindDepth.base),
-                        blurRadius: 0,
+                    decoration: BoxDecoration(
+                      color: UnwindColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(UnwindRadius.md),
+                      border: Border.all(
+                        color: UnwindColors.borderStrong,
+                        width: UnwindStroke.base,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // 등이 하나 켜졌다는 표시
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: UnwindColors.accent,
-                          borderRadius: BorderRadius.circular(UnwindRadius.sm),
-                        ),
-                      ),
-                      const SizedBox(width: UnwindSpacing.s12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              widget.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: UnwindType.bodyStrong.copyWith(
-                                color: UnwindColors.textPrimary,
-                              ),
-                            ),
-                            if (widget.body != null) ...[
-                              const SizedBox(height: UnwindSpacing.s2),
-                              Text(
-                                widget.body!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: UnwindType.caption.copyWith(
-                                  color: UnwindColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      if (widget.actionLabel != null) ...[
-                        const SizedBox(width: UnwindSpacing.s8),
-                        UnwindButton(
-                          label: widget.actionLabel!,
-                          small: true,
-                          expand: false,
-                          onPressed: () {
-                            _dismiss();
-                            widget.onAction?.call();
-                          },
+                      boxShadow: const [
+                        // §11 — 블러 없는 압출면
+                        BoxShadow(
+                          color: UnwindColors.solid,
+                          offset: Offset(0, UnwindDepth.base),
+                          blurRadius: 0,
                         ),
                       ],
-                    ],
+                    ),
+                    child: Row(
+                      children: [
+                        // 등이 하나 켜졌다는 표시
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: UnwindColors.accent,
+                            borderRadius: BorderRadius.circular(UnwindRadius.sm),
+                          ),
+                        ),
+                        const SizedBox(width: UnwindSpacing.s12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: UnwindType.bodyStrong.copyWith(
+                                  color: UnwindColors.textPrimary,
+                                ),
+                              ),
+                              if (widget.body != null) ...[
+                                const SizedBox(height: UnwindSpacing.s2),
+                                Text(
+                                  widget.body!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: UnwindType.caption.copyWith(
+                                    color: UnwindColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (widget.actionLabel != null) ...[
+                          const SizedBox(width: UnwindSpacing.s8),
+                          UnwindButton(
+                            label: widget.actionLabel!,
+                            small: true,
+                            expand: false,
+                            onPressed: () {
+                              _dismiss();
+                              widget.onAction?.call();
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               ),

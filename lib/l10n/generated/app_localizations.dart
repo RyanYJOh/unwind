@@ -98,6 +98,12 @@ abstract class AppLocalizations {
     Locale('ko'),
   ];
 
+  /// No description provided for @appName.
+  ///
+  /// In en, this message translates to:
+  /// **'Todd'**
+  String get appName;
+
   /// No description provided for @today.
   ///
   /// In en, this message translates to:
@@ -107,13 +113,13 @@ abstract class AppLocalizations {
   /// No description provided for @emptyRoomTitle.
   ///
   /// In en, this message translates to:
-  /// **'No lights to keep on today'**
+  /// **'No to-do items'**
   String get emptyRoomTitle;
 
   /// No description provided for @emptyRoomSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Write down a task, and a light turns on in this room'**
+  /// **'Wait.. the light can\'t be turned off?'**
   String get emptyRoomSubtitle;
 
   /// No description provided for @billBadge.
@@ -133,6 +139,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'End the day'**
   String get endDayLabel;
+
+  /// No description provided for @pullCordCoach.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull the handle all the way down.'**
+  String get pullCordCoach;
 
   /// No description provided for @lampOn.
   ///
@@ -284,28 +296,28 @@ abstract class AppLocalizations {
   /// **'Add a note'**
   String get addMemo;
 
-  /// No description provided for @lumiSleepingNotice.
+  /// No description provided for @toddSleepingNotice.
   ///
   /// In en, this message translates to:
-  /// **'Lumi is asleep. This will go in tomorrow\'s room'**
-  String get lumiSleepingNotice;
+  /// **'Todd\'s asleep. This will go in tomorrow'**
+  String get toddSleepingNotice;
 
-  /// No description provided for @lumiPokeLabel.
+  /// No description provided for @toddPokeLabel.
   ///
   /// In en, this message translates to:
-  /// **'Lumi'**
-  String get lumiPokeLabel;
+  /// **'Todd'**
+  String get toddPokeLabel;
 
-  /// No description provided for @lumiAway.
+  /// No description provided for @toddAway.
   ///
   /// In en, this message translates to:
-  /// **'Lumi is in today\'s room'**
-  String get lumiAway;
+  /// **'I\'m in today\'s room'**
+  String get toddAway;
 
   /// No description provided for @toastTaskDeleted.
   ///
   /// In en, this message translates to:
-  /// **'Taken out of the room'**
+  /// **'To-do deleted'**
   String get toastTaskDeleted;
 
   /// No description provided for @undo.
@@ -419,14 +431,38 @@ abstract class AppLocalizations {
   /// No description provided for @billTitle.
   ///
   /// In en, this message translates to:
-  /// **'Unwind Electric Bill'**
+  /// **'Weekly Electric Bill'**
   String get billTitle;
+
+  /// No description provided for @billTasksClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} / {total}'**
+  String billTasksClosed(int done, int total);
+
+  /// No description provided for @billTasksCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'tasks closed last week'**
+  String get billTasksCaption;
 
   /// No description provided for @billTotalCaption.
   ///
   /// In en, this message translates to:
-  /// **'Total {kwh} kWh · includes {fee} base fee'**
-  String billTotalCaption(String kwh, String fee);
+  /// **'{kwh} kWh left burning overnight'**
+  String billTotalCaption(String kwh);
+
+  /// No description provided for @billMondayOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'The bill opens on Mondays'**
+  String get billMondayOnly;
+
+  /// No description provided for @billMondayOnlyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Meanwhile, let\'s smash\nthis week\'s to-dos!'**
+  String get billMondayOnlyBody;
 
   /// No description provided for @wonAmount.
   ///
@@ -437,31 +473,31 @@ abstract class AppLocalizations {
   /// No description provided for @sleepDeep.
   ///
   /// In en, this message translates to:
-  /// **'Lumi slept deeply'**
+  /// **'Todd had perfect sleep'**
   String get sleepDeep;
 
   /// No description provided for @sleepWell.
   ///
   /// In en, this message translates to:
-  /// **'Lumi slept well'**
+  /// **'Todd slept fine'**
   String get sleepWell;
 
   /// No description provided for @sleepTossed.
   ///
   /// In en, this message translates to:
-  /// **'Lumi tossed and turned a little'**
+  /// **'Todd tossed and turned a little'**
   String get sleepTossed;
 
   /// No description provided for @sleepBarely.
   ///
   /// In en, this message translates to:
-  /// **'Lumi barely closed an eye'**
+  /// **'Todd barely closed an eye'**
   String get sleepBarely;
 
   /// No description provided for @sleepNone.
   ///
   /// In en, this message translates to:
-  /// **'Lumi stayed awake all night'**
+  /// **'Todd stayed awake all night'**
   String get sleepNone;
 
   /// No description provided for @nightsOut.
@@ -497,7 +533,7 @@ abstract class AppLocalizations {
   /// No description provided for @notifNightReminder.
   ///
   /// In en, this message translates to:
-  /// **'It\'s Lumi\'s bedtime — the lights are still on'**
+  /// **'It\'s Todd\'s bedtime — the lights are still on'**
   String get notifNightReminder;
 
   /// No description provided for @notifBillArrived.
@@ -505,6 +541,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Last week\'s bill has arrived'**
   String get notifBillArrived;
+
+  /// No description provided for @notifMorningGreeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning — Todd\'s already up'**
+  String get notifMorningGreeting;
+
+  /// No description provided for @notifMorningGreetingNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning, {name} — Todd\'s already up'**
+  String notifMorningGreetingNamed(String name);
 
   /// No description provided for @settingsTitle.
   ///
@@ -518,28 +566,70 @@ abstract class AppLocalizations {
   /// **'Notifications'**
   String get sectionNotifications;
 
+  /// No description provided for @pushSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Push Notifications'**
+  String get pushSettings;
+
+  /// No description provided for @pushSettingsCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Todd wants to talk to you'**
+  String get pushSettingsCaption;
+
+  /// No description provided for @pushSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Push Notifications'**
+  String get pushSettingsTitle;
+
+  /// No description provided for @morningGreeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Morning greeting'**
+  String get morningGreeting;
+
+  /// No description provided for @morningGreetingCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'An hour after Todd wakes up'**
+  String get morningGreetingCaption;
+
   /// No description provided for @nightReminder.
   ///
   /// In en, this message translates to:
-  /// **'Bedtime reminder'**
+  /// **'Unwind reminder'**
   String get nightReminder;
 
   /// No description provided for @nightReminderCaption.
   ///
   /// In en, this message translates to:
-  /// **'A gentle note at bedtime if lights are still on'**
+  /// **'30 minutes before Todd\'s bedtime'**
   String get nightReminderCaption;
+
+  /// No description provided for @todoReminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Timed tasks'**
+  String get todoReminder;
+
+  /// No description provided for @todoReminderCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'10 minutes before a task with a time'**
+  String get todoReminderCaption;
 
   /// No description provided for @billNotification.
   ///
   /// In en, this message translates to:
-  /// **'Bill arrival'**
+  /// **'Weekly Bill'**
   String get billNotification;
 
   /// No description provided for @billNotificationCaption.
   ///
   /// In en, this message translates to:
-  /// **'Your last week\'s bill, every Monday morning'**
+  /// **'Last week\'s bill, every Monday morning'**
   String get billNotificationCaption;
 
   /// No description provided for @sectionFeel.
@@ -563,7 +653,7 @@ abstract class AppLocalizations {
   /// No description provided for @sectionDay.
   ///
   /// In en, this message translates to:
-  /// **'Lumi\'s day'**
+  /// **'Todd\'s day'**
   String get sectionDay;
 
   /// No description provided for @wakeTime.
@@ -575,7 +665,7 @@ abstract class AppLocalizations {
   /// No description provided for @wakeTimeCaption.
   ///
   /// In en, this message translates to:
-  /// **'A new day begins when Lumi wakes up'**
+  /// **'A new day begins when Todd wakes up'**
   String get wakeTimeCaption;
 
   /// No description provided for @bedtime.
@@ -587,7 +677,7 @@ abstract class AppLocalizations {
   /// No description provided for @bedtimeCaption.
   ///
   /// In en, this message translates to:
-  /// **'Lumi needs the lights out by then'**
+  /// **'Todd needs the lights out by then'**
   String get bedtimeCaption;
 
   /// No description provided for @hourLabel.
@@ -659,32 +749,38 @@ abstract class AppLocalizations {
   /// No description provided for @obWelcomeTitle.
   ///
   /// In en, this message translates to:
-  /// **'Get things done with Lumi'**
+  /// **'Hey! I\'m Todd.'**
   String get obWelcomeTitle;
 
   /// No description provided for @obWelcomeBody.
   ///
   /// In en, this message translates to:
-  /// **'This is Lumi — a little ghost who lives in your room. Finishing your day is what lets Lumi sleep.'**
+  /// **'Can you help me\nget to sleep every night?'**
   String get obWelcomeBody;
 
   /// No description provided for @obNightTitle.
   ///
   /// In en, this message translates to:
-  /// **'At night, Lumi needs to sleep'**
+  /// **'I need to sleep but..'**
   String get obNightTitle;
 
   /// No description provided for @obNightBody.
   ///
   /// In en, this message translates to:
-  /// **'The lights are far too bright to sleep in. Flip a switch when a task is done — try turning them all off.'**
+  /// **'The light is too bright.\nCan you check off the to-dos?'**
   String get obNightBody;
 
   /// No description provided for @obLightsDone.
   ///
   /// In en, this message translates to:
-  /// **'All lights out — sweet dreams, Lumi'**
+  /// **'That\'s perfect!'**
   String get obLightsDone;
+
+  /// No description provided for @obLightsDoneBody.
+  ///
+  /// In en, this message translates to:
+  /// **'I can finally get some\ngood sleep tonight. Thanks!'**
+  String get obLightsDoneBody;
 
   /// No description provided for @obDummy1.
   ///
@@ -695,7 +791,7 @@ abstract class AppLocalizations {
   /// No description provided for @obDummy2.
   ///
   /// In en, this message translates to:
-  /// **'Work out'**
+  /// **'Go to the gym'**
   String get obDummy2;
 
   /// No description provided for @obDummy3.
@@ -707,37 +803,43 @@ abstract class AppLocalizations {
   /// No description provided for @obBillTitle.
   ///
   /// In en, this message translates to:
-  /// **'Every Monday, a bill arrives'**
+  /// **'Every Monday,\nyour bill arrives'**
   String get obBillTitle;
 
   /// No description provided for @obBillBody.
   ///
   /// In en, this message translates to:
-  /// **'The lights you leave on burn electricity all night. Tap the bill to peek at a receipt.'**
+  /// **'Let\'s see how much light\nyou kept on last week.'**
   String get obBillBody;
+
+  /// No description provided for @obBillOnMe.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t worry — it\'s on me!'**
+  String get obBillOnMe;
 
   /// No description provided for @obQuestionsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Now, a few quick questions'**
+  /// **'Now I got a few\nquick questions!'**
   String get obQuestionsTitle;
 
   /// No description provided for @obQuestionsBody.
   ///
   /// In en, this message translates to:
-  /// **'So Lumi can live around your day.'**
+  /// **'Let\'s sync our daily routine.'**
   String get obQuestionsBody;
 
   /// No description provided for @obHabitsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Is there something you do every day?'**
+  /// **'Do you have any daily routine?'**
   String get obHabitsTitle;
 
   /// No description provided for @obHabitsBody.
   ///
   /// In en, this message translates to:
-  /// **'Add it once, and a lamp will be waiting for you every morning.'**
+  /// **'Or something you\'re planning to.'**
   String get obHabitsBody;
 
   /// No description provided for @obHabitsHint.
@@ -761,19 +863,19 @@ abstract class AppLocalizations {
   /// No description provided for @obSleepQTitle.
   ///
   /// In en, this message translates to:
-  /// **'When do you usually fall asleep?'**
+  /// **'When do you usually go to bed?'**
   String get obSleepQTitle;
 
   /// No description provided for @obSleepQBody.
   ///
   /// In en, this message translates to:
-  /// **'Sleepyhead Lumi dozes off three hours before you.'**
+  /// **'Btw, I unwind quite early in the evening.'**
   String get obSleepQBody;
 
   /// No description provided for @obSleepQResult.
   ///
   /// In en, this message translates to:
-  /// **'So Lumi\'s bedtime will be {time}'**
+  /// **'You can change this later'**
   String obSleepQResult(String time);
 
   /// No description provided for @obWakeQTitle.
@@ -785,31 +887,31 @@ abstract class AppLocalizations {
   /// No description provided for @obWakeQBody.
   ///
   /// In en, this message translates to:
-  /// **'Lumi gets up an hour earlier to open up the day.'**
+  /// **'I\'m an early-riser, just so you know.'**
   String get obWakeQBody;
 
   /// No description provided for @obWakeQResult.
   ///
   /// In en, this message translates to:
-  /// **'So Lumi will rise at {time}'**
+  /// **'You can change this later'**
   String obWakeQResult(String time);
 
   /// No description provided for @obScheduleTitle.
   ///
   /// In en, this message translates to:
-  /// **'Lumi\'s day is set'**
+  /// **'Got it!\nThis is my day.'**
   String get obScheduleTitle;
 
   /// No description provided for @obScheduleBody.
   ///
   /// In en, this message translates to:
-  /// **'Asleep at {bed}, up at {wake} — always a little ahead of you.'**
+  /// **'Unwind at {bed}, get up at {wake}.'**
   String obScheduleBody(String bed, String wake);
 
   /// No description provided for @obNameTitle.
   ///
   /// In en, this message translates to:
-  /// **'What should Lumi call you?'**
+  /// **'What should I call you?'**
   String get obNameTitle;
 
   /// No description provided for @obNameHint.
@@ -827,14 +929,56 @@ abstract class AppLocalizations {
   /// No description provided for @obGreeting.
   ///
   /// In en, this message translates to:
-  /// **'Nice to meet you, {name}!'**
+  /// **'You\'re all set, {name}!'**
   String obGreeting(String name);
 
   /// No description provided for @obGreetingNoName.
   ///
   /// In en, this message translates to:
-  /// **'Nice to meet you!'**
+  /// **'You\'re all set!'**
   String get obGreetingNoName;
+
+  /// No description provided for @obWidgetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Oh, one last thing...'**
+  String get obWidgetTitle;
+
+  /// No description provided for @obWidgetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Install Todd widget.\nYou won\'t forget your checklist.'**
+  String get obWidgetBody;
+
+  /// No description provided for @obWidgetStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to the Home Screen'**
+  String get obWidgetStep1;
+
+  /// No description provided for @obWidgetStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'Touch and hold an empty spot'**
+  String get obWidgetStep2;
+
+  /// No description provided for @obWidgetStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap \'Add Widget\', then Todd'**
+  String get obWidgetStep3;
+
+  /// No description provided for @obWidgetCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it!'**
+  String get obWidgetCta;
+
+  /// No description provided for @obWidgetPillLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'left'**
+  String get obWidgetPillLeft;
 
   /// No description provided for @m0Reset.
   ///
@@ -845,13 +989,13 @@ abstract class AppLocalizations {
   /// No description provided for @autoDeferTitle.
   ///
   /// In en, this message translates to:
-  /// **'Move to tomorrow automatically'**
+  /// **'Postpone automatically'**
   String get autoDeferTitle;
 
   /// No description provided for @autoDeferSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'If it isn\'t done today, it moves to tomorrow\'s room'**
+  /// **'If not done today, moves to tomorrow'**
   String get autoDeferSubtitle;
 
   /// No description provided for @taskTime.

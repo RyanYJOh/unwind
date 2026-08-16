@@ -5,22 +5,30 @@ import '../today/providers.dart';
 
 /// §4.5 / §6.7 설정 값 모델 (기본값 포함)
 ///
-/// 세계관 통합 (2026-08-15): Lumi에겐 기상시간과 취침시간이 있다.
-/// - [wakeHour] 기본 05시 — 하루의 경계(롤오버)이자 Lumi의 낮 시작.
+/// 세계관 통합 (2026-08-15): Todd에겐 기상시간과 취침시간이 있다.
+/// - [wakeHour] 기본 05시 — 하루의 경계(롤오버)이자 Todd의 낮 시작.
 ///   (구 dayStartHour를 흡수 — 저장된 옛 키는 읽기 폴백으로 존중한다)
-/// - [bedtimeHour] 기본 22시 — 이 시각부터 Lumi는 자야 한다. 불이 남아
-///   있으면 못 자고, 취침 알림도 이 시각에 발송한다 (구 nightReminderTime
-///   을 흡수 — 별도 리마인더 시각은 없다).
+/// - [bedtimeHour] 기본 22시 — 이 시각부터 Todd는 자야 한다. 불이 남아
+///   있으면 못 자고, 취침 알림은 이 시각 30분 전에 발송한다 (구
+///   nightReminderTime을 흡수 — 별도 리마인더 시각은 없다).
 class UnwindSettings {
   final bool nightReminderEnabled;
   final bool billNotificationEnabled;
+  final bool morningGreetingEnabled;
+  final bool todoReminderEnabled;
   final bool soundEnabled;
   final bool hapticsEnabled;
   final int wakeHour; // 기본 5
   final int bedtimeHour; // 기본 22
   final bool onboardingCompleted;
 
-  /// Lumi가 부르는 사용자 이름 (온보딩 2026-08-15). null = 안 알려줌.
+  /// 온보딩 직후, 전등 줄 코치마크를 아직 안 보여 줌
+  final bool pullCordCoachAwaiting;
+
+  /// 전등 줄 코치마크를 이미 보여 줌 (최초 1회)
+  final bool pullCordCoachShown;
+
+  /// Todd가 부르는 사용자 이름 (온보딩 2026-08-15). null = 안 알려줌.
   final String? userName;
 
   /// 앱 언어 — 기본 영어. 지원 언어는 l10n/*.arb 추가로 확장한다.
@@ -29,11 +37,15 @@ class UnwindSettings {
   const UnwindSettings({
     this.nightReminderEnabled = true,
     this.billNotificationEnabled = true,
+    this.morningGreetingEnabled = true,
+    this.todoReminderEnabled = true,
     this.soundEnabled = true,
     this.hapticsEnabled = true,
     this.wakeHour = 5,
     this.bedtimeHour = 22,
     this.onboardingCompleted = false,
+    this.pullCordCoachAwaiting = false,
+    this.pullCordCoachShown = false,
     this.userName,
     this.languageCode = 'en',
   });
@@ -41,22 +53,31 @@ class UnwindSettings {
   UnwindSettings copyWith({
     bool? nightReminderEnabled,
     bool? billNotificationEnabled,
+    bool? morningGreetingEnabled,
+    bool? todoReminderEnabled,
     bool? soundEnabled,
     bool? hapticsEnabled,
     int? wakeHour,
     int? bedtimeHour,
     bool? onboardingCompleted,
+    bool? pullCordCoachAwaiting,
+    bool? pullCordCoachShown,
     String? userName,
     String? languageCode,
   }) => UnwindSettings(
     nightReminderEnabled: nightReminderEnabled ?? this.nightReminderEnabled,
     billNotificationEnabled:
         billNotificationEnabled ?? this.billNotificationEnabled,
+    morningGreetingEnabled:
+        morningGreetingEnabled ?? this.morningGreetingEnabled,
+    todoReminderEnabled: todoReminderEnabled ?? this.todoReminderEnabled,
     soundEnabled: soundEnabled ?? this.soundEnabled,
     hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     wakeHour: wakeHour ?? this.wakeHour,
     bedtimeHour: bedtimeHour ?? this.bedtimeHour,
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+    pullCordCoachAwaiting: pullCordCoachAwaiting ?? this.pullCordCoachAwaiting,
+    pullCordCoachShown: pullCordCoachShown ?? this.pullCordCoachShown,
     userName: userName ?? this.userName,
     languageCode: languageCode ?? this.languageCode,
   );
@@ -81,6 +102,14 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
         SettingKeys.billNotificationEnabled,
         fallback: true,
       ),
+      morningGreetingEnabled: await dao.getBool(
+        SettingKeys.morningGreetingEnabled,
+        fallback: true,
+      ),
+      todoReminderEnabled: await dao.getBool(
+        SettingKeys.todoReminderEnabled,
+        fallback: true,
+      ),
       soundEnabled: await dao.getBool(SettingKeys.soundEnabled, fallback: true),
       hapticsEnabled: await dao.getBool(
         SettingKeys.hapticsEnabled,
@@ -94,6 +123,14 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
       bedtimeHour: await dao.getInt(SettingKeys.bedtimeHour, fallback: 22),
       onboardingCompleted: await dao.getBool(
         SettingKeys.onboardingCompleted,
+        fallback: false,
+      ),
+      pullCordCoachAwaiting: await dao.getBool(
+        SettingKeys.pullCordCoachAwaiting,
+        fallback: false,
+      ),
+      pullCordCoachShown: await dao.getBool(
+        SettingKeys.pullCordCoachShown,
         fallback: false,
       ),
       userName: await dao.getValue(SettingKeys.userName),
@@ -124,6 +161,18 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
     (s) => s.copyWith(billNotificationEnabled: v),
   );
 
+  Future<void> setMorningGreetingEnabled(bool v) => _set(
+    SettingKeys.morningGreetingEnabled,
+    '$v',
+    (s) => s.copyWith(morningGreetingEnabled: v),
+  );
+
+  Future<void> setTodoReminderEnabled(bool v) => _set(
+    SettingKeys.todoReminderEnabled,
+    '$v',
+    (s) => s.copyWith(todoReminderEnabled: v),
+  );
+
   Future<void> setSoundEnabled(bool v) =>
       _set(SettingKeys.soundEnabled, '$v', (s) => s.copyWith(soundEnabled: v));
 
@@ -145,11 +194,31 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
   Future<void> setUserName(String name) =>
       _set(SettingKeys.userName, name, (s) => s.copyWith(userName: name));
 
-  Future<void> setOnboardingCompleted() => _set(
-    SettingKeys.onboardingCompleted,
-    'true',
-    (s) => s.copyWith(onboardingCompleted: true),
-  );
+  Future<void> setOnboardingCompleted() async {
+    await _set(
+      SettingKeys.onboardingCompleted,
+      'true',
+      (s) => s.copyWith(onboardingCompleted: true),
+    );
+    await _set(
+      SettingKeys.pullCordCoachAwaiting,
+      'true',
+      (s) => s.copyWith(pullCordCoachAwaiting: true),
+    );
+  }
+
+  Future<void> setPullCordCoachShown() async {
+    await _set(
+      SettingKeys.pullCordCoachShown,
+      'true',
+      (s) => s.copyWith(pullCordCoachShown: true),
+    );
+    await _set(
+      SettingKeys.pullCordCoachAwaiting,
+      'false',
+      (s) => s.copyWith(pullCordCoachAwaiting: false),
+    );
+  }
 
   Future<void> setLanguageCode(String code) => _set(
     SettingKeys.languageCode,
