@@ -34,15 +34,15 @@ void main() {
   });
 
   group('charge · format', () {
-    test('KRW: 0.42 kWh → 60원 / ₩60', () {
-      expect(BillCurrency.krw.charge(0.42), 60);
-      expect(BillCurrency.krw.format(60, languageCode: 'ko'), '60원');
-      expect(BillCurrency.krw.format(60, languageCode: 'en'), '₩60');
+    test('KRW: 0.42 kWh → 6,380원 / ₩6,380', () {
+      expect(BillCurrency.krw.charge(0.42), 6380);
+      expect(BillCurrency.krw.format(6380, languageCode: 'ko'), '6,380원');
+      expect(BillCurrency.krw.format(6380, languageCode: 'en'), '₩6,380');
     });
 
-    test('USD: 0.42 kWh → \$0.07', () {
-      expect(BillCurrency.usd.charge(0.42), closeTo(0.07, 1e-9));
-      expect(BillCurrency.usd.format(0.07), r'$0.07');
+    test('USD: 0.42 kWh → \$6.72', () {
+      expect(BillCurrency.usd.charge(0.42), closeTo(6.72, 1e-9));
+      expect(BillCurrency.usd.format(6.72), r'$6.72');
     });
 
     test('0 kWh는 0', () {

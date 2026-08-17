@@ -51,7 +51,7 @@ void main() {
       expect(day.lightsOut, false);
       expect(day.leftover, 2);
       expect(day.kwh, closeTo(0.84, 1e-9));
-      expect(day.amount, 128); // 0.84 * 152
+      expect(day.amount, 12768); // 0.84 * 15200
       expect(day.sleepScore, 0);
     });
   });
@@ -134,7 +134,7 @@ void main() {
 
     test('미소등 날은 남긴 등 × 밤만큼 청구한다', () async {
       await todoRepo.add(title: '남은 등', date: '2026-07-28');
-      // 소등 없음 → leftover 1 × 7h × 0.06 = 0.42 kWh → 64원 → 60원
+      // 소등 없음 → leftover 1 × 7h × 0.06 = 0.42 kWh → 6,384원 → 6,380원
       final bill = await billRepo.ensureLastWeekBill(
         '2026-08-06',
         wakeHour: 5,
@@ -142,7 +142,7 @@ void main() {
       );
       expect(bill, isNotNull);
       expect(bill!.kwh, closeTo(0.42, 1e-9));
-      expect(bill.amount, 60);
+      expect(bill.amount, 6380);
       final contents = decodeBillPayload(bill.payload);
       expect(contents.completed, 0);
       expect(contents.total, 1);
@@ -150,7 +150,7 @@ void main() {
       final lit = contents.days.where((d) => !d.lightsOut).toList();
       expect(lit, hasLength(1));
       expect(lit.first.leftover, 1);
-      expect(lit.first.amount, 64); // 0.42 * 152
+      expect(lit.first.amount, 6384); // 0.42 * 15200
     });
   });
 }
