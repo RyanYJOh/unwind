@@ -88,11 +88,6 @@ class SettingsScreen extends ConsumerWidget {
 
           UnwindSectionLabel(l10n.sectionFeel),
           UnwindListRow.toggle(
-            label: l10n.sound,
-            value: settings.soundEnabled,
-            onChanged: ctrl.setSoundEnabled,
-          ),
-          UnwindListRow.toggle(
             label: l10n.haptics,
             value: settings.hapticsEnabled,
             onChanged: ctrl.setHapticsEnabled,

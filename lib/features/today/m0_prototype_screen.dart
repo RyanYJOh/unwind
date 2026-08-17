@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import '../../core/haptics/haptics.dart';
-import '../../core/sound/sound_player.dart';
 import '../../core/tokens/motion.dart';
 import '../../core/tokens/spacing.dart';
 import '../../domain/models/todd_state.dart';
@@ -55,7 +54,6 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
 
   final _engine = BrightnessEngine();
   final _haptics = UnwindHaptics();
-  final _sound = SoundPlayer();
 
   // ── 조도 애니메이션 ──────────────────────────────────────────
   late final AnimationController _theme; // 전역 테마 이동
@@ -120,8 +118,6 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
       vsync: this,
       duration: const Duration(milliseconds: UnwindMotion.starsFadeInMs),
     );
-
-    _sound.init();
   }
 
   @override
@@ -143,7 +139,6 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
     _breath.dispose();
     _zoom.dispose();
     _stars.dispose();
-    _sound.dispose();
     super.dispose();
   }
 
@@ -177,7 +172,6 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
 
     if (item.done) {
       // 햅틱은 UnwindLampSwitch가 쏜다 (디자인 시스템 v2)
-      _sound.click(); // 0ms: 짧은 딸깍
       _engine.onItemCompleted(doneCount: _doneCount, totalCount: _items.length);
       _pulse.forward(from: 0); // 체크 펄스
       _reactTick++; // Todd 반응 (§7.3)
@@ -222,7 +216,7 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
     );
 
     // 도미노 — 절대 동시에 꺼지지 않는다. 70ms 간격 순차 소등.
-    // §9.5: Reduce Motion이어도 햅틱·사운드의 타라라락은 유지한다.
+    // §9.5: Reduce Motion이어도 햅틱의 타라라락은 유지한다.
     for (var k = 0; k < n; k++) {
       if (k > 0) {
         await Future.delayed(
@@ -245,10 +239,8 @@ class _M0PrototypeScreenState extends State<M0PrototypeScreen>
       }
       if (isLast) {
         _haptics.heavy(); // 마지막 등 — 길고 낮은 울림
-        _sound.lastNote(); // 항상 C3
       } else {
         _haptics.light();
-        _sound.dominoNote(k); // C5 → A4 → F4 → D4 → C4 순환
       }
     }
 

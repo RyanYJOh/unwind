@@ -3,7 +3,6 @@ import 'dart:ui' show Locale;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/haptics/haptics.dart';
-import '../../core/sound/sound_player.dart';
 import '../../core/utils/dates.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
@@ -45,17 +44,6 @@ final hapticsProvider = Provider<UnwindHaptics>((ref) {
     h.enabled = next.value?.hapticsEnabled ?? true;
   }, fireImmediately: true);
   return h;
-});
-
-final soundPlayerProvider = Provider<SoundPlayer>((ref) {
-  final p = SoundPlayer();
-  p.init();
-  // §6.7 사운드 on/off 연동
-  ref.listen(settingsControllerProvider, (prev, next) {
-    p.enabled = next.value?.soundEnabled ?? true;
-  }, fireImmediately: true);
-  ref.onDispose(p.dispose);
-  return p;
 });
 
 /// Todd 기상시간 = 하루의 경계 (세계관 통합 2026-08-15), 기본 05시.

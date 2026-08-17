@@ -53,6 +53,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get weekEmpty => '이번 주엔 아직 계획이 없어';
 
   @override
+  String get weekIncompleteOnly => '미완료 할 일';
+
+  @override
   String addToDay(String day) {
     return '$day에 추가';
   }
@@ -188,7 +191,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get billTitle => 'Unwind 전기요금 청구서';
+  String get billTitle => '전기요금 청구서';
 
   @override
   String billTasksClosed(int done, int total) {
@@ -256,10 +259,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get diffSame => '지난주와 같은 요금이야';
 
   @override
-  String get notifNightReminder => '토드가 잘 시간인데 아직 불이 켜져 있어';
+  String get notifNightReminder => '나 이제 자고 싶은데에.. 눈이 부셔..';
 
   @override
-  String get notifBillArrived => '지난주 청구서가 도착했어';
+  String get notifBillArrived => '지난주 청구서가 도착했어!';
 
   @override
   String get notifMorningGreeting => '좋은 아침! 난 방금 일어났어';
@@ -310,9 +313,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get sectionFeel => '감각';
-
-  @override
-  String get sound => '사운드';
 
   @override
   String get haptics => '햅틱';
@@ -374,7 +374,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obWelcomeBody => '내가 매일 밤 잠들 수 있도록 도와줄래?';
 
   @override
-  String get obNightTitle => '밤엔 자야 하는데..';
+  String get obNightTitle => '난 밤에 자야 하는데..';
 
   @override
   String get obNightBody => '빛이 너무 밝아서 잠들 수가 없어.\n할 일을 체크해서 불을 꺼줄래?';
@@ -398,7 +398,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obBillTitle => '매주 월요일,\n청구서가 도착해.';
 
   @override
-  String get obBillBody => '지난주에 불을 얼마나 켜뒀는지 보자..';
+  String get obBillBody => '지난주에 불을 얼마나 켜뒀는지 보자.';
 
   @override
   String get obBillOnMe => '걱정 마 — 내가 낼게!';
@@ -407,13 +407,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obQuestionsTitle => '이제 물어볼 게\n몇 가지 있어!';
 
   @override
-  String get obQuestionsBody => '너의 하루가 궁금해.';
+  String get obQuestionsBody => '우리 서로 하루를 맞춰보자.';
 
   @override
   String get obHabitsTitle => '매일 하는 루틴이 있어?';
 
   @override
-  String get obHabitsBody => '아니면 앞으로 하고 싶은 거라도! 하나라도 좋아.';
+  String get obHabitsBody => '아니면 앞으로 하고 싶은 거라도!';
 
   @override
   String get obHabitsHint => '예: 5분 스트레칭';
@@ -428,18 +428,18 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obSleepQTitle => '보통 몇 시에 자?';
 
   @override
-  String get obSleepQBody => '참고로 꽤 일찍 잠드는 편이야.';
+  String get obSleepQBody => '참고로, 난 좀 일찍 잠드는 편이야.';
 
   @override
   String obSleepQResult(String time) {
-    return '나중에 바꿀 수 있어.';
+    return '나중에 바꿀 수 있어';
   }
 
   @override
   String get obWakeQTitle => '보통 몇 시에 일어나?';
 
   @override
-  String get obWakeQBody => '난 일찍 일어나는 편이야.';
+  String get obWakeQBody => '난 아침형 유령이야.';
 
   @override
   String obWakeQResult(String time) {
@@ -447,7 +447,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get obScheduleTitle => '내 하루는 이런 모습이야.';
+  String get obScheduleTitle => '내 하루는 이런 모습이야!';
 
   @override
   String obScheduleBody(String bed, String wake) {
@@ -455,7 +455,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get obNameTitle => '마지막. 이름이 뭐야?';
+  String get obNameTitle => '마지막! 이름이 뭐야?';
 
   @override
   String get obNameHint => '이름';

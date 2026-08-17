@@ -74,11 +74,16 @@ void main() {
     await pumpApp(tester);
     await openWeek(tester);
 
-    expect(find.byType(UnwindTodoTile), findsOneWidget);
+    Finder inWeek(Finder inner) =>
+        find.descendant(of: find.byType(WeekScreen), matching: inner);
+
+    expect(inWeek(find.byType(UnwindTodoTile)), findsOneWidget);
     // 오늘의 방에만 있는 벽 스위치가 여기엔 없다
-    expect(find.byType(UnwindLampSwitch), findsNothing);
+    expect(inWeek(find.byType(UnwindLampSwitch)), findsNothing);
     expect(
-      tester.widget<UnwindTodoTile>(find.byType(UnwindTodoTile)).readOnlySwitch,
+      tester
+          .widget<UnwindTodoTile>(inWeek(find.byType(UnwindTodoTile)))
+          .readOnlySwitch,
       isTrue,
     );
 
@@ -121,7 +126,12 @@ void main() {
     await pumpApp(tester);
     await openWeek(tester);
 
-    final dismissible = tester.widget<Dismissible>(find.byType(Dismissible));
+    final dismissible = tester.widget<Dismissible>(
+      find.descendant(
+        of: find.byType(WeekScreen),
+        matching: find.byType(Dismissible),
+      ),
+    );
     expect(
       await dismissible.confirmDismiss!(DismissDirection.endToStart),
       true,
@@ -138,6 +148,37 @@ void main() {
     expect((await db.todoDao.getByDate(mondayKey)).single.title, '지울 주간 항목');
 
     await tester.pump(const Duration(seconds: 6));
+    await teardownApp(tester);
+  });
+
+  testWidgets('미완료 토글을 켜면 완료된 항목만 목록에서 숨긴다', (tester) async {
+    final a = await db.todoDao.insertTodo(title: '끝난 일', date: mondayKey);
+    await db.todoDao.insertTodo(title: '남은 일', date: mondayKey);
+    await db.todoDao.setDone(a.id, true);
+    await pumpApp(tester);
+    await openWeek(tester);
+
+    Finder inWeek(Finder inner) =>
+        find.descendant(of: find.byType(WeekScreen), matching: inner);
+
+    expect(inWeek(find.text('끝난 일')), findsOneWidget);
+    expect(inWeek(find.text('남은 일')), findsOneWidget);
+
+    await tester.tap(inWeek(find.text('Incomplete tasks')));
+    await tester.pump();
+
+    expect(inWeek(find.text('끝난 일')), findsNothing);
+    expect(inWeek(find.text('남은 일')), findsOneWidget);
+    // 진행 바는 필터와 무관하다
+    expect(
+      tester
+          .widget<AnimatedFractionallySizedBox>(
+            find.byType(AnimatedFractionallySizedBox),
+          )
+          .widthFactor,
+      0.5,
+    );
+
     await teardownApp(tester);
   });
 

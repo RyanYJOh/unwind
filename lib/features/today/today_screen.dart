@@ -179,7 +179,6 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   Future<void> _toggle(Todo todo) async {
     if (_dominoRunning) return;
     final repo = ref.read(todoRepositoryProvider);
-    final sound = ref.read(soundPlayerProvider);
     // 열람 중인 날짜 기준 (개편 2026-08-09) — 과거 날짜 편집도 그 날에 적용
     final viewedKey = ref.read(viewedDayKeyProvider);
     final asleep = ref.read(isAsleepProvider);
@@ -196,7 +195,6 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
 
     final done = todo.status != TodoStatus.done;
     if (done) {
-      sound.click();
       _pulse.forward(from: 0);
       setState(() {
         _toddEvent = ToddEvent.react;
@@ -254,7 +252,6 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     final todos = ref.read(viewedTodosProvider).value ?? const <Todo>[];
     final repo = ref.read(todoRepositoryProvider);
     final haptics = ref.read(hapticsProvider);
-    final sound = ref.read(soundPlayerProvider);
     final todayKey = ref.read(viewedDayKeyProvider);
     final reduce = MediaQuery.disableAnimationsOf(context);
 
@@ -298,10 +295,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       });
       if (isLast) {
         haptics.heavy();
-        sound.lastNote();
       } else {
         haptics.light();
-        sound.dominoNote(k);
       }
     }
 

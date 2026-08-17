@@ -43,7 +43,6 @@ void main() {
       expect(s.billNotificationEnabled, true);
       expect(s.morningGreetingEnabled, true);
       expect(s.todoReminderEnabled, true);
-      expect(s.soundEnabled, true);
       expect(s.hapticsEnabled, true);
       // 세계관 통합 (2026-08-15): 기상 05시 · 취침 22시
       expect(s.wakeHour, 5);
@@ -51,12 +50,12 @@ void main() {
       expect(s.onboardingCompleted, false);
 
       final ctrl = c.read(settingsControllerProvider.notifier);
-      await ctrl.setSoundEnabled(false);
+      await ctrl.setHapticsEnabled(false);
       await ctrl.setWakeHour(4);
       await ctrl.setBedtimeHour(23);
 
       // DB에 실제 영속화됐는지 확인
-      expect(await db.settingsDao.getValue('soundEnabled'), 'false');
+      expect(await db.settingsDao.getValue('hapticsEnabled'), 'false');
       expect(await db.settingsDao.getValue('wakeHour'), '4');
       expect(await db.settingsDao.getValue('bedtimeHour'), '23');
 
@@ -69,12 +68,12 @@ void main() {
       await c
           .read(todoRepositoryProvider)
           .add(title: '지울 일', date: '2026-08-06');
-      await db.settingsDao.setValue('soundEnabled', 'false');
+      await db.settingsDao.setValue('hapticsEnabled', 'false');
 
       await c.read(settingsControllerProvider.notifier).resetAllData();
 
       expect(await db.todoDao.getByDate('2026-08-06'), isEmpty);
-      expect(await db.settingsDao.getValue('soundEnabled'), 'false'); // 유지
+      expect(await db.settingsDao.getValue('hapticsEnabled'), 'false'); // 유지
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));

@@ -53,6 +53,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get weekEmpty => 'Nothing planned this week yet';
 
   @override
+  String get weekIncompleteOnly => 'Incomplete tasks';
+
+  @override
   String addToDay(String day) {
     return 'Add to $day';
   }
@@ -260,17 +263,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notifNightReminder =>
-      'It\'s Todd\'s bedtime — the lights are still on';
+      'I gotta sleep.. but it\'s still too bright 😭';
 
   @override
   String get notifBillArrived => 'Last week\'s bill has arrived';
 
   @override
-  String get notifMorningGreeting => 'Good morning — Todd\'s already up';
+  String get notifMorningGreeting => 'Good morning, rise and shine!';
 
   @override
   String notifMorningGreetingNamed(String name) {
-    return 'Good morning, $name — Todd\'s already up';
+    return 'Good morning $name, rise and shine!';
   }
 
   @override
@@ -315,9 +318,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sectionFeel => 'Feel';
-
-  @override
-  String get sound => 'Sound';
 
   @override
   String get haptics => 'Haptics';

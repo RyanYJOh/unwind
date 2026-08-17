@@ -16,7 +16,6 @@ class UnwindSettings {
   final bool billNotificationEnabled;
   final bool morningGreetingEnabled;
   final bool todoReminderEnabled;
-  final bool soundEnabled;
   final bool hapticsEnabled;
   final int wakeHour; // 기본 5
   final int bedtimeHour; // 기본 22
@@ -39,7 +38,6 @@ class UnwindSettings {
     this.billNotificationEnabled = true,
     this.morningGreetingEnabled = true,
     this.todoReminderEnabled = true,
-    this.soundEnabled = true,
     this.hapticsEnabled = true,
     this.wakeHour = 5,
     this.bedtimeHour = 22,
@@ -55,7 +53,6 @@ class UnwindSettings {
     bool? billNotificationEnabled,
     bool? morningGreetingEnabled,
     bool? todoReminderEnabled,
-    bool? soundEnabled,
     bool? hapticsEnabled,
     int? wakeHour,
     int? bedtimeHour,
@@ -71,7 +68,6 @@ class UnwindSettings {
     morningGreetingEnabled:
         morningGreetingEnabled ?? this.morningGreetingEnabled,
     todoReminderEnabled: todoReminderEnabled ?? this.todoReminderEnabled,
-    soundEnabled: soundEnabled ?? this.soundEnabled,
     hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     wakeHour: wakeHour ?? this.wakeHour,
     bedtimeHour: bedtimeHour ?? this.bedtimeHour,
@@ -110,7 +106,6 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
         SettingKeys.todoReminderEnabled,
         fallback: true,
       ),
-      soundEnabled: await dao.getBool(SettingKeys.soundEnabled, fallback: true),
       hapticsEnabled: await dao.getBool(
         SettingKeys.hapticsEnabled,
         fallback: true,
@@ -172,9 +167,6 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
     '$v',
     (s) => s.copyWith(todoReminderEnabled: v),
   );
-
-  Future<void> setSoundEnabled(bool v) =>
-      _set(SettingKeys.soundEnabled, '$v', (s) => s.copyWith(soundEnabled: v));
 
   Future<void> setHapticsEnabled(bool v) => _set(
     SettingKeys.hapticsEnabled,

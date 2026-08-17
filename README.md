@@ -27,7 +27,7 @@ flutter run                        # 연결된 시뮬레이터/기기
 flutter build ios --simulator      # 시뮬레이터용 빌드
 ```
 
-폰트·사운드·drift wasm 등 에셋은 전부 저장소에 포함되어 있다.
+폰트·drift wasm 등 에셋은 전부 저장소에 포함되어 있다.
 
 ## 구조 요약
 

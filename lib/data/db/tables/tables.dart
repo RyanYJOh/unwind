@@ -112,7 +112,6 @@ abstract final class SettingKeys {
   static const billNotificationEnabled = 'billNotificationEnabled';
   static const morningGreetingEnabled = 'morningGreetingEnabled';
   static const todoReminderEnabled = 'todoReminderEnabled';
-  static const soundEnabled = 'soundEnabled'; // 기본 true
   static const hapticsEnabled = 'hapticsEnabled'; // 기본 true
   static const onboardingCompleted = 'onboardingCompleted';
 

@@ -182,6 +182,12 @@ abstract class AppLocalizations {
   /// **'Nothing planned this week yet'**
   String get weekEmpty;
 
+  /// No description provided for @weekIncompleteOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Incomplete tasks'**
+  String get weekIncompleteOnly;
+
   /// No description provided for @addToDay.
   ///
   /// In en, this message translates to:
@@ -533,7 +539,7 @@ abstract class AppLocalizations {
   /// No description provided for @notifNightReminder.
   ///
   /// In en, this message translates to:
-  /// **'It\'s Todd\'s bedtime — the lights are still on'**
+  /// **'I gotta sleep.. but it\'s still too bright 😭'**
   String get notifNightReminder;
 
   /// No description provided for @notifBillArrived.
@@ -545,13 +551,13 @@ abstract class AppLocalizations {
   /// No description provided for @notifMorningGreeting.
   ///
   /// In en, this message translates to:
-  /// **'Good morning — Todd\'s already up'**
+  /// **'Good morning, rise and shine!'**
   String get notifMorningGreeting;
 
   /// No description provided for @notifMorningGreetingNamed.
   ///
   /// In en, this message translates to:
-  /// **'Good morning, {name} — Todd\'s already up'**
+  /// **'Good morning {name}, rise and shine!'**
   String notifMorningGreetingNamed(String name);
 
   /// No description provided for @settingsTitle.
@@ -637,12 +643,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Feel'**
   String get sectionFeel;
-
-  /// No description provided for @sound.
-  ///
-  /// In en, this message translates to:
-  /// **'Sound'**
-  String get sound;
 
   /// No description provided for @haptics.
   ///

@@ -27,7 +27,7 @@ import '../../l10n/generated/app_localizations.dart';
 /// - 추가·편집·삭제는 오늘의 방과 **완전히 같은 UX**를 쓴다
 ///   (`todo_actions.dart` 공용 헬퍼 + 같은 입력 시트).
 /// - **조명 연출을 넣지 않는다.** CornerGlow·조도는 오늘의 방의 독점 권한이다
-///   (§6.2). 이 화면의 유일한 빛 표현은 상단의 [_WeekProgressBar]다.
+///   (§6.2). 이 화면의 빛 표현은 상단의 [_WeekProgressBar]다.
 ///
 /// [mondayKey]로 **아무 주나** 열 수 있다 (개편 2026-08-13) — 하단 스트립을
 /// 넘긴 주를 그대로 연다.
@@ -38,19 +38,28 @@ Future<void> showWeekScreen(BuildContext context, {required String mondayKey}) {
   ).push(CupertinoPageRoute(builder: (_) => WeekScreen(mondayKey: mondayKey)));
 }
 
-class WeekScreen extends ConsumerWidget {
+class WeekScreen extends ConsumerStatefulWidget {
   /// 보여줄 주의 월요일
   final String mondayKey;
 
   const WeekScreen({super.key, required this.mondayKey});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WeekScreen> createState() => _WeekScreenState();
+}
+
+class _WeekScreenState extends ConsumerState<WeekScreen> {
+  /// 켜면 완료된 항목만 목록에서 숨긴다. 진행 바는 그대로다.
+  bool _incompleteOnly = false;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final todayKey = ref.watch(todayKeyProvider);
     final todos =
-        ref.watch(weekTodosForProvider(mondayKey)).value ?? const <Todo>[];
-    final monday = parseDayKey(mondayKey);
+        ref.watch(weekTodosForProvider(widget.mondayKey)).value ??
+        const <Todo>[];
+    final monday = parseDayKey(widget.mondayKey);
 
     final byDate = <String, List<Todo>>{};
     for (final t in todos) {
@@ -62,7 +71,11 @@ class WeekScreen extends ConsumerWidget {
     return UnwindScreen(
       header: UnwindHeader(
         // 칩과 같은 이름을 쓴다 — 어느 주를 보고 있는지 헷갈리지 않게
-        title: weekLabel(context, mondayKey: mondayKey, todayKey: todayKey),
+        title: weekLabel(
+          context,
+          mondayKey: widget.mondayKey,
+          todayKey: todayKey,
+        ),
         leadingIcon: Icons.arrow_back_rounded,
         leadingLabel: l10n.close,
         onLeading: () => Navigator.of(context).pop(),
@@ -70,17 +83,35 @@ class WeekScreen extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.only(bottom: UnwindSpacing.s48),
         children: [
+          UnwindListRow.toggle(
+            label: l10n.weekIncompleteOnly,
+            value: _incompleteOnly,
+            onChanged: (v) => setState(() => _incompleteOnly = v),
+            padding: const EdgeInsets.fromLTRB(
+              UnwindSpacing.s20,
+              UnwindSpacing.s8,
+              UnwindSpacing.s20,
+              0,
+            ),
+          ),
           _WeekProgressBar(todos: byDate.values.expand((e) => e).toList()),
           const SizedBox(height: UnwindSpacing.s8),
           for (var i = 0; i < 7; i++)
             _DaySection(
               date: addDays(monday, i),
               todayKey: todayKey,
-              todos: byDate[dayKey(addDays(monday, i))] ?? const [],
+              todos: _visibleTodos(
+                byDate[dayKey(addDays(monday, i))] ?? const <Todo>[],
+              ),
             ),
         ],
       ),
     );
+  }
+
+  List<Todo> _visibleTodos(List<Todo> todos) {
+    if (!_incompleteOnly) return todos;
+    return todos.where((t) => t.status != TodoStatus.done).toList();
   }
 }
 
