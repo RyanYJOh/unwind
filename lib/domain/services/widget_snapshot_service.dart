@@ -100,6 +100,10 @@ class WidgetSnapshotService {
   int _epoch = 0;
   Future<void> _chain = Future<void>.value();
 
+  /// 마지막 write 결과 — 릴리즈 빌드에선 debugPrint가 보이지 않아, 실기기에서
+  /// 실패해도 아무 흔적이 없었다. 설정 > 위젯 진단(dev)이 이 값을 읽는다.
+  String lastResult = 'not written yet';
+
   /// 오늘의 스냅샷을 App Group에 쓴다.
   ///
   /// [widgetSyncProvider]가 빌드마다 fire-and-forget으로 부르므로, 빈 방
@@ -112,6 +116,19 @@ class WidgetSnapshotService {
       await _persist(s);
     });
     return _chain;
+  }
+
+  /// App Group이 실제로 붙었는지 네이티브에 그대로 묻는다 (dev 진단용).
+  Future<Map<String, Object?>> diagnose() async {
+    if (kIsWeb || !Platform.isIOS) return {'error': 'iOS only'};
+    try {
+      final r = await _channel.invokeMapMethod<String, Object?>('diagnose', {
+        'appGroupId': appGroupId,
+      });
+      return r ?? {'error': 'null response'};
+    } catch (e) {
+      return {'error': '$e'};
+    }
   }
 
   Future<void> _persist(WidgetSnapshot s) async {
@@ -134,8 +151,11 @@ class WidgetSnapshotService {
         'bedtimeHour': s.bedtimeHour,
         'languageCode': s.languageCode,
       });
+      lastResult = 'ok ${s.dayKey} ${s.remaining}/${s.total}';
     } catch (e, st) {
       // 위젯 미설치여도 앱은 계속 돌아야 한다. 삼키되 원인은 남긴다.
+      // 릴리즈 빌드에선 debugPrint가 아무 데도 안 보이므로 결과도 붙잡아 둔다.
+      lastResult = 'FAILED: $e';
       debugPrint('WidgetSnapshot persist failed: $e\n$st');
     }
   }

@@ -8,6 +8,7 @@ import '../../core/tokens/typography.dart';
 import '../../ui/ui.dart';
 import '../dev/design_gallery_screen.dart';
 import '../onboarding/onboarding_flow.dart';
+import '../today/providers.dart';
 import 'ghost_demo_screen.dart';
 import 'push_settings_screen.dart';
 import 'settings_controller.dart';
@@ -140,6 +141,16 @@ class SettingsScreen extends ConsumerWidget {
             value: '',
             onTap: () => showDesignGalleryScreen(context),
           ),
+          // TODO(unwind): 배포 빌드에서 제거 — 홈 위젯 App Group 진단.
+          // 위젯이 "Good morning"에 고정되면 여기서 원인이 바로 보인다:
+          // containerOk=false면 엔타이틀먼트·프로비저닝, fileExists=false면
+          // 앱이 못 쓴 것, 있는데도 위젯이 옛것이면 타임라인 리로드 문제다.
+          UnwindListRow.value(
+            label: 'Widget diagnostics (dev)',
+            caption: 'App Group 스냅샷 상태 확인',
+            value: '',
+            onTap: () => _showWidgetDiagnostics(context, ref),
+          ),
 
           const SizedBox(height: UnwindSpacing.s24),
           Center(
@@ -150,6 +161,34 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// 홈 위젯 스냅샷이 App Group에 실제로 닿는지 그 자리에서 확인한다.
+  /// 먼저 오늘 스냅샷을 강제로 한 번 쓰고, 네이티브가 본 상태를 그대로 읽는다.
+  Future<void> _showWidgetDiagnostics(BuildContext context, WidgetRef ref) async {
+    await flushWidgetSnapshot(ref);
+    final service = ref.read(widgetSnapshotServiceProvider);
+    final d = await service.diagnose();
+    if (!context.mounted) return;
+    final lines = <String>[
+      'write: ${service.lastResult}',
+      'containerOk: ${d['containerOk']}',
+      'suiteOk: ${d['suiteOk']}',
+      'fileExists: ${d['fileExists']}',
+      'protection: ${d['fileProtection']}',
+      'defaultsDayKey: ${d['defaultsDayKey']}',
+      'body: ${d['fileBody']}',
+      if (d['error'] != null) 'error: ${d['error']}',
+    ];
+    if (!context.mounted) return;
+    await showUnwindConfirm(
+      context,
+      title: 'Widget diagnostics',
+      message: lines.join('\n'),
+      confirmLabel: 'Close',
+      cancelLabel: 'Dismiss',
+      destructive: false,
     );
   }
 

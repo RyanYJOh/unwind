@@ -297,6 +297,21 @@ private struct ToddProvider: TimelineProvider {
         // 앱이 상태를 바꾸면 updateWidget이 타임라인을 통째로 다시 뽑는다.
         let snapshot = Snapshot.load()
         let now = Date()
+
+        // 스냅샷을 못 읽었으면(첫 설치 직후, 또는 잠금 중이라 데이터 보호에
+        // 막힌 경우) 24시간짜리 타임라인을 깔면 안 된다 — 그 빈 결과가
+        // ".atEnd"로 하루 종일 고정돼 위젯이 "Good morning"에서 안 바뀐다.
+        // 짧게 다시 물어보게 해서 스스로 회복하도록 한다.
+        guard let snapshot else {
+            completion(
+                Timeline(
+                    entries: [ToddEntry(date: now, state: computeState(at: now, snapshot: nil))],
+                    policy: .after(now.addingTimeInterval(15 * 60))
+                )
+            )
+            return
+        }
+
         var entries = [ToddEntry(date: now, state: computeState(at: now, snapshot: snapshot))]
         let cal = Calendar.current
         if let nextHour = cal.nextDate(

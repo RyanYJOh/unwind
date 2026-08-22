@@ -104,12 +104,12 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Morning hello'), findsOneWidget);
+      expect(find.text('Morning greeting'), findsOneWidget);
       expect(find.text('Unwind reminder'), findsOneWidget);
       expect(find.text('Timed tasks'), findsOneWidget);
-      expect(find.text('Bill arrival'), findsOneWidget);
+      expect(find.text('Weekly Bill'), findsOneWidget);
 
-      await tester.tap(find.bySemanticsLabel('Morning hello'));
+      await tester.tap(find.bySemanticsLabel('Morning greeting'));
       await tester.pump();
       expect(await db.settingsDao.getValue('morningGreetingEnabled'), 'false');
 

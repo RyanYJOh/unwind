@@ -35,7 +35,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 98개 통과가 기준선
+flutter analyze && flutter test                           # 126개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
 ```
@@ -521,6 +521,18 @@ PageView **11페이지**(2026-08-16: 인사 뒤에 위젯 안내 추가. 2차 �
 - **새벽 공백**: 롤오버(자동 미루기·반복 전개)는 앱에서만 실행되므로,
   기상시간이 지났는데 앱이 안 열렸으면(dayKey 불일치) **개수를 숨기고 아침
   상태만** 보여준다. 어제 불을 남겼으면(미완+미소등) 다크서클은 추론해 얹는다.
+- **⚠️ 실기기에서만 나는 함정 (2026-08-16)**: 위젯이 "Good morning"에서 안
+  바뀌는 증상은 `computeState(snapshot: nil)` 폴백이다 — **시뮬레이터에선
+  절대 재현되지 않는다** (시뮬레이터엔 데이터 보호가 없다). 두 가지를 지킬 것.
+  ① 스냅샷 파일은 **반드시 `.completeFileProtectionUntilFirstUserAuthentication`**
+  으로 쓴다. 기본 보호 등급이면 잠긴 기기에서 타임라인이 생성될 때 읽기가
+  실패한다 (UserDefaults 폴백도 같은 이유로 막힌다).
+  ② 스냅샷이 nil이면 **`.atEnd` 24시간 타임라인을 깔지 않는다** — 빈 결과가
+  하루 종일 고정된다. 15분 뒤 재시도(`.after`)로 스스로 회복하게 한다.
+  진단: 설정 > **Widget diagnostics (dev)** — 오늘 스냅샷을 강제로 쓴 뒤
+  네이티브가 본 상태를 그대로 보여준다. `containerOk=false`면 엔타이틀먼트·
+  프로비저닝, `fileExists=false`면 앱이 못 쓴 것, 파일이 있는데도 위젯이 옛
+  것이면 타임라인 리로드 문제다.
 - **디자인**: 고정 다크 팔레트·앰버를 Swift 상수로 미러(`Palette` —
   palette.dart가 바뀌면 함께 갱신). 코너 글로우는 우상단 radial gradient
   (§11 블러 금지 준수), 개수는 듀오링고식 3D 압출 알약(blur 0 오프셋),
@@ -547,8 +559,8 @@ PageView **11페이지**(2026-08-16: 인사 뒤에 위젯 안내 추가. 2차 �
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **125개** 전부 통과가 기준선 (2026-08-16 위젯 스냅샷 +3.
- 이전 122: 현지 통화).
+2. `flutter test` — **126개** 전부 통과가 기준선 (2026-08-17 주간 미완료 필터
+   +1. 이전 125: 위젯 스냅샷 +3, 그 이전 122: 현지 통화).
    UI 변경 시 위젯 테스트가 히트 영역 겹침·오버플로 같은 실제 버그를 잡아 온
    전적이 있다.
    시트/오버레이를 여는 위젯 테스트는 `pump()` 한 번 뒤에 `pump(duration)`을

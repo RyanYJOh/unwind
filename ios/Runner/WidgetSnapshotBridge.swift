@@ -13,6 +13,14 @@ enum WidgetSnapshotBridge {
   static func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
     channel.setMethodCallHandler { call, result in
+      // 실기기에서만 나는 App Group 실패를 눈으로 잡기 위한 진단 (dev).
+      // 컨테이너 경로가 nil이면 엔타이틀먼트·프로비저닝 문제로 확정된다.
+      if call.method == "diagnose" {
+        let args = call.arguments as? [String: Any]
+        let appGroupId = args?["appGroupId"] as? String ?? ""
+        result(diagnose(appGroupId: appGroupId))
+        return
+      }
       guard call.method == "persist" else {
         result(FlutterMethodNotImplemented)
         return
@@ -84,7 +92,39 @@ enum WidgetSnapshotBridge {
       throw SnapshotError.noContainer
     }
     let data = try JSONSerialization.data(withJSONObject: payload, options: [])
-    try data.write(to: root.appendingPathComponent(fileName), options: .atomic)
+    // 잠긴 기기에서도 위젯이 읽어야 한다. 기본 보호 등급이면 타임라인 생성이
+    // 잠금 중에 돌 때 읽기가 실패하고, .atEnd 정책 탓에 그 빈 결과가 24시간
+    // 고정된다 (시뮬레이터엔 데이터 보호가 없어 재현되지 않는다).
+    try data.write(
+      to: root.appendingPathComponent(fileName),
+      options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
+    )
+  }
+
+  /// App Group이 실제로 붙었는지, 스냅샷이 남아 있는지 그대로 보고한다.
+  private static func diagnose(appGroupId: String) -> [String: Any] {
+    var out: [String: Any] = ["appGroupId": appGroupId]
+    let root = FileManager.default.containerURL(
+      forSecurityApplicationGroupIdentifier: appGroupId
+    )
+    out["containerPath"] = root?.path ?? ""
+    out["containerOk"] = root != nil
+    out["suiteOk"] = UserDefaults(suiteName: appGroupId) != nil
+    out["defaultsDayKey"] = UserDefaults(suiteName: appGroupId)?
+      .string(forKey: "dayKey") ?? ""
+    if let root {
+      let url = root.appendingPathComponent(fileName)
+      out["fileExists"] = FileManager.default.fileExists(atPath: url.path)
+      out["fileBody"] = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+      let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+      out["fileProtection"] =
+        (attrs?[.protectionKey] as? FileProtectionType)?.rawValue ?? ""
+    } else {
+      out["fileExists"] = false
+      out["fileBody"] = ""
+      out["fileProtection"] = ""
+    }
+    return out
   }
 
   private static func intVal(_ value: Any?, fallback: Int = 0) -> Int {
