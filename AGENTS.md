@@ -35,7 +35,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 132개 통과가 기준선
+flutter analyze && flutter test                           # 133개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
 ```
@@ -591,7 +591,7 @@ PageView **11페이지**(2026-08-16: 인사 뒤에 위젯 안내 추가. 2차 �
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **132개** 전부 통과가 기준선 (2026-08-22 스트립 창 +1·타이프라이터
+2. `flutter test` — **133개** 전부 통과가 기준선 (2026-08-22 날짜 독립성·스트립 창 +2·타이프라이터
    +5. 이전 126: 주간 미완료 필터, 125: 위젯 스냅샷 +3, 122: 현지 통화).
    UI 변경 시 위젯 테스트가 히트 영역 겹침·오버플로 같은 실제 버그를 잡아 온
    전적이 있다.
