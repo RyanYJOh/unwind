@@ -44,6 +44,9 @@ class SettingsScreen extends ConsumerWidget {
         onLeading: () => Navigator.of(context).pop(),
       ),
       child: ListView(
+        // 조명 색을 바꾸면 UnwindScreen이 화면을 새로 인플레이트한다 —
+        // PageStorageKey가 스크롤 위치를 지킨다 (선택형 2026-08-22)
+        key: const PageStorageKey('settings-list'),
         padding: const EdgeInsets.only(bottom: UnwindSpacing.s48),
         children: [
           // Todd의 하루 (세계관 2026-08-15) — 기상·취침시간이 하루의 축이다
@@ -92,6 +95,14 @@ class SettingsScreen extends ConsumerWidget {
             label: l10n.haptics,
             value: settings.hapticsEnabled,
             onChanged: ctrl.setHapticsEnabled,
+          ),
+
+          // 방 조명의 색 (선택형 2026-08-22, 발주자 지시) — 고르는 즉시
+          // 앱 전체 팔레트가 따라간다 (CTA·FAB·글로우·창문·위젯까지)
+          UnwindSectionLabel(l10n.sectionLight),
+          _LightColorRow(
+            selected: UnwindLightColor.fromName(settings.lightColor),
+            onPicked: (c) => ctrl.setLightColor(c.name),
           ),
 
           UnwindSectionLabel(l10n.sectionLanguage),
@@ -316,11 +327,91 @@ class _PickerBox extends StatelessWidget {
     ),
     clipBehavior: Clip.antiAlias,
     child: CupertinoTheme(
-      data: const CupertinoThemeData(
+      data: CupertinoThemeData(
         brightness: Brightness.dark,
         primaryColor: UnwindColors.accent,
       ),
       child: child,
     ),
   );
+}
+
+/// 방 조명의 색 스와치 (선택형 2026-08-22) — 7색 중 하나를 고른다.
+/// 선택된 스와치는 밝은 링 + 체크. 실제 팔레트 적용은 UnwindApp이
+/// 설정을 watch하며 UnwindColors.setLightColor로 흘린다.
+class _LightColorRow extends StatelessWidget {
+  final UnwindLightColor selected;
+  final ValueChanged<UnwindLightColor> onPicked;
+
+  const _LightColorRow({required this.selected, required this.onPicked});
+
+  String _label(AppLocalizations l10n, UnwindLightColor c) => switch (c) {
+    UnwindLightColor.amber => l10n.lightAmber,
+    UnwindLightColor.sunset => l10n.lightSunset,
+    UnwindLightColor.rose => l10n.lightRose,
+    UnwindLightColor.lavender => l10n.lightLavender,
+    UnwindLightColor.sky => l10n.lightSky,
+    UnwindLightColor.mint => l10n.lightMint,
+    UnwindLightColor.moon => l10n.lightMoon,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: UnwindSpacing.s16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          for (final c in UnwindLightColor.values)
+            UnwindPressable(
+              onTap: () => onPicked(c),
+              depth: 0,
+              pressScale: 0.88,
+              haptic: UnwindHapticKind.selection,
+              semanticLabel: _label(l10n, c),
+              isToggled: c == selected,
+              // §12 터치 타깃 44pt — 스와치는 그 안의 원
+              child: SizedBox(
+                width: UnwindTouch.minTarget,
+                height: UnwindTouch.minTarget,
+                child: Center(
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      // 미선택도 투명 링을 그려 선택 시 크기가 안 흔들린다
+                      border: Border.all(
+                        color: c == selected
+                            ? UnwindColors.textPrimary
+                            : const Color(0x00000000),
+                        width: UnwindStroke.base,
+                      ),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: c.seed,
+                          shape: BoxShape.circle,
+                        ),
+                        child: c == selected
+                            ? Icon(
+                                Icons.check_rounded,
+                                size: 18,
+                                color: c.ink,
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

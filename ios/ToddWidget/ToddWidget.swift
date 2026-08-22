@@ -24,9 +24,22 @@ private enum Palette {
     static let pillDeep = Color(red: 0x10 / 255, green: 0x1B / 255, blue: 0x26 / 255)
     static let textPrimary = Color(red: 0xF2 / 255, green: 0xF7 / 255, blue: 0xFB / 255)
     static let textSecondary = Color(red: 0x9B / 255, green: 0xB0 / 255, blue: 0xC2 / 255)
-    static let accent = Color(red: 0xFF / 255, green: 0xB2 / 255, blue: 0x24 / 255)
-    static let accentDeep = Color(red: 0xC5 / 255, green: 0x7F / 255, blue: 0x12 / 255)
-    static let onAccent = Color(red: 0x1A / 255, green: 0x12 / 255, blue: 0x06 / 255)
+    // 조명 색 기본값(앰버) — 스냅샷이 accent를 실어 오면 그쪽을 쓴다
+    // (선택형 2026-08-22, palette.dart UnwindLightColor 미러)
+    static let amberARGB = 0xFFFF_B224
+    static let amberDeepARGB = 0xFFC5_7F12
+    static let onAmberARGB = 0xFF1A_1206
+}
+
+extension Color {
+    /// Flutter Color.toARGB32() → SwiftUI Color
+    init(argb: Int) {
+        self.init(
+            red: Double((argb >> 16) & 0xFF) / 255,
+            green: Double((argb >> 8) & 0xFF) / 255,
+            blue: Double(argb & 0xFF) / 255
+        )
+    }
 }
 
 // MARK: - 앱 스냅샷 (App Group)
@@ -43,6 +56,10 @@ private struct Snapshot {
     var wakeHour: Int
     var bedtimeHour: Int
     var languageCode: String
+    /// 조명 색 (선택형 2026-08-22) — ARGB. 앱 팔레트를 따라온다
+    var accent: Int
+    var accentDeep: Int
+    var onAccent: Int
 
     /// Runner `WidgetSnapshotBridge`가 App Group 컨테이너에 원자적으로 쓰는 파일.
     /// UserDefaults는 위젯 프로세스가 빈 캐시를 붙잡는 경우가 있어 파일을 먼저 본다.
@@ -73,7 +90,10 @@ private struct Snapshot {
             darkCircles: jsonBool(obj, "darkCircles"),
             wakeHour: jsonInt(obj, "wakeHour", fallback: 5),
             bedtimeHour: jsonInt(obj, "bedtimeHour", fallback: 22),
-            languageCode: obj["languageCode"] as? String ?? "en"
+            languageCode: obj["languageCode"] as? String ?? "en",
+            accent: jsonInt(obj, "accent", fallback: Palette.amberARGB),
+            accentDeep: jsonInt(obj, "accentDeep", fallback: Palette.amberDeepARGB),
+            onAccent: jsonInt(obj, "onAccent", fallback: Palette.onAmberARGB)
         )
     }
 
@@ -92,7 +112,10 @@ private struct Snapshot {
             darkCircles: d.bool(forKey: "darkCircles"),
             wakeHour: d.intValue("wakeHour", fallback: 5),
             bedtimeHour: d.intValue("bedtimeHour", fallback: 22),
-            languageCode: d.string(forKey: "languageCode") ?? "en"
+            languageCode: d.string(forKey: "languageCode") ?? "en",
+            accent: d.intValue("accent", fallback: Palette.amberARGB),
+            accentDeep: d.intValue("accentDeep", fallback: Palette.amberDeepARGB),
+            onAccent: d.intValue("onAccent", fallback: Palette.onAmberARGB)
         )
     }
 
@@ -135,6 +158,10 @@ private struct DisplayState {
     /// 방에 남은 빛 0…1 — 코너 글로우 세기 (§5.1: 응답은 선형)
     var glow: Double
     var lang: String
+    /// 조명 색 (선택형 2026-08-22) — 알약·글로우가 따라간다
+    var accent: Color = Color(argb: Palette.amberARGB)
+    var accentDeep: Color = Color(argb: Palette.amberDeepARGB)
+    var onAccent: Color = Color(argb: Palette.onAmberARGB)
 }
 
 /// Dart logicalTodayKey와 동일: 기상시간만큼 되돌린 시각의 로컬 날짜
@@ -165,6 +192,16 @@ private extension UserDefaults {
 }
 
 private func computeState(at date: Date, snapshot: Snapshot?) -> DisplayState {
+    var state = computeScene(at: date, snapshot: snapshot)
+    if let s = snapshot {
+        state.accent = Color(argb: s.accent)
+        state.accentDeep = Color(argb: s.accentDeep)
+        state.onAccent = Color(argb: s.onAccent)
+    }
+    return state
+}
+
+private func computeScene(at date: Date, snapshot: Snapshot?) -> DisplayState {
     guard let s = snapshot else {
         // 앱을 아직 한 번도 안 열었다 (위젯 갤러리 직후 등) — 낮의 인사
         return DisplayState(
@@ -366,8 +403,8 @@ private struct ToddWidgetView: View {
                 // §5.1 좌하단은 언제나 어둠에 남는다 — 글로우는 우상단만
                 RadialGradient(
                     colors: [
-                        Palette.accent.opacity(0.62 * entry.state.glow),
-                        Palette.accent.opacity(0.20 * entry.state.glow),
+                        entry.state.accent.opacity(0.62 * entry.state.glow),
+                        entry.state.accent.opacity(0.20 * entry.state.glow),
                         .clear,
                     ],
                     center: UnitPoint(x: 1.06, y: -0.08),
@@ -393,9 +430,9 @@ private struct ToddWidgetView: View {
     /// 듀오링고 문법의 3D 알약 — blur 0 오프셋 압출 (§5.2)
     private var pill: some View {
         let hasCount = entry.state.pillNumber != nil
-        let top: Color = hasCount ? Palette.accent : Palette.surfaceHigh
-        let deep: Color = hasCount ? Palette.accentDeep : Palette.pillDeep
-        let fg: Color = hasCount ? Palette.onAccent : Palette.textPrimary
+        let top: Color = hasCount ? entry.state.accent : Palette.surfaceHigh
+        let deep: Color = hasCount ? entry.state.accentDeep : Palette.pillDeep
+        let fg: Color = hasCount ? entry.state.onAccent : Palette.textPrimary
 
         return HStack(spacing: 4) {
             if let n = entry.state.pillNumber {

@@ -70,6 +70,47 @@ void main() {
         }
       }
     });
+
+    // 조명 색 선택형 (2026-08-22) — 유저가 어떤 색을 골라도 §12를 지킨다
+    test('모든 조명 색: 글자 4.5:1 + 면 위 3:1', () {
+      for (final light in UnwindLightColor.values) {
+        expect(
+          _contrast(light.ink, light.seed),
+          greaterThanOrEqualTo(4.5),
+          reason: '${light.name}: ink on seed',
+        );
+        expect(
+          _contrast(light.ink, light.deep),
+          greaterThanOrEqualTo(3.0),
+          reason: '${light.name}: ink on deep (압출면 비텍스트)',
+        );
+        for (final s in surfaces.entries) {
+          expect(
+            _contrast(light.seed, s.value),
+            greaterThanOrEqualTo(3.0),
+            reason: '${light.name} seed on ${s.key}',
+          );
+        }
+      }
+    });
+
+    test('조명 색 전환 — accent 계열이 통째로 따라간다', () {
+      addTearDown(() => UnwindColors.setLightColor(UnwindLightColor.amber));
+      final before = UnwindColors.paletteEpoch.value;
+      UnwindColors.setLightColor(UnwindLightColor.sky);
+      expect(UnwindColors.paletteEpoch.value, before + 1);
+      expect(
+        UnwindColors.accent.toARGB32(),
+        UnwindLightColor.sky.seed.toARGB32(),
+      );
+      expect(
+        UnwindColors.window(1).toARGB32(),
+        UnwindLightColor.sky.seed.toARGB32(),
+      );
+      // 같은 값 재적용은 no-op (epoch 불변)
+      UnwindColors.setLightColor(UnwindLightColor.sky);
+      expect(UnwindColors.paletteEpoch.value, before + 1);
+    });
   });
 
   group('빛(조도)의 색 파생', () {

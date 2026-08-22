@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
 
+import '../../core/tokens/palette.dart';
 import '../../data/db/tables/tables.dart';
 import 'brightness_engine.dart';
 
@@ -179,6 +180,12 @@ class WidgetSnapshotService {
         'wakeHour': s.wakeHour,
         'bedtimeHour': s.bedtimeHour,
         'languageCode': s.languageCode,
+        // 조명 색 (선택형 2026-08-22) — 위젯의 알약·글로우가 따라간다.
+        // 항상 persist 시점의 현재 팔레트를 싣는다 (설정 변경도
+        // widgetSyncProvider가 settings를 watch하므로 새로 write된다).
+        'accent': UnwindColors.accent.toARGB32(),
+        'accentDeep': UnwindColors.accentDeep.toARGB32(),
+        'onAccent': UnwindColors.onAccent.toARGB32(),
       });
       lastResult = 'ok ${s.dayKey} ${s.remaining}/${s.total}';
     } catch (e, st) {

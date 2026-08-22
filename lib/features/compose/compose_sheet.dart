@@ -439,7 +439,7 @@ class _PickerBox extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: CupertinoTheme(
-        data: const CupertinoThemeData(
+        data: CupertinoThemeData(
           brightness: Brightness.dark,
           primaryColor: UnwindColors.accent,
         ),

@@ -345,9 +345,9 @@ class _ProgressBar extends StatelessWidget {
                 builder: (context, f, _) => FractionallySizedBox(
                   alignment: Alignment.centerLeft,
                   widthFactor: f,
-                  child: const ColoredBox(
+                  child: ColoredBox(
                     color: UnwindColors.accent,
-                    child: SizedBox.expand(),
+                    child: const SizedBox.expand(),
                   ),
                 ),
               ),
@@ -1296,7 +1296,7 @@ class _HabitsPageState extends State<_HabitsPage> {
                           Container(
                             width: 8,
                             height: 8,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: UnwindColors.accent,
                               shape: BoxShape.circle,
                             ),
@@ -1382,7 +1382,7 @@ class _HourQuestionPage extends ConsumerWidget {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: CupertinoTheme(
-                  data: const CupertinoThemeData(
+                  data: CupertinoThemeData(
                     brightness: Brightness.dark,
                     primaryColor: UnwindColors.accent,
                   ),
@@ -2038,7 +2038,7 @@ class _InstallStep extends StatelessWidget {
           width: 28,
           height: 28,
           child: DecoratedBox(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: UnwindColors.accent,
               shape: BoxShape.circle,
             ),

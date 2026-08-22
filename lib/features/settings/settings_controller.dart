@@ -33,6 +33,9 @@ class UnwindSettings {
   /// 앱 언어 — 기본 영어. 지원 언어는 l10n/*.arb 추가로 확장한다.
   final String languageCode;
 
+  /// 방 조명의 색 (선택형 2026-08-22) — UnwindLightColor.name
+  final String lightColor;
+
   const UnwindSettings({
     this.nightReminderEnabled = true,
     this.billNotificationEnabled = true,
@@ -46,6 +49,7 @@ class UnwindSettings {
     this.pullCordCoachShown = false,
     this.userName,
     this.languageCode = 'en',
+    this.lightColor = 'amber',
   });
 
   UnwindSettings copyWith({
@@ -61,6 +65,7 @@ class UnwindSettings {
     bool? pullCordCoachShown,
     String? userName,
     String? languageCode,
+    String? lightColor,
   }) => UnwindSettings(
     nightReminderEnabled: nightReminderEnabled ?? this.nightReminderEnabled,
     billNotificationEnabled:
@@ -76,6 +81,7 @@ class UnwindSettings {
     pullCordCoachShown: pullCordCoachShown ?? this.pullCordCoachShown,
     userName: userName ?? this.userName,
     languageCode: languageCode ?? this.languageCode,
+    lightColor: lightColor ?? this.lightColor,
   );
 }
 
@@ -130,6 +136,7 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
       ),
       userName: await dao.getValue(SettingKeys.userName),
       languageCode: await dao.getValue(SettingKeys.languageCode) ?? 'en',
+      lightColor: await dao.getValue(SettingKeys.lightColor) ?? 'amber',
     );
   }
 
@@ -216,6 +223,14 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
     SettingKeys.languageCode,
     code,
     (s) => s.copyWith(languageCode: code),
+  );
+
+  /// 방 조명의 색 (선택형 2026-08-22) — 팔레트 적용은 UnwindApp이
+  /// 설정을 watch하며 UnwindColors.setLightColor로 흘린다.
+  Future<void> setLightColor(String name) => _set(
+    SettingKeys.lightColor,
+    name,
+    (s) => s.copyWith(lightColor: name),
   );
 
   /// §6.7 데이터 초기화 — 할 일·기록·반복·청구서 전부 삭제 (설정은 유지)

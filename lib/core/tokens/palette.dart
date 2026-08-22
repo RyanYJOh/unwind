@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show ValueNotifier;
+
 /// 디자인 시스템 v2 팔레트 — "Midnight Amber" (개편 2026-08-12).
 ///
 /// **PRD §8.1의 조도 램프(S0 정오~S5 밤)를 대체한다.** 근거는
@@ -55,21 +57,50 @@ abstract final class UnwindColors {
   static const textMuted = Color(0xFF8098AD);
   static const textDisabled = Color(0xFF4E6376);
 
-  // ── 포인트 1: 앰버 = 빛 ───────────────────────────────────
-  /// 켜진 등, CTA, 선택 상태. 이 앱의 유일한 주 강조색.
-  static const accent = Color(0xFFFFB224);
+  // ── 포인트 1: 조명 색 = 빛 (선택형 2026-08-22, 기본 앰버) ──
+  static UnwindLightColor _light = UnwindLightColor.amber;
 
-  /// 앰버의 압출면 — 3D 버튼 바닥 / 눌린 상태
-  static const accentDeep = Color(0xFFC57F12);
+  /// 지금 방을 밝히는 조명 색
+  static UnwindLightColor get lightColor => _light;
 
-  /// 앰버 채움 (선택된 칩·스위치 트랙 등)
-  static const accentSoft = Color(0x24FFB224);
+  /// 팔레트 세대 — 조명 색이 바뀔 때 +1. [UnwindScreen]이 듣고 화면을
+  /// 통째로 다시 인플레이트한다: 색이 정적 게터라 자동 전파가 없고,
+  /// const 서브트리는 rebuild를 잘라먹으므로 키 교체가 유일하게 확실한
+  /// 전면 갱신이다.
+  static final paletteEpoch = ValueNotifier<int>(0);
 
-  /// 앰버 윤곽 (켜진 타일 테두리)
-  static const accentEdge = Color(0x8CFFB224);
+  /// 조명 색 적용 — 같은 값이면 no-op (빌드 중 불러도 안전한 멱등 호출).
+  static void setLightColor(UnwindLightColor c) {
+    if (_light == c) return;
+    _light = c;
+    paletteEpoch.value++;
+  }
 
-  /// 앰버 위에 얹는 글자·아이콘
-  static const onAccent = Color(0xFF1A1206);
+  /// 켜진 등, CTA, 선택 상태. 이 앱의 유일한 주 강조색 — 조명 색을 따른다.
+  static Color get accent => _light.seed;
+
+  /// 조명 색의 압출면 — 3D 버튼 바닥 / 눌린 상태
+  static Color get accentDeep => _light.deep;
+
+  /// 조명 색 채움 (선택된 칩·스위치 트랙 등)
+  static Color get accentSoft => _light.seed.withValues(alpha: 0x24 / 255);
+
+  /// 조명 색 윤곽 (켜진 타일 테두리)
+  static Color get accentEdge => _light.seed.withValues(alpha: 0x8C / 255);
+
+  /// 조명 색 위에 얹는 글자·아이콘
+  static Color get onAccent => _light.ink;
+
+  // ── 코너 글로우의 4겹 (corner_glow.dart) — seed에서 파생 ──
+  // 앰버의 파생 결과가 기존 손튜닝 값(#D89A2A/#FFB224/#FFD07A/#FFF0CC)과
+  // 거의 일치하도록 계수를 잡았다.
+  static Color get glowWash =>
+      Color.lerp(_light.seed, const Color(0xFF000000), 0.15)!;
+  static Color get glowMid => _light.seed;
+  static Color get glowCore =>
+      Color.lerp(_light.seed, const Color(0xFFFFFFFF), 0.40)!;
+  static Color get glowHot =>
+      Color.lerp(_light.seed, const Color(0xFFFFFFFF), 0.78)!;
 
   // ── 포인트 2: 코랄 = 파괴적 액션·경고 ─────────────────────
   static const danger = Color(0xFFFF6B5A);
@@ -83,6 +114,50 @@ abstract final class UnwindColors {
 
   /// 소등된 창 (빛이 하나도 남지 않은 방)
   static const darkWindow = Color(0xFF111A24);
+}
+
+/// 방 조명의 색 (발주자 지시 2026-08-22) — 설정에서 고른다.
+///
+/// seed(조명 본색)·deep(압출면)·ink(조명 위 글자)는 색마다 손으로 잡고,
+/// 채움·윤곽·글로우·창문 램프는 seed에서 파생한다. 전부 다크 잉크 위에서
+/// "방을 밝히는 빛"으로 읽히는 밝은 톤이고, danger 코랄과 겹치지 않는다.
+/// 대비(§12)는 test/core/palette_test.dart가 전 색상을 자동 검증한다.
+enum UnwindLightColor {
+  /// 백열등 — 기본. 기존 "Midnight Amber" 값 그대로.
+  amber(Color(0xFFFFB224), Color(0xFFC57F12), Color(0xFF1A1206)),
+
+  /// 노을 — 따뜻한 선셋 오렌지
+  sunset(Color(0xFFFF9457), Color(0xFFD26428), Color(0xFF241106)),
+
+  /// 로즈 — 핑크 네온
+  rose(Color(0xFFFF8FB8), Color(0xFFD65E8E), Color(0xFF260C18)),
+
+  /// 라벤더 — 보랏빛 무드등
+  lavender(Color(0xFFB99CFF), Color(0xFF8B68E0), Color(0xFF170D2B)),
+
+  /// 하늘 — 맑은 스카이 블루
+  sky(Color(0xFF62C6FF), Color(0xFF2F97D6), Color(0xFF071A26)),
+
+  /// 민트 — 초록빛 조명
+  mint(Color(0xFF52D6A0), Color(0xFF2BA475), Color(0xFF072016)),
+
+  /// 달빛 — 차가운 은백색
+  moon(Color(0xFFBFD4E8), Color(0xFF8FA9C2), Color(0xFF0D141C));
+
+  /// 조명 본색 (= accent)
+  final Color seed;
+
+  /// 3D 압출면 (= accentDeep)
+  final Color deep;
+
+  /// 조명 위에 얹는 글자·아이콘 (= onAccent)
+  final Color ink;
+
+  const UnwindLightColor(this.seed, this.deep, this.ink);
+
+  /// 설정 문자열 → 색. 모르는 값(다운그레이드 등)은 기본 앰버.
+  static UnwindLightColor fromName(String? name) =>
+      values.asNameMap()[name] ?? amber;
 }
 
 /// 두 색을 OKLab 공간에서 섞는다. RGB 직선 보간은 중간이 회색 진흙이 된다.

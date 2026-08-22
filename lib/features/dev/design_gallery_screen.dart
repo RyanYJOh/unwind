@@ -346,7 +346,8 @@ class _TypewriterPreviewState extends State<_TypewriterPreview> {
 class _Swatches extends StatelessWidget {
   const _Swatches();
 
-  static const _entries = <(String, Color)>[
+  // accent 계열은 조명 색을 따라가는 게터라 const 목록에 둘 수 없다
+  static List<(String, Color)> get _entries => [
     ('ink', UnwindColors.ink),
     ('surface', UnwindColors.surface),
     ('surfaceAlt', UnwindColors.surfaceAlt),
@@ -439,7 +440,7 @@ class _CoachMarkPreviewState extends State<_CoachMarkPreview> {
               top: UnwindSpacing.s40,
               child: DecoratedBox(
                 key: _handle,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: UnwindColors.accent,
                   shape: BoxShape.circle,
                 ),

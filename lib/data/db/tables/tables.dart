@@ -128,6 +128,9 @@ abstract final class SettingKeys {
 
   static const languageCode = 'languageCode'; // 기본 'en'
 
+  /// 방 조명의 색 (선택형 2026-08-22) — UnwindLightColor.name, 기본 'amber'
+  static const lightColor = 'lightColor';
+
   /// 온보딩 직후 전등 줄 코치마크를 아직 기다림
   static const pullCordCoachAwaiting = 'pullCordCoachAwaiting';
 

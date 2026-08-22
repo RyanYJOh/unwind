@@ -35,7 +35,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 133개 통과가 기준선
+flutter analyze && flutter test                           # 135개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
 ```
@@ -141,10 +141,20 @@ lib/
   채움**을 가져야 한다 (타일·토스트·미확인 점 모두 그렇게 되어 있다).
 - 중립은 슬레이트-네이비 한 계열: `ink`(배경) → `surface` → `surfaceAlt` →
   `surfaceHigh`, 테두리 `border`/`borderStrong`, 압출면 `solid`.
-- **포인트 컬러는 둘뿐. 새 색 추가 금지.**
-  - `accent` 앰버 `#FFB224` — 빛·켜진 등·CTA·선택. (+ `accentDeep` 압출면,
-    `accentSoft` 채움, `accentEdge` 테두리, `onAccent` 글자)
-  - `danger` 코랄 `#FF6B5A` — 삭제·경고 **전용**.
+- **포인트 컬러 역할은 둘뿐. 새 역할 추가 금지.**
+  - `accent` — 빛·켜진 등·CTA·선택. (+ `accentDeep` 압출면, `accentSoft`
+    채움, `accentEdge` 테두리, `onAccent` 글자). **값은 조명 색 선택형**
+    (2026-08-22, 발주자 지시): `UnwindLightColor` 7색(앰버 기본·노을·로즈·
+    라벤더·하늘·민트·달빛) 중 설정 > 조명 색에서 고른다. seed·deep·ink는
+    색마다 손튜닝, soft/edge/글로우 4겹/창문 램프는 seed에서 파생.
+    ⚠️ accent 계열은 이제 **게터**다 — const 컨텍스트에 넣을 수 없다
+    (컴파일러가 잡는다. 이 덕에 accent가 const 서브트리에 숨을 수 없다).
+    전환 전파: `UnwindColors.paletteEpoch`(ValueNotifier)를 `UnwindScreen`이
+    듣고 화면을 통째로 재인플레이트한다. 스크롤을 지킬 리스트는
+    PageStorageKey를 달 것(설정 화면). 적용 배선은 main.dart가 설정
+    lightColor를 watch → `UnwindColors.setLightColor`(멱등).
+    대비는 palette_test가 **7색 전부** 자동 검증한다.
+  - `danger` 코랄 `#FF6B5A` — 삭제·경고 **전용** (조명 색과 무관하게 고정).
 - 텍스트는 `textPrimary/textSecondary/textMuted` 세 단계. 크로스페이드
   (`PrimaryText`)는 폐기 — 배경이 항상 어두우므로 밝은 글자 하나뿐.
 - 예외: **주간 청구서 영수증만 밝은 종이**(bill_screen의 `_Paper`). 공유되는
@@ -565,8 +575,10 @@ PageView **11페이지**(2026-08-16: 인사 뒤에 위젯 안내 추가. 2차 �
   네이티브가 본 상태를 그대로 보여준다. `containerOk=false`면 엔타이틀먼트·
   프로비저닝, `fileExists=false`면 앱이 못 쓴 것, 파일이 있는데도 위젯이 옛
   것이면 타임라인 리로드 문제다.
-- **디자인**: 고정 다크 팔레트·앰버를 Swift 상수로 미러(`Palette` —
-  palette.dart가 바뀌면 함께 갱신). 코너 글로우는 우상단 radial gradient
+- **디자인**: 고정 다크 팔레트를 Swift 상수로 미러(`Palette` —
+  palette.dart가 바뀌면 함께 갱신). **조명 색은 스냅샷이 실어 나른다**
+  (선택형 2026-08-22): `accent`/`accentDeep`/`onAccent` ARGB 3종 — 알약과
+  글로우가 따라가고, 없으면 앰버 폴백. 코너 글로우는 우상단 radial gradient
   (§11 블러 금지 준수), 개수는 듀오링고식 3D 압출 알약(blur 0 오프셋),
   숫자는 SF Rounded heavy (Pretendard는 위젯에 번들하지 않는다 — 큰 숫자
   중심이라 rounded가 톤에 더 맞고 폰트 등록 리스크가 없다).
@@ -591,7 +603,7 @@ PageView **11페이지**(2026-08-16: 인사 뒤에 위젯 안내 추가. 2차 �
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **133개** 전부 통과가 기준선 (2026-08-22 날짜 독립성·스트립 창 +2·타이프라이터
+2. `flutter test` — **135개** 전부 통과가 기준선 (2026-08-22 조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
    +5. 이전 126: 주간 미완료 필터, 125: 위젯 스냅샷 +3, 122: 현지 통화).
    UI 변경 시 위젯 테스트가 히트 영역 겹침·오버플로 같은 실제 버그를 잡아 온
    전적이 있다.

@@ -320,6 +320,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionFeel => 'Feel';
 
   @override
+  String get sectionLight => 'Light color';
+
+  @override
+  String get lightAmber => 'Amber';
+
+  @override
+  String get lightSunset => 'Sunset';
+
+  @override
+  String get lightRose => 'Rose';
+
+  @override
+  String get lightLavender => 'Lavender';
+
+  @override
+  String get lightSky => 'Sky';
+
+  @override
+  String get lightMint => 'Mint';
+
+  @override
+  String get lightMoon => 'Moonlight';
+
+  @override
   String get haptics => 'Haptics';
 
   @override

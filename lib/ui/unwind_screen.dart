@@ -42,12 +42,24 @@ class UnwindScreen extends StatelessWidget {
 
     if (safeArea) body = SafeArea(child: body);
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: DefaultTextStyle(
-        style: UnwindType.body.copyWith(color: UnwindColors.textPrimary),
-        child: ColoredBox(color: background, child: body),
+    // 조명 색(팔레트 세대)이 바뀌면 화면을 통째로 다시 인플레이트한다
+    // (선택형 2026-08-22). 색은 정적 게터라 자동 전파가 없고, const
+    // 서브트리는 rebuild를 잘라먹는다 — 키 교체가 유일하게 확실한 전면
+    // 갱신이다. 스크롤을 지켜야 하는 리스트는 PageStorageKey를 단다
+    // (설정 화면 — PageStorage 정체성은 이 키 교체의 영향을 받지 않는다).
+    return ValueListenableBuilder<int>(
+      valueListenable: UnwindColors.paletteEpoch,
+      builder: (context, epoch, body) => KeyedSubtree(
+        key: ValueKey('palette-$epoch'),
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle.light,
+          child: DefaultTextStyle(
+            style: UnwindType.body.copyWith(color: UnwindColors.textPrimary),
+            child: ColoredBox(color: background, child: body!),
+          ),
+        ),
       ),
+      child: body,
     );
   }
 }

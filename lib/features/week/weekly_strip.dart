@@ -239,8 +239,8 @@ class _WindowFacePainter extends CustomPainter {
     this.darkCircles = false,
   });
 
-  /// 밝은 창(앰버) 위의 눈 — 어두운 잉크
-  static const _ink = UnwindColors.onAccent;
+  /// 밝은 창(조명 색) 위의 눈 — 어두운 잉크
+  static Color get _ink => UnwindColors.onAccent;
 
   /// 캄캄한 창 위의 감긴 눈
   static const _sleepInk = UnwindColors.textMuted;

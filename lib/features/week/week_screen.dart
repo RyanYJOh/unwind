@@ -176,7 +176,7 @@ class _WeekProgressBar extends StatelessWidget {
                     curve: Curves.easeOutCubic,
                     widthFactor: ratio,
                     heightFactor: 1,
-                    child: const DecoratedBox(
+                    child: DecoratedBox(
                       decoration: BoxDecoration(color: UnwindColors.accent),
                     ),
                   ),

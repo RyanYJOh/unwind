@@ -315,6 +315,30 @@ class AppLocalizationsKo extends AppLocalizations {
   String get sectionFeel => '감각';
 
   @override
+  String get sectionLight => '조명 색';
+
+  @override
+  String get lightAmber => '앰버';
+
+  @override
+  String get lightSunset => '노을';
+
+  @override
+  String get lightRose => '로즈';
+
+  @override
+  String get lightLavender => '라벤더';
+
+  @override
+  String get lightSky => '하늘';
+
+  @override
+  String get lightMint => '민트';
+
+  @override
+  String get lightMoon => '달빛';
+
+  @override
   String get haptics => '햅틱';
 
   @override

@@ -32,6 +32,13 @@ class UnwindApp extends ConsumerWidget {
           settingsControllerProvider.select((s) => s.value?.languageCode),
         ) ??
         'en';
+    // 방 조명의 색 (선택형 2026-08-22) — 설정을 정적 팔레트에 흘린다.
+    // setLightColor는 같은 값이면 no-op이라 빌드마다 불러도 안전하고,
+    // 바뀌면 paletteEpoch가 올라 모든 UnwindScreen이 새로 인플레이트된다.
+    final lightName = ref.watch(
+      settingsControllerProvider.select((s) => s.value?.lightColor),
+    );
+    UnwindColors.setLightColor(UnwindLightColor.fromName(lightName));
     // 설정과 연동된 햅틱 인스턴스를 트리 전체에 흘려보낸다 —
     // lib/ui/ 컴포넌트는 이 스코프에서 꺼내 쓴다 (Riverpod을 모른다).
     final haptics = ref.watch(hapticsProvider);
@@ -48,7 +55,7 @@ class UnwindApp extends ConsumerWidget {
         canvasColor: UnwindColors.ink,
         splashColor: const Color(0x00000000),
         highlightColor: const Color(0x00000000),
-        colorScheme: const ColorScheme.dark(
+        colorScheme: ColorScheme.dark(
           surface: UnwindColors.surface,
           primary: UnwindColors.accent,
           onPrimary: UnwindColors.onAccent,

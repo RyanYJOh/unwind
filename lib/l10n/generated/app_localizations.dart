@@ -644,6 +644,54 @@ abstract class AppLocalizations {
   /// **'Feel'**
   String get sectionFeel;
 
+  /// No description provided for @sectionLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light color'**
+  String get sectionLight;
+
+  /// No description provided for @lightAmber.
+  ///
+  /// In en, this message translates to:
+  /// **'Amber'**
+  String get lightAmber;
+
+  /// No description provided for @lightSunset.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunset'**
+  String get lightSunset;
+
+  /// No description provided for @lightRose.
+  ///
+  /// In en, this message translates to:
+  /// **'Rose'**
+  String get lightRose;
+
+  /// No description provided for @lightLavender.
+  ///
+  /// In en, this message translates to:
+  /// **'Lavender'**
+  String get lightLavender;
+
+  /// No description provided for @lightSky.
+  ///
+  /// In en, this message translates to:
+  /// **'Sky'**
+  String get lightSky;
+
+  /// No description provided for @lightMint.
+  ///
+  /// In en, this message translates to:
+  /// **'Mint'**
+  String get lightMint;
+
+  /// No description provided for @lightMoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Moonlight'**
+  String get lightMoon;
+
   /// No description provided for @haptics.
   ///
   /// In en, this message translates to:
