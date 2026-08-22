@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/analytics/analytics.dart';
 import 'core/haptics/haptics.dart';
 import 'core/tokens/palette.dart';
 import 'core/tokens/typography.dart';
@@ -14,6 +15,7 @@ import 'features/today/today_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  UnwindAnalytics.init(); // §8.8 — 릴리즈 빌드에서만 켜진다. await 금지
   runApp(const ProviderScope(child: UnwindApp()));
 }
 

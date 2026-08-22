@@ -3,6 +3,7 @@ import 'package:flutter/material.dart'
     show Icons, MaterialLocalizations, TimeOfDay;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
@@ -220,6 +221,9 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
         scheduledTimeMinutes: _scheduledTimeMinutes,
       );
     }
+
+    // §8.8 — 첫 이벤트 (Mixpanel verify connection용, 발주자 지시 2026-08-22)
+    UnwindAnalytics.track('Click add-to-do');
 
     // 저장하면 키보드와 함께 시트도 닫힌다 (개정 2026-08-12).
     // 확인 토스트는 없앴다 — 방에 등이 하나 늘어난 것이 곧 피드백이다.

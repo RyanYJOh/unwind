@@ -154,8 +154,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       final name = _nameCtrl.text.trim();
       if (name.isNotEmpty) {
         await ctrl.setUserName(name);
-        // §8.8 — 프로필에 이름 반영 (발주자 지시 2026-08-22)
-        UnwindAnalytics.setProfile('name', name);
+        // §8.8 — 프로필 표시 이름 반영 (발주자 지시 2026-08-22)
+        UnwindAnalytics.setProfile(r'$name', name);
       }
 
       // 매일 항목 → 매일 반복 규칙 (없다고 했으면 디폴트 하나)
