@@ -90,6 +90,7 @@ class _ToddRiveAdapterState extends State<_ToddRiveAdapter> {
           ? switch (s.event) {
               ToddEvent.react => GhostEvent.checkOff,
               ToddEvent.poke => GhostEvent.poke,
+              ToddEvent.wakeUp => GhostEvent.wakeUpHappy,
               _ => null,
             }
           : null;
@@ -100,6 +101,7 @@ class _ToddRiveAdapterState extends State<_ToddRiveAdapter> {
       final mapped = switch (s.event) {
         ToddEvent.react => GhostEvent.checkOff,
         ToddEvent.poke => GhostEvent.poke,
+        ToddEvent.wakeUp => GhostEvent.wakeUpHappy,
         _ => null,
       };
       if (mapped != null) {

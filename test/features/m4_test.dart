@@ -150,7 +150,8 @@ void main() {
       expect(find.text('Todd dozed off!'), findsOneWidget);
       expect(ctaEnabled(tester, 'Next'), false);
 
-      // 톡 1·2 — 실눈만 겨우 떴다 도로 잠든다. 여전히 잠김
+      // 톡 세 번이면 바로 깬다 (개정 2026-08-22 2차, 발주자 지시) —
+      // 뒤척이는 중의 연타도 전부 카운트되므로 기다릴 필요가 없다
       await tester.tap(find.byType(ToddView).first, warnIfMissed: false);
       // 스쿼시&바운스 (2026-08-22 2차) — 톡 직후 몸이 세로로 눌려 있어야
       // 한다 (눌림 구간 정점 부근에서 scaleY < 1). 첫 pump는 컨트롤러
@@ -166,13 +167,12 @@ void main() {
           )
           .any((t) => t.transform.entry(1, 1) < 0.98);
       expect(squished, true, reason: '톡 직후 스쿼시가 재생되어야 한다');
-      await tester.pump(const Duration(milliseconds: 2600));
-      expect(ctaEnabled(tester, 'Next'), false);
+      await tester.pump(const Duration(milliseconds: 200));
       await tester.tap(find.byType(ToddView).first, warnIfMissed: false);
-      await tester.pump(const Duration(milliseconds: 3400));
-      expect(ctaEnabled(tester, 'Next'), false);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(ctaEnabled(tester, 'Next'), false); // 두 번까지는 아직 잠김
 
-      // 톡 3 — 기상. 제목이 같은 자리에서 다시 타이핑되고 CTA가 열린다
+      // 톡 3 — 즉시 기상. 제목이 같은 자리에서 다시 타이핑되고 CTA가 열린다
       await tester.tap(find.byType(ToddView).first, warnIfMissed: false);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));

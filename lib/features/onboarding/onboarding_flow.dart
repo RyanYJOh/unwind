@@ -670,32 +670,32 @@ class _WelcomePageState extends ConsumerState<_WelcomePage> {
           _event = ToddEvent.poke;
           _tick++;
         });
-      case _HelloPhase.asleep:
+      case _HelloPhase.asleep || _HelloPhase.stir:
+        // 잠든 뒤엔 **모든 톡이 카운트된다** (개정 2026-08-22 2차, 발주자
+        // 지시: 총 3번 터치하면 바로 깬다 — 연타 세 번도 그대로 기상).
         _pokes++;
         if (_pokes >= 3) {
           _wake();
-        } else {
-          // 실눈만 겨우 떠 두리번거리다 도로 잠든다 (어댑터가 poke를
-          // 깨어나는 이벤트로 전달 — wakeUpHappy가 아니라)
-          setState(() {
-            _phase = _HelloPhase.stir;
-            _event = ToddEvent.poke;
-            _tick++;
-          });
-          _stirTimer?.cancel();
-          _stirTimer = Timer(
-            Duration(milliseconds: _pokes == 1 ? _stirBackMs : _stirLingerMs),
-            () {
-              if (!mounted || _phase != _HelloPhase.stir) return;
-              setState(() {
-                _phase = _HelloPhase.asleep;
-                _event = null;
-              });
-            },
-          );
+          return;
         }
-      case _HelloPhase.stir:
-        break; // 이미 뒤척이는 중 — 연타는 삼킨다 (톡, 하나에 반응 하나)
+        // 실눈만 겨우 떠 두리번거리다 도로 잠든다. 뒤척이는 중의 톡은
+        // 되잠드는 타이머를 뒤로 미룬다 (렌더러는 재생 중이면 무시).
+        setState(() {
+          _phase = _HelloPhase.stir;
+          _event = ToddEvent.poke;
+          _tick++;
+        });
+        _stirTimer?.cancel();
+        _stirTimer = Timer(
+          Duration(milliseconds: _pokes == 1 ? _stirBackMs : _stirLingerMs),
+          () {
+            if (!mounted || _phase != _HelloPhase.stir) return;
+            setState(() {
+              _phase = _HelloPhase.asleep;
+              _event = null;
+            });
+          },
+        );
     }
   }
 
@@ -706,7 +706,10 @@ class _WelcomePageState extends ConsumerState<_WelcomePage> {
     ref.read(hapticsProvider).success();
     setState(() {
       _phase = _HelloPhase.awake;
-      _event = null; // 명시 이벤트 없음 → 어댑터가 wakeUpHappy(기지개·미소)
+      // 명시 wakeUp — asleep에서든 뒤척이는 중이든 같은 기지개·미소로
+      // 깨어난다 (stir는 isAsleep 하강 에지가 없어 명시 이벤트가 필요)
+      _event = ToddEvent.wakeUp;
+      _tick++;
     });
     widget.onWoke();
   }
