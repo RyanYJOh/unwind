@@ -249,7 +249,6 @@ class _WindowFacePainter extends CustomPainter {
   /// (리얼 개정 2026-08-22)
   static const _dcFill = Color(0xFF8B7396);
   static const _dcEdge = Color(0xFF6E5480);
-  static const _dcHatch = Color(0xFF5C4468);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -266,8 +265,8 @@ class _WindowFacePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round;
       for (final dir in [-1, 1]) {
         final ec = Offset(cx + dir * dx, cy);
-        // 다크서클을 눈보다 먼저 — 채운 음영 주머니 + 피곤 빗금
-        // (본체와 같은 문법, 리얼 개정 2026-08-22. 34px 창에서도 읽히게)
+        // 다크서클을 눈보다 먼저 — 채운 음영 주머니 (본체와 같은 문법,
+        // 리얼 개정 2026-08-22 2차: 빗금 없이 음영만. 34px 창에서도 읽히게)
         if (darkCircles) {
           const w = 3.8;
           final topY = ec.dy + 2.4;
@@ -292,19 +291,6 @@ class _WindowFacePainter extends CustomPainter {
               ..strokeWidth = 1.4
               ..strokeCap = StrokeCap.round,
           );
-          final hatch = Paint()
-            ..color = _dcHatch
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.0
-            ..strokeCap = StrokeCap.round;
-          for (final fx in const [-0.4, 0.2]) {
-            final x = ec.dx + w * fx;
-            canvas.drawLine(
-              Offset(x - 0.3, topY + 0.8),
-              Offset(x + 0.3, topY + 2.6),
-              hatch,
-            );
-          }
         }
         final path = Path()
           ..moveTo(ec.dx - 3.2, ec.dy)
