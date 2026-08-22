@@ -369,9 +369,12 @@ class _ObPage extends StatefulWidget {
   final String title;
   final String? body;
   final Widget? content;
-  final String cta;
+
+  /// null이면 하단 CTA를 그리지 않는다 — [secondary]가 버튼 묶음 전체를
+  /// 직접 배치하는 페이지용 (준비 확인, 2026-08-22 2차)
+  final String? cta;
   final bool ctaEnabled;
-  final VoidCallback onCta;
+  final VoidCallback? onCta;
   final Widget? secondary;
 
   /// 콘텐츠가 페이지 좌우 여백 없이 전체 폭을 쓴다 — 홈과 같은 폭의
@@ -398,8 +401,8 @@ class _ObPage extends StatefulWidget {
 
   const _ObPage({
     required this.title,
-    required this.cta,
-    required this.onCta,
+    this.cta,
+    this.onCta,
     this.ctaEnabled = true,
     this.hero,
     this.body,
@@ -542,12 +545,14 @@ class _ObPageState extends State<_ObPage> {
               children: [
                 if (widget.secondary != null) ...[
                   widget.secondary!,
-                  const SizedBox(height: UnwindSpacing.s4),
+                  if (widget.cta != null)
+                    const SizedBox(height: UnwindSpacing.s4),
                 ],
-                UnwindButton(
-                  label: widget.cta,
-                  onPressed: widget.ctaEnabled ? widget.onCta : null,
-                ),
+                if (widget.cta != null)
+                  UnwindButton(
+                    label: widget.cta!,
+                    onPressed: widget.ctaEnabled ? widget.onCta : null,
+                  ),
               ],
             ),
           ),
@@ -1661,12 +1666,13 @@ class _ScheduleRingPainter extends CustomPainter {
 
 /// 이름을 묻기 직전, Todd가 직접 묻는다 — "준비 됐어?"
 ///
-/// 심리 설계: 유저는 앞의 여덟 페이지 내내 **하단 프라이머리 버튼**으로
-/// 진행하도록 학습돼 있다. 그 자리에 "응, 기대돼!"를 놓고, 다른 두 답은
-/// 위에 조용한 세컨더리로 둔다 — 정직한 선택지를 다 열어 두되 자연스러운
-/// 손길이 기대 쪽으로 가게. "응, 기대돼!"를 고르면 Todd가 축하(점프+별)로
-/// 화답하고, **기대가 정점에 오른 그 순간** 앱스토어 별점 팝업을 띄운 뒤
-/// 이름 페이지로 넘어간다. 나머지 답은 팝업 없이 조용히 다음으로.
+/// 심리 설계 (순서 개정 2026-08-22 2차, 발주자 지시): "응, 기대돼!"가
+/// **맨 위 프라이머리** — 첫눈에 읽히는 자리에서 가장 밝게 빛난다.
+/// 다른 두 답은 아래에 조용한 세컨더리로 둔다 — 정직한 선택지를 다 열어
+/// 두되 자연스러운 시선이 기대 쪽으로 가게. "응, 기대돼!"를 고르면 Todd가
+/// 축하(점프+별)로 화답하고, **기대가 정점에 오른 그 순간** 앱스토어 별점
+/// 팝업을 띄운 뒤 이름 페이지로 넘어간다. 나머지 답은 팝업 없이 조용히
+/// 다음으로.
 class _ReadyPage extends ConsumerStatefulWidget {
   final VoidCallback onNext;
 
@@ -1735,20 +1741,20 @@ class _ReadyPageState extends ConsumerState<_ReadyPage> {
         size: 200,
       ),
       title: l10n.obReadyTitle,
+      // 기대가 맨 위 (발주자 지시) — 프라이머리로 가장 먼저 읽힌다
       secondary: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          UnwindButton.secondary(label: l10n.obReadyNo, onPressed: _chooseCalm),
+          UnwindButton(label: l10n.obReadyYes, onPressed: _chooseExcited),
           const SizedBox(height: UnwindSpacing.s8),
           UnwindButton.secondary(
             label: l10n.obReadySomewhat,
             onPressed: _chooseCalm,
           ),
           const SizedBox(height: UnwindSpacing.s8),
+          UnwindButton.secondary(label: l10n.obReadyNo, onPressed: _chooseCalm),
         ],
       ),
-      cta: l10n.obReadyYes,
-      onCta: _chooseExcited,
     );
   }
 }
