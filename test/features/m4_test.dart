@@ -10,6 +10,7 @@ import 'package:unwind/features/today/providers.dart';
 import 'package:unwind/l10n/generated/app_localizations.dart';
 import 'package:unwind/main.dart';
 import 'package:unwind/ui/ui.dart';
+import 'package:unwind/widgets/todd/todd_view.dart';
 
 /// M4 — 설정 영속성 · 온보딩 라우팅 · 접근성 라벨 (§12)
 void main() {
@@ -126,8 +127,8 @@ void main() {
             .onPressed !=
         null;
 
-    testWidgets('첫 실행: 환영 1초 잠금 → 밤 → 소등 체험은 전부 꺼야 통과', (tester) async {
-      // 커진 Todd(200) 아래 타일 3개가 다 보이도록 실기기 크기로
+    testWidgets('첫 실행: 인사하다 잠든 토드를 세 번 톡톡 깨워야 다음 → 소등 체험', (tester) async {
+      // 커진 Todd(210) 아래 타일 3개가 다 보이도록 실기기 크기로
       tester.view.physicalSize = const Size(1170, 2532);
       tester.view.devicePixelRatio = 3.0;
       addTearDown(tester.view.reset);
@@ -139,11 +140,32 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 200));
 
-      // 1. 환영 — CTA는 1초 뒤에야 열린다
-      expect(find.text('Hey! I\'m Todd.'), findsOneWidget);
+      // 1. 첫인사 (개편 2026-08-22) — "Hi, I'm To..d.." 타이핑하다 잠든다.
+      //    깨우기 전엔 CTA가 잠겨 있다.
+      expect(find.text("Hi, I'm To..d..", findRichText: true), findsOneWidget);
       expect(ctaEnabled(tester, 'Next'), false);
-      await tester.pump(const Duration(milliseconds: 1100));
+
+      // 타이핑(~1.8s) + 잠들기(0.55s) + 토스트(0.9s)까지 흘려보낸다
+      await tester.pump(const Duration(milliseconds: 4500));
+      expect(find.text('Todd dozed off!'), findsOneWidget);
+      expect(ctaEnabled(tester, 'Next'), false);
+
+      // 톡 1·2 — 실눈만 겨우 떴다 도로 잠든다. 여전히 잠김
+      await tester.tap(find.byType(ToddView).first, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 2600));
+      expect(ctaEnabled(tester, 'Next'), false);
+      await tester.tap(find.byType(ToddView).first, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 3400));
+      expect(ctaEnabled(tester, 'Next'), false);
+
+      // 톡 3 — 기상. 제목이 같은 자리에서 다시 타이핑되고 CTA가 열린다
+      await tester.tap(find.byType(ToddView).first, warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Oh hey! I\'m Todd', findRichText: true), findsOneWidget);
       expect(ctaEnabled(tester, 'Next'), true);
+      await tester.pump(const Duration(milliseconds: 2500)); // 재타이핑 여유
+
       await tester.tap(find.text('Next'));
       // 누름 상태 setState가 첫 프레임을 먹는다 (§10 검증 루틴)
       await tester.pump();
@@ -152,21 +174,23 @@ void main() {
 
       // 2. 눈부신 밤 + 소등 체험 (병합 2026-08-15 2차) —
       //    반드시 전부 꺼야 다음으로 (발주자 요구)
-      expect(find.text('I need to sleep but..'), findsOneWidget);
+      expect(
+        find.text('I need to sleep but..', findRichText: true),
+        findsOneWidget,
+      );
       expect(find.byType(UnwindTodoTile), findsNWidgets(3));
       expect(ctaEnabled(tester, 'Next'), false);
       for (var i = 0; i < 3; i++) {
         await tester.tap(find.byType(UnwindLampSwitch).at(i));
         await tester.pump(const Duration(milliseconds: 250));
       }
-      expect(find.text("That's perfect!"), findsOneWidget);
+      expect(find.text("That's perfect!", findRichText: true), findsOneWidget);
       expect(
-        find.text('I can finally get some\ngood sleep tonight. Thanks!'),
+        find.text(
+          'I can finally get some\ngood sleep tonight. Thanks!',
+          findRichText: true,
+        ),
         findsOneWidget,
-      );
-      expect(
-        find.text('The light is too bright to sleep in.\nFlip a switch to turn it off!'),
-        findsNothing,
       );
       expect(ctaEnabled(tester, 'Next'), true);
 

@@ -18,6 +18,10 @@ void showUnwindToast(
   /// 되돌리기 같은 즉시 액션. 누르면 토스트가 닫히고 [onAction]이 실행된다.
   String? actionLabel,
   VoidCallback? onAction,
+
+  /// 머무는 시간 오버라이드 — 안내(instruction)처럼 읽을 시간이 더 필요한
+  /// 토스트만 지정한다. null이면 기본값 (확인 2.6초 / 액션 2초).
+  Duration? visibleFor,
 }) {
   final overlay = Overlay.of(context, rootOverlay: true);
   late final OverlayEntry entry;
@@ -27,6 +31,7 @@ void showUnwindToast(
       body: body,
       actionLabel: actionLabel,
       onAction: onAction,
+      visibleFor: visibleFor,
       onDismissed: entry.remove,
     ),
   );
@@ -38,6 +43,7 @@ class _UnwindToast extends StatefulWidget {
   final String? body;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final Duration? visibleFor;
   final VoidCallback onDismissed;
 
   const _UnwindToast({
@@ -45,6 +51,7 @@ class _UnwindToast extends StatefulWidget {
     required this.body,
     required this.actionLabel,
     required this.onAction,
+    required this.visibleFor,
     required this.onDismissed,
   });
 
@@ -71,11 +78,12 @@ class _UnwindToastState extends State<_UnwindToast>
     );
     _c.forward();
     _timer = Timer(
-      Duration(
-        milliseconds: widget.onAction == null
-            ? _visibleMs
-            : _visibleWithActionMs,
-      ),
+      widget.visibleFor ??
+          Duration(
+            milliseconds: widget.onAction == null
+                ? _visibleMs
+                : _visibleWithActionMs,
+          ),
       _dismiss,
     );
   }

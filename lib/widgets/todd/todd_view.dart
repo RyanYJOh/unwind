@@ -83,8 +83,17 @@ class _ToddRiveAdapterState extends State<_ToddRiveAdapter> {
       _event = GhostEvent.allDone;
       _tick++;
     } else if (old.state.isAsleep && !s.isAsleep) {
-      // 깨우기 (개정 2026-08-07): allDone 해제 + 기지개·미소 (wakeUpHappy)
-      _event = GhostEvent.wakeUpHappy;
+      // 깨우기 (개정 2026-08-07): allDone 해제 + 기지개·미소 (wakeUpHappy).
+      // 단, 깨어나는 순간의 이벤트가 명시되어 있으면 그쪽을 쓴다 —
+      // 온보딩의 "톡톡 깨우기"는 poke로 깨어나 실눈만 겨우 뜬다 (2026-08-22).
+      final explicit = s.eventTick != old.state.eventTick
+          ? switch (s.event) {
+              ToddEvent.react => GhostEvent.checkOff,
+              ToddEvent.poke => GhostEvent.poke,
+              _ => null,
+            }
+          : null;
+      _event = explicit ?? GhostEvent.wakeUpHappy;
       _tick++;
     } else if (s.eventTick != old.state.eventTick && !s.isAsleep) {
       // 잠들어 있으면 어떤 이벤트도 전달하지 않는다 — 깨우지 않는다

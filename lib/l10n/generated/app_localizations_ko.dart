@@ -368,10 +368,22 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obNext => '다음';
 
   @override
-  String get obWelcomeTitle => '안녕! 난 토드야.';
+  String get obHelloSleepy => '안녕, 난 토..드..';
 
   @override
-  String get obWelcomeBody => '내가 매일 밤 잠들 수 있도록 도와줄래?';
+  String get obHelloAwake => '앗 안녕! 난 토드야';
+
+  @override
+  String get obHelloAwakeBody => '미안, 내가 잠이 좀 많은 편이거든..';
+
+  @override
+  String get obWakeToastTitle => '토드가 잠들어 버렸어요!';
+
+  @override
+  String get obWakeToastBody => '톡톡 두드려서 깨워 주세요';
+
+  @override
+  String get obWakeAction => '토드 깨우기';
 
   @override
   String get obNightTitle => '난 밤에 자야 하는데..';

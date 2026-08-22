@@ -746,17 +746,41 @@ abstract class AppLocalizations {
   /// **'Next'**
   String get obNext;
 
-  /// No description provided for @obWelcomeTitle.
+  /// No description provided for @obHelloSleepy.
   ///
   /// In en, this message translates to:
-  /// **'Hey! I\'m Todd.'**
-  String get obWelcomeTitle;
+  /// **'Hi, I\'m To..d..'**
+  String get obHelloSleepy;
 
-  /// No description provided for @obWelcomeBody.
+  /// No description provided for @obHelloAwake.
   ///
   /// In en, this message translates to:
-  /// **'Can you help me\nget to sleep every night?'**
-  String get obWelcomeBody;
+  /// **'Oh hey! I\'m Todd'**
+  String get obHelloAwake;
+
+  /// No description provided for @obHelloAwakeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Sorry about that —\nI\'m a bit of a sleepyhead..'**
+  String get obHelloAwakeBody;
+
+  /// No description provided for @obWakeToastTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Todd dozed off!'**
+  String get obWakeToastTitle;
+
+  /// No description provided for @obWakeToastBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to wake Todd up'**
+  String get obWakeToastBody;
+
+  /// No description provided for @obWakeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Wake Todd'**
+  String get obWakeAction;
 
   /// No description provided for @obNightTitle.
   ///

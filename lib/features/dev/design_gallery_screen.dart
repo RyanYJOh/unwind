@@ -65,6 +65,9 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
           _type('label', UnwindType.label),
           _type('caption', UnwindType.caption),
 
+          const UnwindSectionLabel('Typewriter', padding: _labelPad),
+          const _TypewriterPreview(),
+
           const UnwindSectionLabel('Buttons', padding: _labelPad),
           UnwindButton(label: '오늘 마무리하기', onPressed: () {}),
           const SizedBox(height: UnwindSpacing.s12),
@@ -307,6 +310,37 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
       ],
     ),
   );
+}
+
+/// 타이프라이터 미리보기 — 탭하면 처음부터 다시 친다.
+/// 점(`.`)에서 길게 쉬는 졸린 리듬을 확인하는 자리.
+class _TypewriterPreview extends StatefulWidget {
+  const _TypewriterPreview();
+
+  @override
+  State<_TypewriterPreview> createState() => _TypewriterPreviewState();
+}
+
+class _TypewriterPreviewState extends State<_TypewriterPreview> {
+  int _replay = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return UnwindPressable(
+      onTap: () => setState(() => _replay++),
+      depth: 0,
+      haptic: UnwindHapticKind.tap,
+      isButton: false,
+      semanticLabel: 'Typewriter replay',
+      child: UnwindCard(
+        child: UnwindTypewriterText(
+          "Hi, I'm To..d..",
+          key: ValueKey(_replay),
+          style: UnwindType.title.copyWith(color: UnwindColors.textPrimary),
+        ),
+      ),
+    );
+  }
 }
 
 class _Swatches extends StatelessWidget {

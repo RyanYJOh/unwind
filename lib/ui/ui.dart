@@ -29,3 +29,4 @@ export 'unwind_sheet.dart';
 export 'unwind_switch.dart';
 export 'unwind_toast.dart';
 export 'unwind_todo_tile.dart';
+export 'unwind_typewriter.dart';

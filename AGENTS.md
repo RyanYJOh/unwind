@@ -35,7 +35,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 126개 통과가 기준선
+flutter analyze && flutter test                           # 131개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
 ```
@@ -195,7 +195,8 @@ lib/
 | `UnwindBadgeDot` | 아이콘 우측 상단의 미확인 점 (코랄). 청구서 버튼 등에 얹는다 (개정 2026-08-16) |
 | `UnwindSheet` + `showUnwindSheet` | 바텀시트 (§9.4 320ms). 핸들을 아래로 드래그하면 닫힌다 |
 | `showUnwindConfirm` / `showUnwindActions` | 확인·선택 (Cupertino 시트 대체) |
-| `showUnwindToast` | 상단 푸시형 토스트 (`actionLabel`/`onAction`으로 되돌리기). 삭제 되돌리기는 **2초**. 탭 또는 **위로 스와이프**로 닫는다 |
+| `showUnwindToast` | 상단 푸시형 토스트 (`actionLabel`/`onAction`으로 되돌리기). 삭제 되돌리기는 **2초**. 탭 또는 **위로 스와이프**로 닫는다. 안내처럼 읽을 시간이 필요하면 `visibleFor`로 오버라이드 (온보딩 깨우기 안내 4.5초) |
+| `UnwindTypewriterText` | 타이프라이터 텍스트 (온보딩 초반 대사). 안 보인 글자를 투명 스팬으로 미리 그려 **레이아웃이 처음부터 고정**된다. `.`/`…`는 8배, `,`/`!`/`?`/줄바꿈은 4배로 쉬어 "To..d.." 같은 문장에서 말끝이 흐려지는 졸린 리듬이 나온다. text가 바뀌면 같은 자리에서 다시 친다. Reduce Motion이면 즉시 전체 표시 |
 | `UnwindCoachMark` | 스크림에 원형 구멍을 뚫어 손잡이 등을 가리키는 안내. 구멍 안은 히트가 통과한다 |
 | `UnwindScreen` + `UnwindHeader` | 화면 껍데기 (다크 배경·상태바·기본 글자) |
 
@@ -287,6 +288,9 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
     감는다. 고개도 시선을 조금 따라간다. 2.2초.
   - **잠들었으면 무반응** — 애니메이션도 햅틱도 없다. 깨우지 않는 게 이 앱의
     예의다. 어댑터(`todd_view.dart`)가 `isAsleep`이면 이벤트 자체를 막는다.
+    단 **isAsleep을 내리면서 eventTick과 함께 이벤트를 명시하면** 어댑터는
+    wakeUpHappy 대신 그 이벤트로 깨운다 — 온보딩 첫인사의 "톡톡 깨우기"가
+    poke(실눈 두리번)로 깨어나는 경로다 (2026-08-22).
   - 검증: 설정 > Ghost demo (dev) 의 `poke (톡)` 버튼 + 모드 칩 조합.
 - **다크서클 (세계관 2026-08-15)**: 전날 밤 불을 남긴 채 넘어왔다면
   (전날 `days.restless` — 미완 항목 존재 + 소등 안 함) 오늘 하루 종일
@@ -448,9 +452,21 @@ PageView **11페이지**(2026-08-16: 인사 뒤에 위젯 안내 추가. 2차 �
 상단 진행 바 + 뒤로가기. CornerGlow는 플로우가 하나로 몰아 페이지 전환
 때 빛이 이어진다. **Todd는 크게 그린다**(hero 200~210 — 130 수준으로
 줄이지 말 것, 2차 개정). 위젯 안내는 홈 위젯 프리뷰가 히어로라 예외.
+**초반 대사(1·2페이지)는 `UnwindTypewriterText`로 타이핑**되고, 청구서
+페이지부터는 정적이다 (발주자 요구 2026-08-22).
 
-1. **환영** — "Get things done with Todd", Todd 크게(탭하면 간지럼).
-   CTA는 진입 1초 뒤 활성.
+1. **첫인사 — 잠꾸러기 토드 깨우기** (전면 개편 2026-08-22, 발주자 요구):
+   **조명 없는 밤**(glow 0)에서 Todd가 "Hi, I'm To..d.." 인사를 타이핑하다
+   — 첫 `.`부터 nightAwake 꾸벅꾸벅 — **말끝을 흐리며 잠들어 버린다**.
+   0.9초 뒤 상단 토스트가 "톡톡 두드려 깨워 보라"고 알린다 (4.5초, 9초
+   뒤에도 안 깨우면 한 번 더). **세 번 두드려야 깬다**: 1·2번째 톡은
+   isAsleep 하강 + poke 동시 전달로 **실눈 두리번**(어댑터가 wakeUpHappy
+   대신 명시 이벤트를 씀, todd_view.dart)만 하고 도로 잠들고(2번째는 조금
+   더 오래 꾸벅), 3번째에 기지개(wakeUpHappy)를 켜며 깨어나 새벽빛이
+   스미고(glow 0.25) "Oh hey! I'm Todd" + "잠이 많은 편" 본문이 같은
+   자리에서 다시 타이핑된다. **CTA는 깨워야만 열린다.** 뒤척이는 중
+   연타는 삼킨다(톡 하나에 반응 하나 — 세 번의 리듬을 지킨다). 잠들기
+   전(타이핑 중) 탭은 평소 반응(간지럼/실눈).
 2. **눈부신 밤 + 소등 체험** (병합) — 글로우 최대, Todd nightAwake(찡그림·
    하품), 켜진 더미 등 3개(물 2L·운동·30분 독서)를 **바로** 끌 수 있다.
    타일은 홈과 같은 폭(fullBleedContent). 끌수록 방이 어두워지고,
@@ -559,8 +575,8 @@ PageView **11페이지**(2026-08-16: 인사 뒤에 위젯 안내 추가. 2차 �
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **126개** 전부 통과가 기준선 (2026-08-17 주간 미완료 필터
-   +1. 이전 125: 위젯 스냅샷 +3, 그 이전 122: 현지 통화).
+2. `flutter test` — **131개** 전부 통과가 기준선 (2026-08-22 타이프라이터
+   +5. 이전 126: 주간 미완료 필터, 125: 위젯 스냅샷 +3, 122: 현지 통화).
    UI 변경 시 위젯 테스트가 히트 영역 겹침·오버플로 같은 실제 버그를 잡아 온
    전적이 있다.
    시트/오버레이를 여는 위젯 테스트는 `pump()` 한 번 뒤에 `pump(duration)`을

@@ -59,6 +59,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   /// 소등 체험 페이지가 보고하는 남은 빛 (1.0 = 전부 켜짐)
   double _lightsLight = 1.0;
 
+  /// 첫 페이지에서 Todd를 깨웠는가 — 깨어나는 순간 어둠에 새벽빛이 스민다
+  bool _helloAwake = false;
+
   // 인사 페이지 연출 — 페이지가 실제로 나타났을 때 플로우가 타이머를 건다.
   // (페이지 위젯 안에 두면 PageView가 미리 빌드하는 순간 발동할 수 있다)
   int _greetTick = 0;
@@ -73,7 +76,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   /// 페이지별 방의 빛 — 플로우가 하나의 CornerGlow를 계속 몰아
   /// 페이지 전환 때 빛이 자연스럽게 이어진다.
   double get _glowTarget => switch (_page) {
-    0 => 0.55, // 환영 — 밝은 낮의 방
+    // 첫인사 — 조명 없는 밤 (발주자 요구 2026-08-22). Todd를 깨우면
+    // 새벽처럼 은은한 빛이 함께 밝아 온다.
+    0 => _helloAwake ? 0.25 : 0.0,
     1 => _lightsLight, // 눈부신 밤 + 소등 체험 — 끄는 만큼 어두워진다
     2 => 0.30,
     7 => 0.22,
@@ -247,7 +252,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     physics: const NeverScrollableScrollPhysics(),
                     onPageChanged: _onPageChanged,
                     children: [
-                      _WelcomePage(onNext: _next),
+                      _WelcomePage(
+                        onNext: _next,
+                        onWoke: () => setState(() => _helloAwake = true),
+                      ),
                       // 눈부신 밤 + 소등 체험 (병합 2026-08-15 2차) —
                       // 안내만 하는 페이지 없이 바로 스위치를 만져 본다
                       _LightsPage(
@@ -353,7 +361,7 @@ class _ProgressBar extends StatelessWidget {
 
 /// 페이지 공통 뼈대.
 /// [hero]가 있으면 위에 고정하고, [child]가 없으면 콘텐츠를 세로 중앙에 둔다.
-class _ObPage extends StatelessWidget {
+class _ObPage extends StatefulWidget {
   final Widget? hero;
   final String title;
   final String? body;
@@ -374,6 +382,17 @@ class _ObPage extends StatelessWidget {
   /// body → content 간격
   final double afterBodyGap;
 
+  /// 제목·본문을 타이프라이터로 친다 (개편 2026-08-22 — 초반 페이지 전용,
+  /// 청구서 페이지부터는 정적). 본문은 제목이 다 나온 뒤에 시작하고,
+  /// 문장이 바뀌면 같은 자리에서 처음부터 다시 친다.
+  final bool typewriter;
+
+  /// 타이프라이터 제목이 한 글자 나올 때마다 (지금까지 보인 문자열).
+  final ValueChanged<String>? onTitleAdvance;
+
+  /// 타이프라이터 제목이 끝났을 때.
+  final VoidCallback? onTitleTyped;
+
   const _ObPage({
     required this.title,
     required this.cta,
@@ -386,37 +405,85 @@ class _ObPage extends StatelessWidget {
     this.fullBleedContent = false,
     this.heroGap = UnwindSpacing.s8,
     this.afterBodyGap = UnwindSpacing.s16,
+    this.typewriter = false,
+    this.onTitleAdvance,
+    this.onTitleTyped,
   });
 
+  @override
+  State<_ObPage> createState() => _ObPageState();
+}
+
+class _ObPageState extends State<_ObPage> {
   static const _hPad = EdgeInsets.symmetric(horizontal: UnwindSpacing.s24);
+
+  /// 제목 타이핑이 끝났는가 — 본문은 그 다음에 친다.
+  bool _titleTyped = false;
+
+  @override
+  void didUpdateWidget(_ObPage old) {
+    super.didUpdateWidget(old);
+    if (widget.typewriter && widget.title != old.title) {
+      _titleTyped = false; // 대사가 바뀌었다 — 본문도 제목을 다시 기다린다
+    }
+  }
+
+  void _onTitleDone() {
+    if (mounted && !_titleTyped) setState(() => _titleTyped = true);
+    widget.onTitleTyped?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle = UnwindType.display.copyWith(
+      color: UnwindColors.textPrimary,
+      height: 1.22, // 기본 display 1.15에서 아주 살짝
+    );
+    final bodyStyle = UnwindType.body.copyWith(
+      color: UnwindColors.textSecondary,
+      height: 1.55, // 기본 body 1.45에서 아주 살짝
+    );
     final titleText = Padding(
       padding: _hPad,
-      child: Text(
-        title,
-        textAlign: TextAlign.center,
-        style: UnwindType.display.copyWith(
-          color: UnwindColors.textPrimary,
-          height: 1.22, // 기본 display 1.15에서 아주 살짝
-        ),
-      ),
+      child: widget.typewriter
+          ? UnwindTypewriterText(
+              widget.title,
+              textAlign: TextAlign.center,
+              style: titleStyle,
+              onAdvance: widget.onTitleAdvance,
+              onDone: _onTitleDone,
+            )
+          : Text(
+              widget.title,
+              textAlign: TextAlign.center,
+              style: titleStyle,
+            ),
     );
+    final body = widget.body;
     final bodyText = body == null
         ? null
         : Padding(
             padding: _hPad,
-            child: Text(
-              body!,
-              textAlign: TextAlign.center,
-              style: UnwindType.body.copyWith(
-                color: UnwindColors.textSecondary,
-                height: 1.55, // 기본 body 1.45에서 아주 살짝
-              ),
-            ),
+            child: !widget.typewriter
+                ? Text(body, textAlign: TextAlign.center, style: bodyStyle)
+                : _titleTyped
+                ? UnwindTypewriterText(
+                    body,
+                    textAlign: TextAlign.center,
+                    style: bodyStyle,
+                  )
+                // 제목이 끝나기 전엔 투명하게 자리만 잡는다 — CTA가 안 밀리게
+                : Opacity(
+                    opacity: 0,
+                    child: Text(
+                      body,
+                      textAlign: TextAlign.center,
+                      style: bodyStyle,
+                    ),
+                  ),
           );
 
+    final content = widget.content;
     return AnimatedPadding(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
@@ -429,8 +496,8 @@ class _ObPage extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (hero != null) ...[
-                    Center(child: hero),
+                  if (widget.hero != null) ...[
+                    Center(child: widget.hero),
                     const SizedBox(height: UnwindSpacing.s24),
                   ],
                   titleText,
@@ -446,18 +513,18 @@ class _ObPage extends StatelessWidget {
             const SizedBox(height: UnwindSpacing.s20),
             // 바깥 Column이 stretch라 hero를 그대로 두면 가로로 늘어나
             // CustomPaint가 화면 폭 기준으로 그려진다 — Center로 감싼다
-            if (hero != null) Center(child: hero),
-            SizedBox(height: heroGap),
+            if (widget.hero != null) Center(child: widget.hero),
+            SizedBox(height: widget.heroGap),
             titleText,
             if (bodyText != null) ...[
               const SizedBox(height: UnwindSpacing.s12),
               bodyText,
             ],
-            SizedBox(height: afterBodyGap),
+            SizedBox(height: widget.afterBodyGap),
             Expanded(
-              child: fullBleedContent
-                  ? content!
-                  : Padding(padding: _hPad, child: content!),
+              child: widget.fullBleedContent
+                  ? content
+                  : Padding(padding: _hPad, child: content),
             ),
           ],
           Padding(
@@ -470,11 +537,14 @@ class _ObPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (secondary != null) ...[
-                  secondary!,
+                if (widget.secondary != null) ...[
+                  widget.secondary!,
                   const SizedBox(height: UnwindSpacing.s4),
                 ],
-                UnwindButton(label: cta, onPressed: ctaEnabled ? onCta : null),
+                UnwindButton(
+                  label: widget.cta,
+                  onPressed: widget.ctaEnabled ? widget.onCta : null,
+                ),
               ],
             ),
           ),
@@ -498,64 +568,190 @@ mixin _DelayedCta<T extends StatefulWidget> on State<T> {
   void disposeCtaDelay() => _ctaTimer?.cancel();
 }
 
-// ── 1. 환영 ─────────────────────────────────────────────────
+// ── 1. 첫인사 — 잠꾸러기 토드 깨우기 (전면 개편 2026-08-22) ──
 
-class _WelcomePage extends StatefulWidget {
+/// 첫 만남의 각본: 어두운 밤, Todd가 반갑게 "Hi, I'm To..d.." 인사하다
+/// **말끝을 흐리며 잠들어 버린다**. 토스트가 "톡톡 깨워 보라"고 알려 주고,
+/// 유저가 세 번 두드리면 — 두 번은 실눈만 겨우 떴다 도로 잠들고 — 마침내
+/// 기지개를 켜며 깨어나 "Oh hey! I'm Todd" 하고 다시 인사한다.
+/// Todd가 잠이 많다는 세계관을 첫 화면에서 **손으로 배우는** 페이지.
+class _WelcomePage extends ConsumerStatefulWidget {
   final VoidCallback onNext;
 
-  const _WelcomePage({required this.onNext});
+  /// Todd가 깨어났다 — 플로우가 새벽빛(CornerGlow)을 올린다.
+  final VoidCallback onWoke;
+
+  const _WelcomePage({required this.onNext, required this.onWoke});
 
   @override
-  State<_WelcomePage> createState() => _WelcomePageState();
+  ConsumerState<_WelcomePage> createState() => _WelcomePageState();
 }
 
-class _WelcomePageState extends State<_WelcomePage> with _DelayedCta {
-  int _pokeTick = 0;
+/// greet(인사 타이핑) → dozing(말끝이 흐려지며 꾸벅꾸벅) → asleep(잠듦) →
+/// stir(톡 — 실눈 두리번) ⇄ asleep → awake(세 번째 톡 — 기상)
+enum _HelloPhase { greet, dozing, asleep, stir, awake }
 
-  @override
-  void initState() {
-    super.initState();
-    startCtaDelay();
-    // 들어오고 한 박자 뒤에 스스로 까르르 — 반가움의 첫인사
-    Timer(const Duration(milliseconds: 500), _poke);
-  }
+class _WelcomePageState extends ConsumerState<_WelcomePage> {
+  /// 실눈 두리번(렌더러 peek 2.2초)과 동기 — 두 번째 톡은 못 이기고
+  /// 조금 더 꾸벅거리다 잠든다.
+  static const _stirBackMs = 2450;
+  static const _stirLingerMs = 3200;
 
-  void _poke() {
-    if (mounted) setState(() => _pokeTick++);
-  }
+  _HelloPhase _phase = _HelloPhase.greet;
+  int _pokes = 0;
+  ToddEvent? _event;
+  int _tick = 0;
+  Timer? _sleepTimer;
+  Timer? _toastTimer;
+  Timer? _stirTimer;
 
   @override
   void dispose() {
-    disposeCtaDelay();
+    _sleepTimer?.cancel();
+    _toastTimer?.cancel();
+    _stirTimer?.cancel();
     super.dispose();
   }
+
+  /// 제목의 첫 `.`이 찍히는 순간 — 인사가 끝나기도 전에 눈이 감기기 시작한다.
+  void _onTitleAdvance(String shown) {
+    if (_phase == _HelloPhase.greet && shown.endsWith('.')) {
+      setState(() => _phase = _HelloPhase.dozing);
+    }
+  }
+
+  /// 말끝이 다 흐려졌다 — 한 박자 뒤 완전히 잠들고, 토스트로 깨우는 법을 알린다.
+  void _onTitleTyped() {
+    if (_phase != _HelloPhase.greet && _phase != _HelloPhase.dozing) return;
+    _sleepTimer = Timer(const Duration(milliseconds: 550), () {
+      if (!mounted || _phase == _HelloPhase.awake) return;
+      setState(() {
+        _phase = _HelloPhase.asleep;
+        _event = null;
+      });
+      _scheduleToast(const Duration(milliseconds: 900));
+    });
+  }
+
+  void _scheduleToast(Duration after) {
+    _toastTimer?.cancel();
+    _toastTimer = Timer(after, () {
+      if (!mounted || _pokes > 0 || _phase != _HelloPhase.asleep) return;
+      final l10n = AppLocalizations.of(context);
+      showUnwindToast(
+        context,
+        title: l10n.obWakeToastTitle,
+        body: l10n.obWakeToastBody,
+        visibleFor: const Duration(milliseconds: 4500),
+      );
+      // 그래도 안 깨우고 있으면 한 번 더 알려 준다
+      _scheduleToast(const Duration(seconds: 9));
+    });
+  }
+
+  void _pokeTodd() {
+    switch (_phase) {
+      case _HelloPhase.greet || _HelloPhase.dozing || _HelloPhase.awake:
+        // 깨어 있을 땐 평소처럼 — 낮엔 간지럼, 꾸벅일 땐 실눈
+        setState(() {
+          _event = ToddEvent.poke;
+          _tick++;
+        });
+      case _HelloPhase.asleep:
+        _pokes++;
+        if (_pokes >= 3) {
+          _wake();
+        } else {
+          // 실눈만 겨우 떠 두리번거리다 도로 잠든다 (어댑터가 poke를
+          // 깨어나는 이벤트로 전달 — wakeUpHappy가 아니라)
+          setState(() {
+            _phase = _HelloPhase.stir;
+            _event = ToddEvent.poke;
+            _tick++;
+          });
+          _stirTimer?.cancel();
+          _stirTimer = Timer(
+            Duration(milliseconds: _pokes == 1 ? _stirBackMs : _stirLingerMs),
+            () {
+              if (!mounted || _phase != _HelloPhase.stir) return;
+              setState(() {
+                _phase = _HelloPhase.asleep;
+                _event = null;
+              });
+            },
+          );
+        }
+      case _HelloPhase.stir:
+        break; // 이미 뒤척이는 중 — 연타는 삼킨다 (톡, 하나에 반응 하나)
+    }
+  }
+
+  /// 세 번째 톡 — 기지개를 켜며 일어난다. 제목이 같은 자리에서 다시 타이핑된다.
+  void _wake() {
+    _toastTimer?.cancel();
+    _stirTimer?.cancel();
+    ref.read(hapticsProvider).success();
+    setState(() {
+      _phase = _HelloPhase.awake;
+      _event = null; // 명시 이벤트 없음 → 어댑터가 wakeUpHappy(기지개·미소)
+    });
+    widget.onWoke();
+  }
+
+  ToddState get _toddState => switch (_phase) {
+    _HelloPhase.greet => ToddState(
+      brightness: 0.1,
+      mode: ToddMode.day,
+      event: _event,
+      eventTick: _tick,
+    ),
+    // 어두운 방의 밤 — dazzle 0이라 꾸벅꾸벅 존다 (콧물 방울까지)
+    _HelloPhase.dozing || _HelloPhase.stir => ToddState(
+      brightness: 0.95,
+      mode: ToddMode.nightAwake,
+      dazzle: 0.05,
+      event: _event,
+      eventTick: _tick,
+    ),
+    _HelloPhase.asleep => const ToddState(
+      brightness: 1.0,
+      isAsleep: true,
+      mode: ToddMode.asleep,
+    ),
+    _HelloPhase.awake => ToddState(
+      brightness: 0.1,
+      mode: ToddMode.day,
+      event: _event,
+      eventTick: _tick,
+    ),
+  };
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final awake = _phase == _HelloPhase.awake;
     return _ObPage(
       hero: UnwindPressable(
-        onTap: _poke,
+        onTap: _pokeTodd,
         depth: 0,
         pressScale: 1.0, // 반응은 캐릭터가 한다
         haptic: UnwindHapticKind.tap,
         isButton: false,
-        semanticLabel: l10n.toddPokeLabel,
+        semanticLabel: awake ? l10n.toddPokeLabel : l10n.obWakeAction,
         child: ToddView(
-          state: ToddState(
-            brightness: 0.1,
-            mode: ToddMode.day,
-            event: _pokeTick > 0 ? ToddEvent.poke : null,
-            eventTick: _pokeTick,
-          ),
+          state: _toddState,
           reduceMotion: MediaQuery.disableAnimationsOf(context),
           size: 210,
         ),
       ),
-      title: l10n.obWelcomeTitle,
-      body: l10n.obWelcomeBody,
+      typewriter: true,
+      onTitleAdvance: _onTitleAdvance,
+      onTitleTyped: _onTitleTyped,
+      title: awake ? l10n.obHelloAwake : l10n.obHelloSleepy,
+      body: awake ? l10n.obHelloAwakeBody : null,
       cta: l10n.obNext,
-      ctaEnabled: ctaReady,
+      // Todd를 깨워야만 다음으로 — 첫 인터랙션을 건너뛸 수 없다
+      ctaEnabled: awake,
       onCta: widget.onNext,
     );
   }
@@ -617,6 +813,8 @@ class _LightsPageState extends State<_LightsPage> {
         reduceMotion: MediaQuery.disableAnimationsOf(context),
         size: 200,
       ),
+      // 초반 페이지는 대사가 살아 있게 타이핑한다 (청구서부터는 정적)
+      typewriter: true,
       title: _allDone ? l10n.obLightsDone : l10n.obNightTitle,
       body: _allDone ? l10n.obLightsDoneBody : l10n.obNightBody,
       // 타일은 홈과 같은 폭 — 자기 여백(s20)을 갖고 있어 풀블리드로 얹는다

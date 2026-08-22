@@ -375,10 +375,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obNext => 'Next';
 
   @override
-  String get obWelcomeTitle => 'Hey! I\'m Todd.';
+  String get obHelloSleepy => 'Hi, I\'m To..d..';
 
   @override
-  String get obWelcomeBody => 'Can you help me\nget to sleep every night?';
+  String get obHelloAwake => 'Oh hey! I\'m Todd';
+
+  @override
+  String get obHelloAwakeBody =>
+      'Sorry about that —\nI\'m a bit of a sleepyhead..';
+
+  @override
+  String get obWakeToastTitle => 'Todd dozed off!';
+
+  @override
+  String get obWakeToastBody => 'Tap to wake Todd up';
+
+  @override
+  String get obWakeAction => 'Wake Todd';
 
   @override
   String get obNightTitle => 'I need to sleep but..';
