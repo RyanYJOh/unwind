@@ -9,9 +9,10 @@ import '../today/providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// §6.2 하단 주간 스트립 — 골목에서 이웃집 창을 보는 은유.
-/// 각 날은 작은 창문: 그날 남은 빛 + 그날 밤 Todd의 눈.
-///   - 불이 남은 밝은 창 = 못 자고 크게 졸린 눈
-///   - 꺼진 캄캄한 창 = 만족스럽게 감긴 눈
+/// 각 날은 작은 창문 + 그날 밤 Todd의 눈.
+///   - **앰버로 밝은 창은 오늘 하나뿐** (개정 2026-08-22) — 남은 빛 실시간
+///   - 지난 날은 결과와 무관하게 캄캄한 창 + 감긴 눈. 불(미완)을 남긴
+///     밤이면 눈 밑 **다크서클**, 다 끄고 잔 밤이면 스마일
 ///   - 아직 오지 않은 날 = 빈 창 (얼굴 없음)
 ///
 /// 개편 2026-08-13: 일 단위 30일 스크롤 → **주 단위 페이징**.
@@ -178,18 +179,22 @@ class _Window extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 그날 방에 남아 있던 빛 (오늘은 실시간)
-    final double light;
+    // 그날 방에 실제로 남아 있던 빛 — 표정(만족/다크서클)의 근거
+    final double rawLeft;
     if (info.isToday) {
-      light = (1 - currentT).clamp(0.0, 1.0);
+      rawLeft = (1 - currentT).clamp(0.0, 1.0);
     } else {
       final ft = info.finalT;
-      // 기록 없는 지난 날은 캄캄한 창 (빈 방이었다)
-      light = ft == null ? 0.0 : (1 - ft).clamp(0.0, 1.0);
+      rawLeft = ft == null ? 0.0 : (1 - ft).clamp(0.0, 1.0);
     }
 
-    // 만족스럽게 잠든 날 = 기록이 있고 불이 다 꺼진 날 (오늘 포함).
-    final satisfied = light < 0.06 && (info.isToday || info.finalT != null);
+    // 창의 표시 밝기 (개정 2026-08-22): **앰버 창은 오늘 하나뿐이다.**
+    // 지난 날 창은 결과와 무관하게 캄캄하다 — 그날 남긴 불의 흔적은
+    // 빛이 아니라 Todd의 다크서클로 남는다.
+    final light = info.isToday ? rawLeft : 0.0;
+
+    // 만족스럽게 잠든 날 = 기록이 있고 불을 다 끄고 잔 날 (오늘 포함)
+    final satisfied = rawLeft < 0.06 && (info.isToday || info.finalT != null);
 
     return Container(
       width: 34,
@@ -207,7 +212,12 @@ class _Window extends StatelessWidget {
       child: info.isFuture
           ? null
           : CustomPaint(
-              painter: _WindowFacePainter(light: light, satisfied: satisfied),
+              painter: _WindowFacePainter(
+                light: light,
+                satisfied: satisfied,
+                // 불을 남긴 밤의 흔적 — 오늘 밤은 아직 결과가 없다
+                darkCircles: !info.isToday && info.restless,
+              ),
             ),
     );
   }
@@ -216,17 +226,28 @@ class _Window extends StatelessWidget {
 /// 창 안의 눈 — 그날 밤의 Todd.
 /// light 1.0(대낮같이 밝음) = 무겁게 졸린 실눈 / 0.0(소등) = 감긴 곡선.
 /// [satisfied]면 잔잔한 미소도 — "다 끄고 만족스럽게 잤다".
+/// [darkCircles]면 감은 눈 밑에 진한 다크서클 — "불을 남긴 채 뒤척인 밤"
+/// (개정 2026-08-22: 지난 날의 결과는 창의 밝기가 아니라 이 흔적으로 읽는다).
 class _WindowFacePainter extends CustomPainter {
   final double light;
   final bool satisfied;
+  final bool darkCircles;
 
-  const _WindowFacePainter({required this.light, this.satisfied = false});
+  const _WindowFacePainter({
+    required this.light,
+    this.satisfied = false,
+    this.darkCircles = false,
+  });
 
   /// 밝은 창(앰버) 위의 눈 — 어두운 잉크
   static const _ink = UnwindColors.onAccent;
 
   /// 캄캄한 창 위의 감긴 눈
   static const _sleepInk = UnwindColors.textMuted;
+
+  /// 다크서클 — Todd 본체(ghost_painter_view)와 같은 라벤더 캐릭터 색
+  static const _dcFill = Color(0xFFA98BB0);
+  static const _dcEdge = Color(0xFF8A6494);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -243,6 +264,33 @@ class _WindowFacePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round;
       for (final dir in [-1, 1]) {
         final ec = Offset(cx + dir * dx, cy);
+        // 다크서클을 눈보다 먼저 — 감은 눈 밑의 꺼진 초승달 음영 + 선
+        // (본체와 같은 문법, 34px 창에서도 읽히게 진하게)
+        if (darkCircles) {
+          const w = 3.6;
+          final topY = ec.dy + 2.6;
+          final dipY = ec.dy + 6.0;
+          final crescent = Path()
+            ..moveTo(ec.dx - w, topY)
+            ..quadraticBezierTo(ec.dx, dipY, ec.dx + w, topY)
+            ..quadraticBezierTo(ec.dx, dipY - 1.8, ec.dx - w, topY)
+            ..close();
+          canvas.drawPath(
+            crescent,
+            Paint()..color = _dcFill.withValues(alpha: 0.55),
+          );
+          final edge = Path()
+            ..moveTo(ec.dx - w, topY)
+            ..quadraticBezierTo(ec.dx, dipY, ec.dx + w, topY);
+          canvas.drawPath(
+            edge,
+            Paint()
+              ..color = _dcEdge
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5
+              ..strokeCap = StrokeCap.round,
+          );
+        }
         final path = Path()
           ..moveTo(ec.dx - 3.2, ec.dy)
           ..quadraticBezierTo(ec.dx, ec.dy + 2.6, ec.dx + 3.2, ec.dy);
@@ -283,5 +331,7 @@ class _WindowFacePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_WindowFacePainter old) =>
-      old.light != light || old.satisfied != satisfied;
+      old.light != light ||
+      old.satisfied != satisfied ||
+      old.darkCircles != darkCircles;
 }

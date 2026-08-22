@@ -53,8 +53,10 @@ enum WidgetSnapshotBridge {
       }
 
       if #available(iOS 14.0, *) {
+        // ofKind 하나면 충분하다 — reloadAllTimelines까지 겹쳐 쏘면
+        // WidgetKit이 진행 중인 타임라인 생성에 뒤 리로드를 합쳐 버리는
+        // (coalescing) 경쟁 창만 넓어진다 (간헐 미반영, 2026-08-22).
         WidgetCenter.shared.reloadTimelines(ofKind: kind)
-        WidgetCenter.shared.reloadAllTimelines()
       }
       result(true)
     }

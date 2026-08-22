@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
@@ -99,17 +100,45 @@ class WidgetSnapshotService {
 
   int _epoch = 0;
   Future<void> _chain = Future<void>.value();
+  Timer? _debounce;
+  WidgetSnapshot? _pending;
+
+  /// 디바운스 창 — 체크 하나에도 todos·days 두 스트림이 잇달아 방출돼
+  /// write가 연달아 두 번 나간다. 리로드를 그만큼 쏘면 WidgetKit이 진행
+  /// 중인 타임라인 생성에 뒤 리로드를 합쳐 버려(coalescing) **옛 파일을
+  /// 읽은 결과가 최종본으로 남는** 간헐 이슈가 있었다 (2026-08-22).
+  /// 버스트가 잦아들고 한 번만 쓴다.
+  static const _debounceMs = 180;
 
   /// 마지막 write 결과 — 릴리즈 빌드에선 debugPrint가 보이지 않아, 실기기에서
   /// 실패해도 아무 흔적이 없었다. 설정 > 위젯 진단(dev)이 이 값을 읽는다.
   String lastResult = 'not written yet';
 
-  /// 오늘의 스냅샷을 App Group에 쓴다.
+  /// 오늘의 스냅샷을 App Group에 쓴다 (디바운스 — 마지막 스냅샷만).
   ///
-  /// [widgetSyncProvider]가 빌드마다 fire-and-forget으로 부르므로, 빈 방
-  /// write와 할 일 있는 write가 겹치면 빈 방이 나중에 끝나 `total=0`으로
-  /// 남을 수 있다. 세대 번호로 직렬화해 **마지막 스냅샷만** 반영한다.
-  Future<void> write(WidgetSnapshot s) {
+  /// [widgetSyncProvider]가 빌드마다 fire-and-forget으로 부른다. 도미노
+  /// 소등처럼 변이가 연속되면 마지막 것 하나로 합쳐 쓰고 리로드도 한 번만
+  /// 요청한다. 백그라운드 진입 직전 등 **지금 당장** 써야 하면 [flush].
+  void write(WidgetSnapshot s) {
+    _pending = s;
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: _debounceMs), _commit);
+  }
+
+  /// 디바운스 없이 즉시 쓴다 — 온보딩 커밋 직후(위젯 안내 전에 디스크에
+  /// 있어야 한다), 앱이 백그라운드로 갈 때(타이머가 suspend로 얼기 전에).
+  Future<void> flush(WidgetSnapshot s) {
+    _pending = s;
+    return _commit();
+  }
+
+  Future<void> _commit() {
+    _debounce?.cancel();
+    _debounce = null;
+    final s = _pending;
+    _pending = null;
+    if (s == null) return _chain;
+    // 겹치는 write는 세대 번호로 직렬화해 마지막 스냅샷만 반영한다
     final epoch = ++_epoch;
     _chain = _chain.catchError((_) {}).then((_) async {
       if (epoch != _epoch) return;

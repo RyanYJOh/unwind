@@ -96,8 +96,12 @@ class _WidgetSyncState extends ConsumerState<_WidgetSync> {
   @override
   void initState() {
     super.initState();
+    // 백그라운드 진입 직전 DB를 직접 읽어 **즉시** 쓴다 (2026-08-22).
+    // invalidate는 캐시된 스트림 값으로 다시 쓰는 방식이라, 변이 직후
+    // 바로 나가면 아직 안 따라온 옛 값을 쓸 수 있었다. 디바운스 중인
+    // 스냅샷도 이 플러시가 확정한다 (suspend되면 타이머가 언다).
     _lifecycle = AppLifecycleListener(
-      onInactive: () => ref.invalidate(widgetSyncProvider),
+      onInactive: () => flushWidgetSnapshot(ref),
     );
   }
 

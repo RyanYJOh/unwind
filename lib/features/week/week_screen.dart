@@ -83,6 +83,11 @@ class _WeekScreenState extends ConsumerState<WeekScreen> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: UnwindSpacing.s48),
         children: [
+          // 진행 바가 맨 위 — 이 주의 요약. 필터 토글은 구분선 **아래**,
+          // 자기가 거르는 목록 쪽에 붙인다 (개정 2026-08-22: 토글이 바로
+          // 위에 있으면 진행 바를 거르는 스위치처럼 읽힌다).
+          _WeekProgressBar(todos: byDate.values.expand((e) => e).toList()),
+          const UnwindDivider(indent: UnwindSpacing.s20),
           UnwindListRow.toggle(
             label: l10n.weekIncompleteOnly,
             value: _incompleteOnly,
@@ -94,7 +99,6 @@ class _WeekScreenState extends ConsumerState<WeekScreen> {
               0,
             ),
           ),
-          _WeekProgressBar(todos: byDate.values.expand((e) => e).toList()),
           const SizedBox(height: UnwindSpacing.s8),
           for (var i = 0; i < 7; i++)
             _DaySection(

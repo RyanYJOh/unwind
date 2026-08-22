@@ -316,7 +316,9 @@ final widgetSyncProvider = Provider<void>((ref) {
   );
 });
 
-/// 스트림이 아직 안 따라온 시점(온보딩 커밋 직후)에도 스냅샷을 밀어 넣는다.
+/// 스트림을 기다리지 않고 **DB에서 바로 읽어 즉시** 스냅샷을 쓴다 —
+/// 온보딩 커밋 직후(스트림이 아직 안 따라옴), 앱이 백그라운드로 갈 때
+/// (디바운스 타이머가 suspend로 얼기 전에 마지막 상태를 확정).
 Future<void> flushWidgetSnapshot(WidgetRef ref) async {
   final todayKey = ref.read(todayKeyProvider);
   final db = ref.read(databaseProvider);
@@ -324,7 +326,7 @@ Future<void> flushWidgetSnapshot(WidgetRef ref) async {
   final day = await db.dayDao.getDay(todayKey);
   final prevKey = dayKey(addDays(parseDayKey(todayKey), -1));
   final restless = (await db.dayDao.getDay(prevKey))?.restless ?? false;
-  await ref.read(widgetSnapshotServiceProvider).write(
+  await ref.read(widgetSnapshotServiceProvider).flush(
     WidgetSnapshot.fromTodos(
       dayKey: todayKey,
       statuses: todos.map((t) => t.status),
@@ -381,6 +383,10 @@ class WindowInfo {
   /// 지난 날: finalT (없으면 null → 캄캄), 오늘: 실시간 t는 화면에서 주입
   final double? finalT;
 
+  /// 그날 밤 불(미완 항목)을 남긴 채 넘어갔다 (days.restless 봉인) —
+  /// 스트립 창의 다크서클 근거 (개정 2026-08-22)
+  final bool restless;
+
   /// 다가올 날: 미리 적어둔 항목이 있으면 희미한 예열
   final bool hasPreheat;
 
@@ -390,6 +396,7 @@ class WindowInfo {
     required this.isPast,
     this.isFuture = false,
     this.finalT,
+    this.restless = false,
     this.hasPreheat = false,
   });
 }
@@ -452,6 +459,7 @@ List<WindowInfo> weekWindows({
           isPast: day.isBefore(today),
           isFuture: day.isAfter(today),
           finalT: byDate[key]?.finalT,
+          restless: byDate[key]?.restless ?? false,
         );
       }(),
   ];
