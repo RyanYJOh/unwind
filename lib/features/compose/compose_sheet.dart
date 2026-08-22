@@ -10,6 +10,8 @@ import '../../core/utils/dates.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables/tables.dart';
 import '../../ui/ui.dart';
+import '../premium/paywall_screen.dart';
+import '../premium/premium_providers.dart';
 import '../today/providers.dart';
 import '../today/pull_cord_coach.dart';
 import 'date_bar.dart';
@@ -150,6 +152,19 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
     if (_rule != null) {
       // 반복 규칙 생성 → 인스턴스는 전개 서비스가 materialize (§4.2)
       final db = ref.read(databaseProvider);
+
+      // 무료 티어는 반복 규칙 3개까지 (수익화 2026-08-22) — 네 번째를
+      // 저장하려는 바로 그 순간이 페이월의 자리다. 시트는 열어 둔다:
+      // 구독하고 돌아오면 쓰던 내용 그대로 저장할 수 있다.
+      // (온보딩은 이 시트를 거치지 않아 게이트 밖 — 황금 경로를 막지 않는다)
+      if (!ref.read(premiumProvider)) {
+        final activeRules = await db.recurrenceDao.getActive();
+        if (activeRules.length >= kFreeRecurrenceLimit) {
+          if (mounted) await showPaywall(context);
+          return;
+        }
+      }
+
       final d = parseDayKey(_dateKey);
       await db.recurrenceDao.create(
         title: title,

@@ -35,7 +35,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 135개 통과가 기준선
+flutter analyze && flutter test                           # 138개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
 ```
@@ -600,6 +600,30 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   (`Runner`·`ToddWidget`의 `en.lproj`/`ko.lproj/InfoPlist.strings`).
   앱 안 언어 설정이 아니라 기기 언어를 따른다.
 
+## 8.7 수익화 — Todd Plus (신설 2026-08-22, 발주자 컨펌)
+
+**원칙: 의식(하루 닫기)은 무료로 완전하게, 관계·표현은 유료로.**
+광고는 하지 않는다 (릴랙스 앱의 무드가 상품이다). 근거·레퍼런스(Finch
+코스메틱 프레이밍, Duolingo 마스코트 페이월)는 prd-amendments 2026-08-22.
+
+- **상태**: 설정 키 `premiumEnabled` → `premiumProvider`
+  (features/premium/premium_providers.dart). TODO: StoreKit 연동 시 영수증
+  검증으로 대체 — 게이트들은 이 프로바이더만 보므로 화면은 안 바뀐다.
+- **게이트 ①  반복 규칙**: 무료는 활성 규칙 `kFreeRecurrenceLimit`(3)개까지.
+  네 번째 반복을 저장하는 순간 compose_sheet가 페이월을 띄우고 시트는
+  유지한다 (구독 후 이어서 저장). **온보딩은 시트를 거치지 않아 게이트 밖**
+  — 황금 경로를 막지 않는다.
+- **게이트 ② 조명 색**: 무료는 앰버만. 다른 스와치엔 자물쇠, 탭하면 페이월.
+  main.dart가 !premium이면 표시를 앰버로 강제하되 **저장된 색은 남긴다**
+  (재구독 시 되살아남).
+- **페이월** (features/premium/paywall_screen.dart, 설정 최상단 TODD PLUS
+  행으로 진입): Todd가 주인공 — 들어오면 까르르, 결제하면 체크 축하 후
+  1.4초 뒤 닫힘. 기능 목록은 실재하는 것만 + 마지막 줄 "…and many more to
+  come!"(앰버). 요금제 월/연(BEST 배지·기본 선택)/평생 — 가격은 표시용
+  문자열(l10n), StoreKit 상품으로 대체 예정. 닫기 버튼 즉시 노출·"언제든
+  해지" 캡션 (다크패턴 금지). Plus 상태에선 감사 화면 + `Plus 해제 (dev)`
+  (TODO: 배포 전 제거).
+
 ## 9. 개발용 기능 (배포 전 제거 대상)
 
 - 설정 > **Ghost demo (dev)** — 모든 모드/활동/이벤트 프리뷰 칩. 캐릭터 작업 시
@@ -612,7 +636,7 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **135개** 전부 통과가 기준선 (2026-08-22 조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
+2. `flutter test` — **138개** 전부 통과가 기준선 (2026-08-22 Plus 게이트 +3·조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
    +5. 이전 126: 주간 미완료 필터, 125: 위젯 스냅샷 +3, 122: 현지 통화).
    UI 변경 시 위젯 테스트가 히트 영역 겹침·오버플로 같은 실제 버그를 잡아 온
    전적이 있다.

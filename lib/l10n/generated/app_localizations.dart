@@ -650,6 +650,138 @@ abstract class AppLocalizations {
   /// **'Light color'**
   String get sectionLight;
 
+  /// No description provided for @plusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'TODD PLUS'**
+  String get plusTitle;
+
+  /// No description provided for @plusHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wanna get\na little closer?'**
+  String get plusHeroTitle;
+
+  /// No description provided for @plusHeroThanks.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you!\nWe\'re a team now'**
+  String get plusHeroThanks;
+
+  /// No description provided for @plusFeatureColors.
+  ///
+  /// In en, this message translates to:
+  /// **'All 7 room light colors'**
+  String get plusFeatureColors;
+
+  /// No description provided for @plusFeatureColorsCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Set tonight\'s mood yourself'**
+  String get plusFeatureColorsCaption;
+
+  /// No description provided for @plusFeatureRecurrence.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited repeating to-dos'**
+  String get plusFeatureRecurrence;
+
+  /// No description provided for @plusFeatureRecurrenceCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'However many habits you keep'**
+  String get plusFeatureRecurrenceCaption;
+
+  /// No description provided for @plusFeatureMore.
+  ///
+  /// In en, this message translates to:
+  /// **'…and many more to come!'**
+  String get plusFeatureMore;
+
+  /// No description provided for @plusMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get plusMonthly;
+
+  /// No description provided for @plusMonthlyPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'\$3.99'**
+  String get plusMonthlyPrice;
+
+  /// No description provided for @plusMonthlyCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Billed monthly'**
+  String get plusMonthlyCaption;
+
+  /// No description provided for @plusYearly.
+  ///
+  /// In en, this message translates to:
+  /// **'Yearly'**
+  String get plusYearly;
+
+  /// No description provided for @plusYearlyPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'\$23.99'**
+  String get plusYearlyPrice;
+
+  /// No description provided for @plusYearlyCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'≈ \$2 a month'**
+  String get plusYearlyCaption;
+
+  /// No description provided for @plusLifetime.
+  ///
+  /// In en, this message translates to:
+  /// **'Lifetime'**
+  String get plusLifetime;
+
+  /// No description provided for @plusLifetimePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'\$59.99'**
+  String get plusLifetimePrice;
+
+  /// No description provided for @plusLifetimeCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay once, keep forever'**
+  String get plusLifetimeCaption;
+
+  /// No description provided for @plusBest.
+  ///
+  /// In en, this message translates to:
+  /// **'BEST'**
+  String get plusBest;
+
+  /// No description provided for @plusCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Join Todd'**
+  String get plusCta;
+
+  /// No description provided for @plusCancelNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel anytime'**
+  String get plusCancelNote;
+
+  /// No description provided for @plusSettingsCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Get closer with Todd'**
+  String get plusSettingsCaption;
+
+  /// No description provided for @plusSettingsActive.
+  ///
+  /// In en, this message translates to:
+  /// **'In it together 💛'**
+  String get plusSettingsActive;
+
   /// No description provided for @lightAmber.
   ///
   /// In en, this message translates to:

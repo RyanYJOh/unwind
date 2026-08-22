@@ -36,6 +36,9 @@ class UnwindSettings {
   /// 방 조명의 색 (선택형 2026-08-22) — UnwindLightColor.name
   final String lightColor;
 
+  /// Todd Plus (수익화 2026-08-22) — 조명 색·반복 무제한의 게이트
+  final bool premiumEnabled;
+
   const UnwindSettings({
     this.nightReminderEnabled = true,
     this.billNotificationEnabled = true,
@@ -50,6 +53,7 @@ class UnwindSettings {
     this.userName,
     this.languageCode = 'en',
     this.lightColor = 'amber',
+    this.premiumEnabled = false,
   });
 
   UnwindSettings copyWith({
@@ -66,6 +70,7 @@ class UnwindSettings {
     String? userName,
     String? languageCode,
     String? lightColor,
+    bool? premiumEnabled,
   }) => UnwindSettings(
     nightReminderEnabled: nightReminderEnabled ?? this.nightReminderEnabled,
     billNotificationEnabled:
@@ -82,6 +87,7 @@ class UnwindSettings {
     userName: userName ?? this.userName,
     languageCode: languageCode ?? this.languageCode,
     lightColor: lightColor ?? this.lightColor,
+    premiumEnabled: premiumEnabled ?? this.premiumEnabled,
   );
 }
 
@@ -137,6 +143,10 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
       userName: await dao.getValue(SettingKeys.userName),
       languageCode: await dao.getValue(SettingKeys.languageCode) ?? 'en',
       lightColor: await dao.getValue(SettingKeys.lightColor) ?? 'amber',
+      premiumEnabled: await dao.getBool(
+        SettingKeys.premiumEnabled,
+        fallback: false,
+      ),
     );
   }
 
@@ -231,6 +241,14 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
     SettingKeys.lightColor,
     name,
     (s) => s.copyWith(lightColor: name),
+  );
+
+  /// Todd Plus on/off. TODO(unwind): StoreKit 연동 시 구매·복원 흐름으로
+  /// 대체 — 지금은 페이월 CTA와 dev 해제 버튼이 직접 부른다.
+  Future<void> setPremiumEnabled(bool v) => _set(
+    SettingKeys.premiumEnabled,
+    '$v',
+    (s) => s.copyWith(premiumEnabled: v),
   );
 
   /// §6.7 데이터 초기화 — 할 일·기록·반복·청구서 전부 삭제 (설정은 유지)

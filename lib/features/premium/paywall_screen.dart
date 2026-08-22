@@ -1,0 +1,460 @@
+import 'dart:async';
+
+import 'package:flutter/cupertino.dart' show CupertinoPageRoute;
+import 'package:flutter/material.dart' show Icons;
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/tokens/palette.dart';
+import '../../core/tokens/spacing.dart';
+import '../../core/tokens/typography.dart';
+import '../../domain/models/todd_state.dart';
+import '../../l10n/generated/app_localizations.dart';
+import '../../ui/ui.dart';
+import '../../widgets/corner_glow.dart';
+import '../../widgets/todd/todd_view.dart';
+import '../settings/settings_controller.dart';
+import '../today/providers.dart';
+import 'premium_providers.dart';
+
+/// Todd Plus 페이월 (수익화 2026-08-22, 발주자 지시).
+///
+/// 감정 설계 — 레퍼런스: Duolingo(마스코트가 페이월의 주인공, 반응하는
+/// 캐릭터가 텍스트보다 강하다)·Finch(코스메틱 프레이밍 + "펫을 위해"라는
+/// 명분, 신뢰 요소로 전환).
+/// - 기능 나열이 아니라 **Todd가 직접 묻는다** — "우리, 조금 더 가까워질까?"
+/// - 히어로 Todd는 살아 있다: 들어오면 까르르, 결제하면 축하(점프+별).
+/// - 기능 목록은 지금 실재하는 둘만 정직하게, 마지막 줄은
+///   "…and many more to come!"으로 기대를 심는다 (발주자 요구).
+/// - 신뢰 요소: 언제든 해지 캡션, 닫기 버튼은 즉시 노출 (다크패턴 금지 —
+///   릴랙스 앱의 예의).
+Future<void> showPaywall(BuildContext context) {
+  return Navigator.of(context, rootNavigator: true).push(
+    CupertinoPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => const PaywallScreen(),
+    ),
+  );
+}
+
+enum _Plan { monthly, yearly, lifetime }
+
+class PaywallScreen extends ConsumerStatefulWidget {
+  const PaywallScreen({super.key});
+
+  @override
+  ConsumerState<PaywallScreen> createState() => _PaywallScreenState();
+}
+
+class _PaywallScreenState extends ConsumerState<PaywallScreen> {
+  /// 연간이 기본 선택 — 앵커이자 추천 (BEST 배지)
+  _Plan _plan = _Plan.yearly;
+
+  ToddEvent? _event;
+  int _tick = 0;
+  bool _celebrating = false;
+  Timer? _helloTimer;
+  Timer? _doneTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // 들어오고 한 박자 뒤 스스로 까르르 — 파는 사람이 아니라 반가운 친구
+    _helloTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted && !_celebrating) {
+        setState(() {
+          _event = ToddEvent.poke;
+          _tick++;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _helloTimer?.cancel();
+    _doneTimer?.cancel();
+    super.dispose();
+  }
+
+  /// TODO(unwind): StoreKit 결제 연동 — 지금은 바로 Plus를 켠다 (테스트용).
+  /// 구매 성공의 감정 연출(축하 → 닫힘)은 그대로 재사용한다.
+  Future<void> _subscribe() async {
+    if (_celebrating) return;
+    _celebrating = true;
+    ref.read(hapticsProvider).success();
+    setState(() {
+      _event = ToddEvent.react; // 체크 축하 — 점프 + 별 버스트
+      _tick++;
+    });
+    await ref
+        .read(settingsControllerProvider.notifier)
+        .setPremiumEnabled(true);
+    // 축하가 눈에 담긴 뒤에 닫는다 — 고마움이 마지막 인상이 되게
+    _doneTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final premium = ref.watch(premiumProvider);
+    final reduce = MediaQuery.disableAnimationsOf(context);
+
+    return UnwindScreen(
+      safeArea: false,
+      child: Stack(
+        children: [
+          // 방의 온기 — 페이월도 이 앱의 방이다
+          const Positioned.fill(
+            child: IgnorePointer(child: CornerGlow(light: 0.45)),
+          ),
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 닫기 — 즉시, 잘 보이게 (다크패턴 금지)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      top: UnwindSpacing.s4,
+                      right: UnwindSpacing.s8,
+                    ),
+                    child: UnwindIconButton(
+                      icon: Icons.close_rounded,
+                      semanticLabel: l10n.close,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      UnwindSpacing.s20,
+                      0,
+                      UnwindSpacing.s20,
+                      UnwindSpacing.s16,
+                    ),
+                    children: [
+                      Center(
+                        child: ToddView(
+                          state: ToddState(
+                            brightness: 0.1,
+                            mode: ToddMode.day,
+                            event: _event,
+                            eventTick: _tick,
+                          ),
+                          reduceMotion: reduce,
+                          size: 150,
+                        ),
+                      ),
+                      const SizedBox(height: UnwindSpacing.s8),
+                      Text(
+                        _celebrating || premium
+                            ? l10n.plusHeroThanks
+                            : l10n.plusHeroTitle,
+                        textAlign: TextAlign.center,
+                        style: UnwindType.display.copyWith(
+                          color: UnwindColors.textPrimary,
+                          height: 1.22,
+                        ),
+                      ),
+                      const SizedBox(height: UnwindSpacing.s4),
+                      Center(
+                        child: Text(
+                          l10n.plusTitle,
+                          style: UnwindType.label.copyWith(
+                            color: UnwindColors.accent,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: UnwindSpacing.s16),
+                      UnwindCard(
+                        child: Column(
+                          children: [
+                            _FeatureRow(
+                              emoji: '🌈',
+                              title: l10n.plusFeatureColors,
+                              caption: l10n.plusFeatureColorsCaption,
+                            ),
+                            const SizedBox(height: UnwindSpacing.s12),
+                            _FeatureRow(
+                              emoji: '♾️',
+                              title: l10n.plusFeatureRecurrence,
+                              caption: l10n.plusFeatureRecurrenceCaption,
+                            ),
+                            const SizedBox(height: UnwindSpacing.s12),
+                            // 기대를 심는 마지막 줄 (발주자 요구) — 로드맵은
+                            // 약속하지 않되 계속 자란다는 신호만
+                            Row(
+                              children: [
+                                const _FeatureEmoji(emoji: '✨'),
+                                const SizedBox(width: UnwindSpacing.s12),
+                                Expanded(
+                                  child: Text(
+                                    l10n.plusFeatureMore,
+                                    style: UnwindType.bodyStrong.copyWith(
+                                      color: UnwindColors.accent,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: UnwindSpacing.s16),
+                      if (!premium) ...[
+                        _PlanCard(
+                          label: l10n.plusYearly,
+                          price: l10n.plusYearlyPrice,
+                          caption: l10n.plusYearlyCaption,
+                          badge: l10n.plusBest,
+                          selected: _plan == _Plan.yearly,
+                          onTap: () => setState(() => _plan = _Plan.yearly),
+                        ),
+                        const SizedBox(height: UnwindSpacing.s8),
+                        _PlanCard(
+                          label: l10n.plusMonthly,
+                          price: l10n.plusMonthlyPrice,
+                          caption: l10n.plusMonthlyCaption,
+                          selected: _plan == _Plan.monthly,
+                          onTap: () => setState(() => _plan = _Plan.monthly),
+                        ),
+                        const SizedBox(height: UnwindSpacing.s8),
+                        _PlanCard(
+                          label: l10n.plusLifetime,
+                          price: l10n.plusLifetimePrice,
+                          caption: l10n.plusLifetimeCaption,
+                          selected: _plan == _Plan.lifetime,
+                          onTap: () => setState(() => _plan = _Plan.lifetime),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    UnwindSpacing.s20,
+                    UnwindSpacing.s8,
+                    UnwindSpacing.s20,
+                    UnwindSpacing.s16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!premium) ...[
+                        UnwindButton(
+                          label: l10n.plusCta,
+                          onPressed: _celebrating ? null : _subscribe,
+                        ),
+                        const SizedBox(height: UnwindSpacing.s8),
+                        Center(
+                          child: Text(
+                            l10n.plusCancelNote,
+                            style: UnwindType.caption.copyWith(
+                              color: UnwindColors.textMuted,
+                            ),
+                          ),
+                        ),
+                      ] else
+                        // TODO(unwind): 배포 빌드에서 제거 — 테스트용 해제
+                        UnwindButton.ghost(
+                          label: 'Plus 해제 (dev)',
+                          onPressed: () async {
+                            await ref
+                                .read(settingsControllerProvider.notifier)
+                                .setPremiumEnabled(false);
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeatureEmoji extends StatelessWidget {
+  final String emoji;
+
+  const _FeatureEmoji({required this.emoji});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: UnwindColors.surfaceHigh,
+          borderRadius: BorderRadius.circular(UnwindRadius.sm),
+        ),
+        child: Center(
+          child: Text(emoji, style: const TextStyle(fontSize: 18)),
+        ),
+      ),
+    );
+  }
+}
+
+class _FeatureRow extends StatelessWidget {
+  final String emoji;
+  final String title;
+  final String caption;
+
+  const _FeatureRow({
+    required this.emoji,
+    required this.title,
+    required this.caption,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _FeatureEmoji(emoji: emoji),
+        const SizedBox(width: UnwindSpacing.s12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: UnwindType.bodyStrong.copyWith(
+                  color: UnwindColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: UnwindSpacing.s2),
+              Text(
+                caption,
+                style: UnwindType.caption.copyWith(
+                  color: UnwindColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 요금제 카드 — 선택형. 연간에 BEST 배지.
+/// TODO(unwind): 가격은 StoreKit 상품 정보로 대체 (지금은 표시용 문자열).
+class _PlanCard extends StatelessWidget {
+  final String label;
+  final String price;
+  final String caption;
+  final String? badge;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PlanCard({
+    required this.label,
+    required this.price,
+    required this.caption,
+    required this.selected,
+    required this.onTap,
+    this.badge,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return UnwindPressable(
+      onTap: onTap,
+      depth: 0,
+      haptic: UnwindHapticKind.selection,
+      semanticLabel: '$label $price',
+      isToggled: selected,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: selected ? UnwindColors.accentSoft : UnwindColors.surface,
+          borderRadius: BorderRadius.circular(UnwindRadius.md),
+          border: Border.all(
+            color: selected ? UnwindColors.accent : UnwindColors.border,
+            width: UnwindStroke.base,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: UnwindSpacing.s16,
+            vertical: UnwindSpacing.s12,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          label,
+                          style: UnwindType.bodyStrong.copyWith(
+                            color: UnwindColors.textPrimary,
+                          ),
+                        ),
+                        if (badge != null) ...[
+                          const SizedBox(width: UnwindSpacing.s8),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: UnwindColors.accent,
+                              borderRadius: BorderRadius.circular(
+                                UnwindRadius.pill,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: UnwindSpacing.s8,
+                                vertical: 2,
+                              ),
+                              child: Text(
+                                badge!,
+                                style: UnwindType.caption.copyWith(
+                                  color: UnwindColors.onAccent,
+                                  fontVariations: const [
+                                    FontVariation('wght', 800),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: UnwindSpacing.s2),
+                    Text(
+                      caption,
+                      style: UnwindType.caption.copyWith(
+                        color: UnwindColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                price,
+                style: UnwindType.headline.copyWith(
+                  color: selected
+                      ? UnwindColors.accent
+                      : UnwindColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

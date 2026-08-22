@@ -318,6 +318,72 @@ class AppLocalizationsKo extends AppLocalizations {
   String get sectionLight => '조명 색';
 
   @override
+  String get plusTitle => 'TODD PLUS';
+
+  @override
+  String get plusHeroTitle => '우리, 조금 더\n가까워질까?';
+
+  @override
+  String get plusHeroThanks => '고마워!\n우린 이제 한 팀이야';
+
+  @override
+  String get plusFeatureColors => '방 조명 색 7가지 전부';
+
+  @override
+  String get plusFeatureColorsCaption => '오늘 밤 무드는 내가 정해요';
+
+  @override
+  String get plusFeatureRecurrence => '반복 할 일 무제한';
+
+  @override
+  String get plusFeatureRecurrenceCaption => '습관이 몇 개든 전부 담아요';
+
+  @override
+  String get plusFeatureMore => '…그리고 계속 늘어날 거예요!';
+
+  @override
+  String get plusMonthly => '월간';
+
+  @override
+  String get plusMonthlyPrice => '₩4,900';
+
+  @override
+  String get plusMonthlyCaption => '매달 결제';
+
+  @override
+  String get plusYearly => '연간';
+
+  @override
+  String get plusYearlyPrice => '₩29,000';
+
+  @override
+  String get plusYearlyCaption => '한 달에 약 ₩2,400꼴';
+
+  @override
+  String get plusLifetime => '평생';
+
+  @override
+  String get plusLifetimePrice => '₩79,000';
+
+  @override
+  String get plusLifetimeCaption => '한 번이면 평생 함께';
+
+  @override
+  String get plusBest => 'BEST';
+
+  @override
+  String get plusCta => '토드와 함께하기';
+
+  @override
+  String get plusCancelNote => '언제든 해지할 수 있어요';
+
+  @override
+  String get plusSettingsCaption => '토드와 더 가까워지기';
+
+  @override
+  String get plusSettingsActive => '함께하는 중 💛';
+
+  @override
   String get lightAmber => '앰버';
 
   @override

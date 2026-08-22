@@ -8,6 +8,7 @@ import '../../core/tokens/typography.dart';
 import '../../ui/ui.dart';
 import '../dev/design_gallery_screen.dart';
 import '../onboarding/onboarding_flow.dart';
+import '../premium/paywall_screen.dart';
 import '../today/providers.dart';
 import 'ghost_demo_screen.dart';
 import 'push_settings_screen.dart';
@@ -49,6 +50,20 @@ class SettingsScreen extends ConsumerWidget {
         key: const PageStorageKey('settings-list'),
         padding: const EdgeInsets.only(bottom: UnwindSpacing.s48),
         children: [
+          // Todd Plus (수익화 2026-08-22) — 맨 위가 업셀의 자리이자
+          // 페이월 테스트 진입점이다
+          UnwindListRow(
+            label: '${l10n.plusTitle} ✨',
+            caption: settings.premiumEnabled
+                ? l10n.plusSettingsActive
+                : l10n.plusSettingsCaption,
+            onTap: () => showPaywall(context),
+            trailing: Text(
+              '›',
+              style: UnwindType.title.copyWith(color: UnwindColors.textMuted),
+            ),
+          ),
+
           // Todd의 하루 (세계관 2026-08-15) — 기상·취침시간이 하루의 축이다
           UnwindSectionLabel(l10n.sectionDay),
           UnwindListRow.value(
@@ -98,11 +113,20 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           // 방 조명의 색 (선택형 2026-08-22, 발주자 지시) — 고르는 즉시
-          // 앱 전체 팔레트가 따라간다 (CTA·FAB·글로우·창문·위젯까지)
+          // 앱 전체 팔레트가 따라간다 (CTA·FAB·글로우·창문·위젯까지).
+          // 앰버 외 색은 Todd Plus (수익화 2026-08-22) — 무료는 자물쇠,
+          // 탭하면 페이월.
           UnwindSectionLabel(l10n.sectionLight),
           _LightColorRow(
             selected: UnwindLightColor.fromName(settings.lightColor),
-            onPicked: (c) => ctrl.setLightColor(c.name),
+            unlocked: settings.premiumEnabled,
+            onPicked: (c) {
+              if (!settings.premiumEnabled && c != UnwindLightColor.amber) {
+                showPaywall(context);
+                return;
+              }
+              ctrl.setLightColor(c.name);
+            },
           ),
 
           UnwindSectionLabel(l10n.sectionLanguage),
@@ -339,11 +363,18 @@ class _PickerBox extends StatelessWidget {
 /// 방 조명의 색 스와치 (선택형 2026-08-22) — 7색 중 하나를 고른다.
 /// 선택된 스와치는 밝은 링 + 체크. 실제 팔레트 적용은 UnwindApp이
 /// 설정을 watch하며 UnwindColors.setLightColor로 흘린다.
+/// [unlocked]가 아니면 앰버 외 스와치에 자물쇠 — 탭은 페이월로 간다
+/// (수익화 2026-08-22).
 class _LightColorRow extends StatelessWidget {
   final UnwindLightColor selected;
+  final bool unlocked;
   final ValueChanged<UnwindLightColor> onPicked;
 
-  const _LightColorRow({required this.selected, required this.onPicked});
+  const _LightColorRow({
+    required this.selected,
+    required this.unlocked,
+    required this.onPicked,
+  });
 
   String _label(AppLocalizations l10n, UnwindLightColor c) => switch (c) {
     UnwindLightColor.amber => l10n.lightAmber,
@@ -402,6 +433,12 @@ class _LightColorRow extends StatelessWidget {
                                 Icons.check_rounded,
                                 size: 18,
                                 color: c.ink,
+                              )
+                            : (!unlocked && c != UnwindLightColor.amber)
+                            ? Icon(
+                                Icons.lock_rounded,
+                                size: 14,
+                                color: c.ink.withValues(alpha: 0.75),
                               )
                             : null,
                       ),

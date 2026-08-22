@@ -323,6 +323,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionLight => 'Light color';
 
   @override
+  String get plusTitle => 'TODD PLUS';
+
+  @override
+  String get plusHeroTitle => 'Wanna get\na little closer?';
+
+  @override
+  String get plusHeroThanks => 'Thank you!\nWe\'re a team now';
+
+  @override
+  String get plusFeatureColors => 'All 7 room light colors';
+
+  @override
+  String get plusFeatureColorsCaption => 'Set tonight\'s mood yourself';
+
+  @override
+  String get plusFeatureRecurrence => 'Unlimited repeating to-dos';
+
+  @override
+  String get plusFeatureRecurrenceCaption => 'However many habits you keep';
+
+  @override
+  String get plusFeatureMore => '…and many more to come!';
+
+  @override
+  String get plusMonthly => 'Monthly';
+
+  @override
+  String get plusMonthlyPrice => '\$3.99';
+
+  @override
+  String get plusMonthlyCaption => 'Billed monthly';
+
+  @override
+  String get plusYearly => 'Yearly';
+
+  @override
+  String get plusYearlyPrice => '\$23.99';
+
+  @override
+  String get plusYearlyCaption => '≈ \$2 a month';
+
+  @override
+  String get plusLifetime => 'Lifetime';
+
+  @override
+  String get plusLifetimePrice => '\$59.99';
+
+  @override
+  String get plusLifetimeCaption => 'Pay once, keep forever';
+
+  @override
+  String get plusBest => 'BEST';
+
+  @override
+  String get plusCta => 'Join Todd';
+
+  @override
+  String get plusCancelNote => 'Cancel anytime';
+
+  @override
+  String get plusSettingsCaption => 'Get closer with Todd';
+
+  @override
+  String get plusSettingsActive => 'In it together 💛';
+
+  @override
   String get lightAmber => 'Amber';
 
   @override

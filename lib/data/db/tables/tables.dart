@@ -131,6 +131,10 @@ abstract final class SettingKeys {
   /// 방 조명의 색 (선택형 2026-08-22) — UnwindLightColor.name, 기본 'amber'
   static const lightColor = 'lightColor';
 
+  /// Todd Plus (수익화 2026-08-22). TODO(unwind): StoreKit 연동 시
+  /// 영수증 검증으로 대체 — 지금은 페이월 CTA가 직접 켠다 (테스트용).
+  static const premiumEnabled = 'premiumEnabled';
+
   /// 온보딩 직후 전등 줄 코치마크를 아직 기다림
   static const pullCordCoachAwaiting = 'pullCordCoachAwaiting';
 
