@@ -152,6 +152,20 @@ void main() {
 
       // 톡 1·2 — 실눈만 겨우 떴다 도로 잠든다. 여전히 잠김
       await tester.tap(find.byType(ToddView).first, warnIfMissed: false);
+      // 스쿼시&바운스 (2026-08-22 2차) — 톡 직후 몸이 세로로 눌려 있어야
+      // 한다 (눌림 구간 정점 부근에서 scaleY < 1). 첫 pump는 컨트롤러
+      // 시작 프레임이라 한 번 더 펌프해야 값이 움직인다 (§10)
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      final squished = tester
+          .widgetList<Transform>(
+            find.ancestor(
+              of: find.byType(ToddView).first,
+              matching: find.byType(Transform),
+            ),
+          )
+          .any((t) => t.transform.entry(1, 1) < 0.98);
+      expect(squished, true, reason: '톡 직후 스쿼시가 재생되어야 한다');
       await tester.pump(const Duration(milliseconds: 2600));
       expect(ctaEnabled(tester, 'Next'), false);
       await tester.tap(find.byType(ToddView).first, warnIfMissed: false);

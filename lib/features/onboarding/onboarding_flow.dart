@@ -601,6 +601,10 @@ class _WelcomePageState extends ConsumerState<_WelcomePage> {
   int _pokes = 0;
   ToddEvent? _event;
   int _tick = 0;
+
+  /// 몸 스쿼시 재생 틱 — 표정 반응과 달리 **모든 탭**에 반응한다
+  /// (뒤척이는 중 삼켜지는 탭에도 손끝 감각은 준다).
+  int _squishTick = 0;
   Timer? _sleepTimer;
   Timer? _toastTimer;
   Timer? _stirTimer;
@@ -650,6 +654,7 @@ class _WelcomePageState extends ConsumerState<_WelcomePage> {
   }
 
   void _pokeTodd() {
+    setState(() => _squishTick++); // 어떤 상태든 몸은 폭신하게 눌린다
     switch (_phase) {
       case _HelloPhase.greet || _HelloPhase.dozing || _HelloPhase.awake:
         // 깨어 있을 땐 평소처럼 — 낮엔 간지럼, 꾸벅일 땐 실눈
@@ -734,14 +739,19 @@ class _WelcomePageState extends ConsumerState<_WelcomePage> {
       hero: UnwindPressable(
         onTap: _pokeTodd,
         depth: 0,
-        pressScale: 1.0, // 반응은 캐릭터가 한다
+        // 손가락이 닿는 순간 살짝 가라앉고, 떼면 _PokeSquish가 탱글하게
+        // 되튄다 — 잠든 Todd를 정말 만지는 촉감 (개정 2026-08-22 2차)
+        pressScale: 0.97,
         haptic: UnwindHapticKind.tap,
         isButton: false,
         semanticLabel: awake ? l10n.toddPokeLabel : l10n.obWakeAction,
-        child: ToddView(
-          state: _toddState,
-          reduceMotion: MediaQuery.disableAnimationsOf(context),
-          size: 210,
+        child: _PokeSquish(
+          tick: _squishTick,
+          child: ToddView(
+            state: _toddState,
+            reduceMotion: MediaQuery.disableAnimationsOf(context),
+            size: 210,
+          ),
         ),
       ),
       typewriter: true,
@@ -753,6 +763,78 @@ class _WelcomePageState extends ConsumerState<_WelcomePage> {
       // Todd를 깨워야만 다음으로 — 첫 인터랙션을 건너뛸 수 없다
       ctaEnabled: awake,
       onCta: widget.onNext,
+    );
+  }
+}
+
+/// 톡 — 폭신한 몸이 납작 눌렸다 탱글하게 되튀는 스쿼시&바운스
+/// (개정 2026-08-22 2차). 밑단을 고정한 채(스커트가 바닥에 앉아 있으므로)
+/// 세로로 눌리고 가로로 퍼졌다가, elasticOut으로 살짝 키를 넘겨 되튀며
+/// 잦아든다 — 잠든 Todd를 두드릴 때 손끝이 정말 닿는 느낌.
+/// [tick]이 바뀔 때마다 한 번 재생한다. Reduce Motion이면 정지.
+class _PokeSquish extends StatefulWidget {
+  final int tick;
+  final Widget child;
+
+  const _PokeSquish({required this.tick, required this.child});
+
+  @override
+  State<_PokeSquish> createState() => _PokeSquishState();
+}
+
+class _PokeSquishState extends State<_PokeSquish>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 520),
+  );
+
+  /// 눌리는 구간 (전체의 앞 15%) — 짧고 단호하게 눌려야 "탄력"이 산다
+  static const _press = 0.15;
+  static const _squashY = 0.10; // 세로로 10% 눌림
+  static const _squashX = 0.062; // 가로로 6% 퍼짐 (부피 보존의 인상)
+
+  @override
+  void didUpdateWidget(_PokeSquish old) {
+    super.didUpdateWidget(old);
+    if (widget.tick != old.tick && !MediaQuery.disableAnimationsOf(context)) {
+      _c.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  /// 스쿼시 양 k(t): 0→1로 확 눌렸다가, elasticOut을 뒤집어 0으로 —
+  /// 도중에 음수로 살짝 넘치며(= 키가 조금 커졌다가) 통통 잦아든다.
+  double _envelope(double t) {
+    if (t <= 0 || t >= 1) return 0;
+    if (t < _press) return Curves.easeOutCubic.transform(t / _press);
+    final u = (t - _press) / (1 - _press);
+    return 1 - Curves.elasticOut.transform(u);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final k = _envelope(_c.value);
+        if (k == 0) return child!;
+        return Transform(
+          alignment: Alignment.bottomCenter,
+          transform: Matrix4.diagonal3Values(
+            1 + _squashX * k,
+            1 - _squashY * k,
+            1,
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }
