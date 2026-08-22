@@ -151,6 +151,7 @@ class NotificationService {
   /// 보내지 않는다 (내일 조건은 내일 앱이 열릴 때 다시 판정).
   /// [body]는 호출 시점의 앱 언어로 로컬라이즈해 전달한다.
   Future<void> scheduleNightReminder({
+    required String title,
     required int bedtimeHour,
     required String body,
   }) async {
@@ -170,7 +171,9 @@ class NotificationService {
 
     await _plugin.zonedSchedule(
       id: _nightReminderId,
-      title: null,
+      // 남은 개수가 제목 (문구 개정 2026-08-22) — 스케줄러가 pending이
+      // 바뀔 때마다 다시 예약하므로 발송 시점과 개수가 어긋나지 않는다
+      title: title,
       body: body, // §10 문구 — 재촉·비난 없음
       scheduledDate: at,
       notificationDetails: const NotificationDetails(
@@ -273,7 +276,8 @@ class NotificationService {
   /// 가장 가까운 회차만 유지해 iOS의 보류 알림 개수 제한을 넘지 않는다.
   Future<void> syncTodoReminders({
     required Iterable<TodoReminder> reminders,
-    required String body,
+    required String title,
+    required String Function(String todoTitle) bodyFor,
     DateTime? now,
   }) async {
     await init();
@@ -314,8 +318,9 @@ class NotificationService {
       );
       await _plugin.zonedSchedule(
         id: todoNotificationId(reminder.todoId),
-        title: reminder.title,
-        body: body,
+        // 문구 개정 2026-08-22: 제목은 "10분 남았다", 본문이 할 일을 품는다
+        title: title,
+        body: bodyFor(reminder.title),
         scheduledDate: scheduled,
         notificationDetails: const NotificationDetails(
           iOS: DarwinNotificationDetails(presentSound: false),

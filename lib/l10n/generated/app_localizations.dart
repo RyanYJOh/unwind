@@ -1244,11 +1244,23 @@ abstract class AppLocalizations {
   /// **'Any time'**
   String get taskTimeNone;
 
-  /// No description provided for @todoReminderBody.
+  /// No description provided for @notifTimedTitle.
   ///
   /// In en, this message translates to:
-  /// **'A gentle reminder — this light is due in 10 minutes'**
-  String get todoReminderBody;
+  /// **'You got 10 minutes'**
+  String get notifTimedTitle;
+
+  /// No description provided for @notifTimedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'...for \"{title}\"'**
+  String notifTimedBody(String title);
+
+  /// No description provided for @notifNightReminderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 more to-do left!} other{{count} more to-dos left!}}'**
+  String notifNightReminderTitle(int count);
 }
 
 class _AppLocalizationsDelegate

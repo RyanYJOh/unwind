@@ -544,9 +544,11 @@ final nightReminderSchedulerProvider = Provider<void>((ref) {
       ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
 
   if (settings.nightReminderEnabled && pending > 0 && !pulled) {
+    final l10n = _l10nFor(ref);
     service.scheduleNightReminder(
       bedtimeHour: settings.bedtimeHour,
-      body: _l10nFor(ref).notifNightReminder,
+      title: l10n.notifNightReminderTitle(pending),
+      body: l10n.notifNightReminder,
     );
   } else {
     service.cancelNightReminder(); // 할 일 없음 / 이미 당김 / 꺼짐 → 보내지 않는다
@@ -565,7 +567,11 @@ final todoReminderSchedulerProvider = Provider<void>((ref) {
   if (todos == null) return;
 
   if (!settings.todoReminderEnabled) {
-    service.syncTodoReminders(reminders: const [], body: '');
+    service.syncTodoReminders(
+      reminders: const [],
+      title: '',
+      bodyFor: (_) => '',
+    );
     return;
   }
 
@@ -583,8 +589,10 @@ final todoReminderSchedulerProvider = Provider<void>((ref) {
           ),
         ),
       );
+  final l10n = _l10nFor(ref);
   service.syncTodoReminders(
     reminders: reminders,
-    body: _l10nFor(ref).todoReminderBody,
+    title: l10n.notifTimedTitle,
+    bodyFor: (todoTitle) => l10n.notifTimedBody(todoTitle),
   );
 });

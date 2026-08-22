@@ -644,6 +644,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get taskTimeNone => 'Any time';
 
   @override
-  String get todoReminderBody =>
-      'A gentle reminder — this light is due in 10 minutes';
+  String get notifTimedTitle => 'You got 10 minutes';
+
+  @override
+  String notifTimedBody(String title) {
+    return '...for \"$title\"';
+  }
+
+  @override
+  String notifNightReminderTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count more to-dos left!',
+      one: '1 more to-do left!',
+    );
+    return '$_temp0';
+  }
 }

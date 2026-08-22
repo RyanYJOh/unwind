@@ -205,5 +205,9 @@
   "autoDeferSubtitle": "오늘 안 하면 내일의 할 일로 등록돼",
   "taskTime": "시간",
   "taskTimeNone": "시간 없음",
-  "todoReminderBody": "10분 뒤 이 불을 끌 시간이야"
+  "notifTimedTitle": "10분 남았어!",
+  "notifTimedBody": "...\"{title}\" 말이야",
+  "@notifTimedBody": {"placeholders": {"title": {"type": "String"}}},
+  "notifNightReminderTitle": "{count, plural, other{할 일이 {count}개 남았어!}}",
+  "@notifNightReminderTitle": {"placeholders": {"count": {"type": "int"}}}
 }

@@ -250,5 +250,9 @@
   "autoDeferSubtitle": "If not done today, moves to tomorrow",
   "taskTime": "Time",
   "taskTimeNone": "Any time",
-  "todoReminderBody": "A gentle reminder — this light is due in 10 minutes"
+  "notifTimedTitle": "You got 10 minutes",
+  "notifTimedBody": "...for \"{title}\"",
+  "@notifTimedBody": {"placeholders": {"title": {"type": "String"}}},
+  "notifNightReminderTitle": "{count, plural, =1{1 more to-do left!} other{{count} more to-dos left!}}",
+  "@notifNightReminderTitle": {"placeholders": {"count": {"type": "int"}}}
 }

@@ -632,5 +632,20 @@ class AppLocalizationsKo extends AppLocalizations {
   String get taskTimeNone => '시간 없음';
 
   @override
-  String get todoReminderBody => '10분 뒤 이 불을 끌 시간이야';
+  String get notifTimedTitle => '10분 남았어!';
+
+  @override
+  String notifTimedBody(String title) {
+    return '...\"$title\" 말이야';
+  }
+
+  @override
+  String notifNightReminderTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '할 일이 $count개 남았어!',
+    );
+    return '$_temp0';
+  }
 }
