@@ -155,6 +155,8 @@
   "obHelloAwakeBody": "미안, 내가 잠이 좀 많은 편이거든..",
   "obWakeToastTitle": "토드가 잠들어 버렸어요!",
   "obWakeToastBody": "톡톡 두드려서 깨워 주세요",
+  "obWakeMoreToast": "{count, plural, other{거의 깼어요 — {count}번만 더 톡톡!}}",
+  "@obWakeMoreToast": {"placeholders": {"count": {"type": "int"}}},
   "obWakeAction": "토드 깨우기",
   "obNightTitle": "난 밤에 자야 하는데..",
   "obNightBody": "빛이 너무 밝아서 잠들 수가 없어.\n할 일을 체크해서 불을 꺼줄래?",

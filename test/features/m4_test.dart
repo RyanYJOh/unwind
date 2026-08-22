@@ -167,7 +167,11 @@ void main() {
           )
           .any((t) => t.transform.entry(1, 1) < 0.98);
       expect(squished, true, reason: '톡 직후 스쿼시가 재생되어야 한다');
-      await tester.pump(const Duration(milliseconds: 200));
+
+      // 한 번만 두드리고 2초간 멈추면 넛지 토스트 (개정 2026-08-22 3차)
+      await tester.pump(const Duration(milliseconds: 2100));
+      expect(find.textContaining('2 more taps'), findsOneWidget);
+
       await tester.tap(find.byType(ToddView).first, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 200));
       expect(ctaEnabled(tester, 'Next'), false); // 두 번까지는 아직 잠김

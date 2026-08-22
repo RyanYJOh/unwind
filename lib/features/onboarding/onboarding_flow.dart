@@ -617,11 +617,16 @@ class _WelcomePageState extends ConsumerState<_WelcomePage> {
   Timer? _toastTimer;
   Timer? _stirTimer;
 
+  /// 깨우다 만 손을 다시 부르는 넛지 (개정 2026-08-22 3차) — 한두 번만
+  /// 두드리고 2초간 멈추면 "몇 번만 더"를 토스트로 알려 준다
+  Timer? _encourageTimer;
+
   @override
   void dispose() {
     _sleepTimer?.cancel();
     _toastTimer?.cancel();
     _stirTimer?.cancel();
+    _encourageTimer?.cancel();
     super.dispose();
   }
 
@@ -678,6 +683,19 @@ class _WelcomePageState extends ConsumerState<_WelcomePage> {
           _wake();
           return;
         }
+        // 여기서 손을 멈추면 2초 뒤 "몇 번만 더"를 알려 준다 (3차) —
+        // 다음 톡이 오면 타이머가 다시 뒤로 밀린다
+        _encourageTimer?.cancel();
+        _encourageTimer = Timer(const Duration(seconds: 2), () {
+          if (!mounted || _pokes == 0 || _pokes >= 3) return;
+          if (_phase != _HelloPhase.asleep && _phase != _HelloPhase.stir) {
+            return;
+          }
+          showUnwindToast(
+            context,
+            title: AppLocalizations.of(context).obWakeMoreToast(3 - _pokes),
+          );
+        });
         // 실눈만 겨우 떠 두리번거리다 도로 잠든다. 뒤척이는 중의 톡은
         // 되잠드는 타이머를 뒤로 미룬다 (렌더러는 재생 중이면 무시).
         setState(() {
@@ -703,6 +721,7 @@ class _WelcomePageState extends ConsumerState<_WelcomePage> {
   void _wake() {
     _toastTimer?.cancel();
     _stirTimer?.cancel();
+    _encourageTimer?.cancel();
     ref.read(hapticsProvider).success();
     setState(() {
       _phase = _HelloPhase.awake;

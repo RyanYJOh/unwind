@@ -956,6 +956,12 @@ abstract class AppLocalizations {
   /// **'Tap to wake Todd up'**
   String get obWakeToastBody;
 
+  /// No description provided for @obWakeMoreToast.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Almost awake — just 1 more tap!} other{Almost awake — {count} more taps!}}'**
+  String obWakeMoreToast(int count);
+
   /// No description provided for @obWakeAction.
   ///
   /// In en, this message translates to:

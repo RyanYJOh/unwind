@@ -8,6 +8,10 @@ import '../core/tokens/spacing.dart';
 import '../core/tokens/typography.dart';
 import 'unwind_button.dart';
 
+/// 지금 떠 있는 토스트 — 한 번에 하나만 (2026-08-22). 새 토스트가 오면
+/// 이전 것을 즉시 밀어낸다. 같은 자리에 겹쳐 쌓이는 것을 막는다.
+OverlayEntry? _activeToast;
+
 /// 상단 토스트 — 푸시 알림 형태. 가벼운 확인 피드백에 쓴다.
 /// 루트 오버레이에 꽂혀 시트·모달 위에서도 보이고, 자동으로 사라진다.
 void showUnwindToast(
@@ -24,6 +28,13 @@ void showUnwindToast(
   Duration? visibleFor,
 }) {
   final overlay = Overlay.of(context, rootOverlay: true);
+
+  // 이전 토스트를 즉시 제거 — 제거된 쪽의 타이머는 dispose가 취소하고,
+  // 진행 중이던 닫힘 애니메이션의 await는 재개되지 않아 이중 remove가 없다
+  final prev = _activeToast;
+  _activeToast = null;
+  prev?.remove();
+
   late final OverlayEntry entry;
   entry = OverlayEntry(
     builder: (_) => _UnwindToast(
@@ -32,9 +43,13 @@ void showUnwindToast(
       actionLabel: actionLabel,
       onAction: onAction,
       visibleFor: visibleFor,
-      onDismissed: entry.remove,
+      onDismissed: () {
+        if (_activeToast == entry) _activeToast = null;
+        entry.remove();
+      },
     ),
   );
+  _activeToast = entry;
   overlay.insert(entry);
 }
 

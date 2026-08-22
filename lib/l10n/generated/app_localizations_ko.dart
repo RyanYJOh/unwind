@@ -473,6 +473,16 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obWakeToastBody => '톡톡 두드려서 깨워 주세요';
 
   @override
+  String obWakeMoreToast(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '거의 깼어요 — $count번만 더 톡톡!',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get obWakeAction => '토드 깨우기';
 
   @override

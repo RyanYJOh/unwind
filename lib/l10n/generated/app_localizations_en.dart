@@ -481,6 +481,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obWakeToastBody => 'Tap to wake Todd up';
 
   @override
+  String obWakeMoreToast(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Almost awake — $count more taps!',
+      one: 'Almost awake — just 1 more tap!',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get obWakeAction => 'Wake Todd';
 
   @override

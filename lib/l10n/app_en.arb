@@ -196,6 +196,8 @@
   "obHelloAwakeBody": "Sorry about that —\nI'm a bit of a sleepyhead..",
   "obWakeToastTitle": "Todd dozed off!",
   "obWakeToastBody": "Tap to wake Todd up",
+  "obWakeMoreToast": "{count, plural, =1{Almost awake — just 1 more tap!} other{Almost awake — {count} more taps!}}",
+  "@obWakeMoreToast": {"placeholders": {"count": {"type": "int"}}},
   "obWakeAction": "Wake Todd",
   "obNightTitle": "I need to sleep but..",
   "obNightBody": "The light is too bright.\nCan you check off the to-dos?",
