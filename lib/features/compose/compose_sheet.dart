@@ -47,7 +47,6 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
   final _memoController = TextEditingController();
   final _titleFocus = FocusNode();
   late String _dateKey;
-  bool _calendarOpen = false;
   bool _autoDefer = false;
   int? _scheduledTimeMinutes;
   bool _timeOpen = false;
@@ -113,6 +112,38 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
     _memoController.dispose();
     _titleFocus.dispose();
     super.dispose();
+  }
+
+  /// 달력 시트로 날짜 선택 (개정 2026-08-22 — 인라인 휠 폐기).
+  /// 입력 시트는 키보드 위라 좁다 — 달력은 **별도 시트**로 띄워 날짜 셀이
+  /// 터치 44pt(§12)를 온전히 갖는다. 텍스트 필드 포커스는 그대로라
+  /// 닫고 돌아와도 키보드가 내려가지 않는다.
+  Future<void> _pickDateFromCalendar() async {
+    final l10n = AppLocalizations.of(context);
+    final todayKey = ref.read(todayKeyProvider);
+    final months = l10n.monthsShort.split(',');
+    final picked = await showUnwindSheet<String>(
+      context,
+      builder: (sheetContext) => UnwindSheet(
+        showHandle: true,
+        padding: const EdgeInsets.fromLTRB(
+          UnwindSpacing.s20,
+          0,
+          UnwindSpacing.s20,
+          UnwindSpacing.s16,
+        ),
+        child: UnwindCalendar(
+          selected: parseDayKey(_dateKey),
+          today: parseDayKey(todayKey),
+          min: parseDayKey(todayKey),
+          max: addDays(parseDayKey(todayKey), 365),
+          weekdayLabels: l10n.weekdaysShort.split(','),
+          monthLabel: (y, m) => l10n.calendarHeader(months[m - 1], '$y'),
+          onPick: (d) => Navigator.of(sheetContext).pop(dayKey(d)),
+        ),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _dateKey = picked);
   }
 
   Future<void> _save() async {
@@ -240,7 +271,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
         dateKey: _dateKey,
         todayKey: todayKey,
         onDateChanged: (d) => setState(() => _dateKey = d),
-        onCalendarTap: () => setState(() => _calendarOpen = !_calendarOpen),
+        onCalendarTap: _pickDateFromCalendar,
         onSave: _save,
         canSave: _canSave,
       ),
@@ -347,20 +378,6 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
                   onDateTimeChanged: (value) => setState(() {
                     _scheduledTimeMinutes = value.hour * 60 + value.minute;
                   }),
-                ),
-              ),
-            if (_calendarOpen)
-              _PickerBox(
-                height: 180,
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.date,
-                  initialDateTime: parseDayKey(_dateKey),
-                  minimumDate: parseDayKey(todayKey),
-                  maximumDate: parseDayKey(
-                    todayKey,
-                  ).add(const Duration(days: 365)),
-                  onDateTimeChanged: (d) =>
-                      setState(() => _dateKey = dayKey(d)),
                 ),
               ),
 

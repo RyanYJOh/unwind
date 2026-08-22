@@ -318,6 +318,11 @@ class AppLocalizationsKo extends AppLocalizations {
   String get sectionLight => '조명 색';
 
   @override
+  String calendarHeader(String month, String year) {
+    return '$year년 $month월';
+  }
+
+  @override
   String get plusTitle => 'TODD PLUS';
 
   @override

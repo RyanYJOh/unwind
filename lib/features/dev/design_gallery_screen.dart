@@ -68,6 +68,19 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
           const UnwindSectionLabel('Typewriter', padding: _labelPad),
           const _TypewriterPreview(),
 
+          const UnwindSectionLabel('Calendar', padding: _labelPad),
+          UnwindCard(
+            child: UnwindCalendar(
+              selected: DateTime(2026, 8, 25),
+              today: DateTime(2026, 8, 22),
+              min: DateTime(2026, 8, 22),
+              max: DateTime(2027, 8, 22),
+              weekdayLabels: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+              monthLabel: (y, m) => '$m / $y',
+              onPick: (_) {},
+            ),
+          ),
+
           const UnwindSectionLabel('Buttons', padding: _labelPad),
           UnwindButton(label: '오늘 마무리하기', onPressed: () {}),
           const SizedBox(height: UnwindSpacing.s12),

@@ -103,6 +103,8 @@
   "billNotificationCaption": "매주 월요일 아침에 지난주 청구서를 알려줄게",
   "sectionFeel": "감각",
   "sectionLight": "조명 색",
+  "calendarHeader": "{year}년 {month}월",
+  "@calendarHeader": {"placeholders": {"month": {"type": "String"}, "year": {"type": "String"}}},
   "plusTitle": "TODD PLUS",
   "plusHeroTitle": "우리, 조금 더\n가까워질까?",
   "plusHeroThanks": "야호!\n우린 이제 한 팀이야",

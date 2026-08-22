@@ -15,6 +15,7 @@ library;
 
 export 'unwind_badge.dart';
 export 'unwind_button.dart';
+export 'unwind_calendar.dart';
 export 'unwind_card.dart';
 export 'unwind_chip.dart';
 export 'unwind_coach_mark.dart';

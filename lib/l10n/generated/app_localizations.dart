@@ -650,6 +650,12 @@ abstract class AppLocalizations {
   /// **'Light color'**
   String get sectionLight;
 
+  /// No description provided for @calendarHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'{month} {year}'**
+  String calendarHeader(String month, String year);
+
   /// No description provided for @plusTitle.
   ///
   /// In en, this message translates to:

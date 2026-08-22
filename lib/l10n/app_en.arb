@@ -143,6 +143,8 @@
   "billNotificationCaption": "Last week's bill, every Monday morning",
   "sectionFeel": "Feel",
   "sectionLight": "Light color",
+  "calendarHeader": "{month} {year}",
+  "@calendarHeader": {"placeholders": {"month": {"type": "String"}, "year": {"type": "String"}}},
   "plusTitle": "TODD PLUS",
   "plusHeroTitle": "Wanna get\na little closer?",
   "plusHeroThanks": "Yay!\nWe're a team now",

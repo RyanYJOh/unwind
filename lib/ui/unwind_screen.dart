@@ -114,11 +114,18 @@ class UnwindHeader extends StatelessWidget {
             const SizedBox(width: UnwindSpacing.s8),
           const SizedBox(width: UnwindSpacing.s4),
           Flexible(
-            child: Text(
-              title,
-              style: UnwindType.title.copyWith(color: UnwindColors.textPrimary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            // 긴 제목은 말줄임 대신 **살짝 줄여서 전부 보여준다**
+            // (개정 2026-08-22 — "Push Notifications"가 …로 잘리던 문제)
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                title,
+                style: UnwindType.title.copyWith(
+                  color: UnwindColors.textPrimary,
+                ),
+                maxLines: 1,
+              ),
             ),
           ),
           if (titleTrailing != null) ...[

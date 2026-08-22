@@ -14,6 +14,7 @@ import '../../data/db/tables/tables.dart';
 import '../../domain/models/todd_state.dart';
 import '../../ui/ui.dart';
 import '../../widgets/corner_glow.dart';
+import '../../widgets/todd/poke_squish.dart';
 import '../../widgets/todd/todd_view.dart';
 import '../../widgets/night_sky.dart';
 import '../../widgets/pull_cord.dart';
@@ -59,6 +60,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   /// 같은 이벤트를 연속 발사할 수 있도록 tick을 올린다.
   ToddEvent _toddEvent = ToddEvent.react;
   int _toddTick = 0;
+
+  /// 톡 스쿼시 재생 틱 (ToddPokeSquish, 공용화 2026-08-22)
+  int _squishTick = 0;
 
   final _cordKey = GlobalKey();
   Offset? _coachHole;
@@ -210,7 +214,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   void _pokeTodd() {
     if (_dominoRunning) return;
     final mode = ref.read(toddModeProvider).mode;
-    if (mode == ToddMode.asleep) return; // 무반응. 깨우지 않는다.
+    if (mode == ToddMode.asleep) return; // 무반응. 깨우지 않는다 — 스쿼시도 없다.
 
     final haptics = ref.read(hapticsProvider);
     // 졸린 밤엔 겨우 눈만 뜨니 촉감도 한 번, 낮엔 까르르 두 번
@@ -222,6 +226,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     setState(() {
       _toddEvent = ToddEvent.poke;
       _toddTick++;
+      _squishTick++; // 온보딩과 같은 스쿼시&바운스 물성 (공용화 2026-08-22)
     });
   }
 
@@ -454,9 +459,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                                   isButton: false,
                                   semanticLabel: l10n.toddPokeLabel,
                                   child: Center(
-                                    child: AnimatedBuilder(
-                                      animation: _theme,
-                                      builder: (context, _) => ToddView(
+                                    child: ToddPokeSquish(
+                                      tick: _squishTick,
+                                      child: AnimatedBuilder(
+                                        animation: _theme,
+                                        builder: (context, _) => ToddView(
                                         state: ToddState(
                                           brightness: _displayTStatic,
                                           // 시각 무관: 전부 체크 시 잠들고,
@@ -473,8 +480,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                                           event: _toddEvent,
                                           eventTick: _toddTick,
                                         ),
-                                        reduceMotion: reduce,
-                                        size: 118,
+                                          reduceMotion: reduce,
+                                          size: 118,
+                                        ),
                                       ),
                                     ),
                                   ),

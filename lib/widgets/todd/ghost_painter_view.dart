@@ -812,44 +812,56 @@ class _GhostPainter extends CustomPainter {
     for (final dir in [-1, 1]) {
       final ec = Offset(headCx + dir * eyeDx + gazeShift, headCy + eyeYOff);
 
-      // 다크서클 — 눈 아래 반달. 눈 모양 분기(간지럼·취침)보다 먼저
-      // 그린다 — 전날 못 잔 흔적은 감은 눈 밑에도, 웃는 눈 밑에도 남아
-      // 있어야 한다 (세계관 2026-08-15).
-      // 세기(opacity)가 높을수록 넓고 굵고 짙어진다 — 홈의 작은 캐릭터
-      // (118pt)에서도 읽히도록 과장 (발주자 결정 2026-08-15). 진한 쪽은
-      // 채운 초승달 음영 + 가장자리 선으로, 옅은 쪽은 선 하나로 그린다.
+      // 다크서클 — 눈 아래 음영 주머니 (리얼 개정 2026-08-22, 발주자 지시).
+      // 눈 모양 분기(간지럼·취침)보다 먼저 그린다 — 전날 못 잔 흔적은
+      // 감은 눈 밑에도, 웃는 눈 밑에도 남아 있어야 한다 (세계관 2026-08-15).
+      // 이전의 "선 하나"는 흔적이 약했다. 이제 **꽉 채운 음영 주머니**
+      // (짙은 슬레이트-퍼플, 세기에 따라 넓고 짙어짐) 위에 **피곤 빗금**
+      // 2~3가닥을 얹는다 — 이모지 눈그늘 + 만화식 빗금의 하이브리드.
       if (darkCircleOpacity > 0.01) {
-        final dcW = eyeRx * (0.7 + 0.55 * darkCircleOpacity);
-        final topY = ec.dy + eyeRy * 1.02;
-        final dipY = ec.dy + eyeRy * (1.35 + 0.45 * darkCircleOpacity);
+        final op = darkCircleOpacity;
+        final dcW = eyeRx * (0.85 + 0.55 * op);
+        final topY = ec.dy + eyeRy * 0.98;
+        final dipY = ec.dy + eyeRy * (1.55 + 0.55 * op);
+        final bag = Path()
+          ..moveTo(ec.dx - dcW, topY)
+          ..quadraticBezierTo(ec.dx, dipY, ec.dx + dcW, topY)
+          ..quadraticBezierTo(ec.dx, topY + eyeRy * 0.18, ec.dx - dcW, topY)
+          ..close();
+        // 1) 채운 음영 — 항상 그린다 (옅어도 그늘이 보여야 "피곤"이 읽힌다)
+        canvas.drawPath(
+          bag,
+          Paint()..color = const Color(0xFF8B7396).withValues(alpha: 0.52 * op),
+        );
+        // 2) 아랫단 가장자리 — 주머니의 처진 윤곽
         final edge = Path()
           ..moveTo(ec.dx - dcW, topY)
           ..quadraticBezierTo(ec.dx, dipY, ec.dx + dcW, topY);
-        // 채움: 눈 밑을 살짝 꺼진 초승달로 음영 처리 (진할 때만 보인다)
-        if (darkCircleOpacity > 0.45) {
-          final crescent = Path()
-            ..moveTo(ec.dx - dcW, topY)
-            ..quadraticBezierTo(ec.dx, dipY, ec.dx + dcW, topY)
-            ..quadraticBezierTo(ec.dx, dipY - eyeRy * 0.42, ec.dx - dcW, topY)
-            ..close();
-          canvas.drawPath(
-            crescent,
-            Paint()
-              ..color = const Color(
-                0xFFA98BB0,
-              ).withValues(alpha: (darkCircleOpacity - 0.45) * 0.62),
-          );
-        }
         canvas.drawPath(
           edge,
           Paint()
-            ..color = const Color(
-              0xFF8A6494,
-            ).withValues(alpha: (darkCircleOpacity * 0.85).clamp(0.0, 1.0))
+            ..color = const Color(0xFF6E5480).withValues(alpha: 0.9 * op)
             ..style = PaintingStyle.stroke
-            ..strokeWidth = (2.2 + 1.6 * darkCircleOpacity) * u
+            ..strokeWidth = (1.8 + 1.4 * op) * u
             ..strokeCap = StrokeCap.round,
         );
+        // 3) 피곤 빗금 — 음영 안에 세로로 살짝 기운 짧은 선들
+        final hatch = Paint()
+          ..color = const Color(0xFF5C4468).withValues(alpha: 0.75 * op)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6 * u
+          ..strokeCap = StrokeCap.round;
+        final hatchTop = topY + eyeRy * 0.16;
+        for (final fx in const [-0.45, 0.0, 0.45]) {
+          final x = ec.dx + dcW * fx;
+          // 주머니 곡선을 따라 가운데가 가장 길다
+          final len = eyeRy * (0.34 + 0.16 * (1 - fx.abs())) * (0.8 + 0.5 * op);
+          canvas.drawLine(
+            Offset(x - 0.6 * u, hatchTop),
+            Offset(x + 0.6 * u, hatchTop + len),
+            hatch,
+          );
+        }
       }
 
       // 간지럼 — 웃느라 눈이 ∩ 모양으로 접힌다.
