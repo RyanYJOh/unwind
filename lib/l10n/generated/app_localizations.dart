@@ -932,6 +932,30 @@ abstract class AppLocalizations {
   /// **'Drink 2L of water'**
   String get obHabitsDefault;
 
+  /// No description provided for @obReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to make\nevery day count\nwith me?'**
+  String get obReadyTitle;
+
+  /// No description provided for @obReadyNo.
+  ///
+  /// In en, this message translates to:
+  /// **'🥱 Not really'**
+  String get obReadyNo;
+
+  /// No description provided for @obReadySomewhat.
+  ///
+  /// In en, this message translates to:
+  /// **'🙂 Kind of'**
+  String get obReadySomewhat;
+
+  /// No description provided for @obReadyYes.
+  ///
+  /// In en, this message translates to:
+  /// **'🤩 Yes, can\'t wait!'**
+  String get obReadyYes;
+
   /// No description provided for @obSleepQTitle.
   ///
   /// In en, this message translates to:

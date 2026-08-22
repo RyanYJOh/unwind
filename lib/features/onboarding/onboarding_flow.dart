@@ -6,6 +6,7 @@ import 'package:flutter/material.dart' show Icons, Brightness;
 import 'package:flutter/services.dart' show TextCapitalization;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:in_app_review/in_app_review.dart';
 
 import '../../core/tokens/motion.dart';
 import '../../core/tokens/palette.dart';
@@ -44,8 +45,8 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 }
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
-  static const _pageCount = 11;
-  static const _greetingPage = 9;
+  static const _pageCount = 12;
+  static const _greetingPage = 10;
 
   final _pageCtrl = PageController();
   int _page = 0;
@@ -82,8 +83,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     1 => _lightsLight, // 눈부신 밤 + 소등 체험 — 끄는 만큼 어두워진다
     2 => 0.30,
     7 => 0.22,
-    9 => 0.50,
-    10 => 0.40,
+    8 => 0.45, // 준비 확인 — 기대가 오르는 만큼 방도 밝게
+    10 => 0.50,
+    11 => 0.40,
     _ => 0.32,
   };
 
@@ -297,9 +299,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                         wakeHour: _toddWake,
                         onNext: _next,
                       ),
+                      _ReadyPage(onNext: _next),
                       _NamePage(
                         controller: _nameCtrl,
-                        autofocus: _page == 8,
+                        autofocus: _page == 9,
                         onFinish: _finishQuestions,
                       ),
                       _GreetingPage(
@@ -1654,7 +1657,103 @@ class _ScheduleRingPainter extends CustomPainter {
       old.progress != progress;
 }
 
-// ── 10. 이름 ────────────────────────────────────────────────
+// ── 10. 준비 확인 — 기대감 고조 (신설 2026-08-22, 발주자 지시) ──
+
+/// 이름을 묻기 직전, Todd가 직접 묻는다 — "준비 됐어?"
+///
+/// 심리 설계: 유저는 앞의 여덟 페이지 내내 **하단 프라이머리 버튼**으로
+/// 진행하도록 학습돼 있다. 그 자리에 "응, 기대돼!"를 놓고, 다른 두 답은
+/// 위에 조용한 세컨더리로 둔다 — 정직한 선택지를 다 열어 두되 자연스러운
+/// 손길이 기대 쪽으로 가게. "응, 기대돼!"를 고르면 Todd가 축하(점프+별)로
+/// 화답하고, **기대가 정점에 오른 그 순간** 앱스토어 별점 팝업을 띄운 뒤
+/// 이름 페이지로 넘어간다. 나머지 답은 팝업 없이 조용히 다음으로.
+class _ReadyPage extends ConsumerStatefulWidget {
+  final VoidCallback onNext;
+
+  const _ReadyPage({required this.onNext});
+
+  @override
+  ConsumerState<_ReadyPage> createState() => _ReadyPageState();
+}
+
+class _ReadyPageState extends ConsumerState<_ReadyPage> {
+  ToddEvent? _event;
+  int _tick = 0;
+
+  /// 연타·이중 전진 방지 (페이지로 되돌아오면 다시 열린다)
+  bool _advancing = false;
+
+  void _unlockLater() {
+    Timer(const Duration(milliseconds: 900), () {
+      if (mounted) _advancing = false;
+    });
+  }
+
+  /// "아니, 별로" / "어느 정도" — 판단 없이 조용히 다음으로
+  void _chooseCalm() {
+    if (_advancing) return;
+    _advancing = true;
+    widget.onNext();
+    _unlockLater();
+  }
+
+  /// "응, 기대돼!" — Todd가 축하로 화답하고, 정점에서 별점 팝업.
+  void _chooseExcited() {
+    if (_advancing) return;
+    _advancing = true;
+    ref.read(hapticsProvider).success();
+    setState(() {
+      _event = ToddEvent.react; // 체크 축하 — 점프 + 별 버스트
+      _tick++;
+    });
+    Timer(const Duration(milliseconds: 700), () async {
+      if (!mounted) return;
+      try {
+        final review = InAppReview.instance;
+        if (await review.isAvailable()) await review.requestReview();
+      } catch (_) {
+        // 스토어 밖 설치·테스트 환경 — 조용히 계속 간다
+      }
+      if (!mounted) return;
+      widget.onNext();
+      _unlockLater();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return _ObPage(
+      hero: ToddView(
+        state: ToddState(
+          brightness: 0.1,
+          mode: ToddMode.day,
+          event: _event,
+          eventTick: _tick,
+        ),
+        reduceMotion: MediaQuery.disableAnimationsOf(context),
+        size: 200,
+      ),
+      title: l10n.obReadyTitle,
+      secondary: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          UnwindButton.secondary(label: l10n.obReadyNo, onPressed: _chooseCalm),
+          const SizedBox(height: UnwindSpacing.s8),
+          UnwindButton.secondary(
+            label: l10n.obReadySomewhat,
+            onPressed: _chooseCalm,
+          ),
+          const SizedBox(height: UnwindSpacing.s8),
+        ],
+      ),
+      cta: l10n.obReadyYes,
+      onCta: _chooseExcited,
+    );
+  }
+}
+
+// ── 11. 이름 ────────────────────────────────────────────────
 
 class _NamePage extends StatefulWidget {
   final TextEditingController controller;

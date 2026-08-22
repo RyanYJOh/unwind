@@ -461,6 +461,18 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obHabitsDefault => '물 2L 이상 마시기';
 
   @override
+  String get obReadyTitle => '나와 함께 하루를\n생산적으로 관리할\n준비 됐어?';
+
+  @override
+  String get obReadyNo => '🥱 아니, 별로';
+
+  @override
+  String get obReadySomewhat => '🙂 어느 정도';
+
+  @override
+  String get obReadyYes => '🤩 응, 기대돼!';
+
+  @override
   String get obSleepQTitle => '보통 몇 시에 자?';
 
   @override

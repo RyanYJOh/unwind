@@ -471,6 +471,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obHabitsDefault => 'Drink 2L of water';
 
   @override
+  String get obReadyTitle => 'Ready to make\nevery day count\nwith me?';
+
+  @override
+  String get obReadyNo => '🥱 Not really';
+
+  @override
+  String get obReadySomewhat => '🙂 Kind of';
+
+  @override
+  String get obReadyYes => '🤩 Yes, can\'t wait!';
+
+  @override
   String get obSleepQTitle => 'When do you usually go to bed?';
 
   @override
