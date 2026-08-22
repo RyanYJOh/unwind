@@ -56,6 +56,13 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   Timer? _helloTimer;
   Timer? _doneTimer;
 
+  /// 조명 색 체험 (개정 2026-08-22 2차) — 스와치를 누르면 **페이월 자체가
+  /// 그 색으로 물든다** (CTA·글로우·카드 전부). 페이월이 곧 데모다.
+  UnwindLightColor? _preview;
+
+  /// 체험 시작 시점의 원래(자격 있는) 색 — 구독 없이 닫으면 되돌린다
+  UnwindLightColor? _entitled;
+
   @override
   void initState() {
     super.initState();
@@ -74,7 +81,24 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   void dispose() {
     _helloTimer?.cancel();
     _doneTimer?.cancel();
+    // 맛만 보고 닫았다 — 원래 색으로. 구독했다면 settings가 이미
+    // 체험하던 색을 확정했으므로 되돌리지 않는다.
+    // ⚠️ 다음 프레임으로 미룬다: dispose는 라우트 해체 중(트리 잠금)에
+    // 불려서, 여기서 바로 epoch를 올리면 뒤 화면들이 markNeedsBuild에
+    // 실패해 체험 색이 얼룩덜룩 남는다.
+    if (!_celebrating && _entitled != null) {
+      final entitled = _entitled!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        UnwindColors.setLightColor(entitled);
+      });
+    }
     super.dispose();
+  }
+
+  void _tryColor(UnwindLightColor c) {
+    _entitled ??= UnwindColors.lightColor;
+    setState(() => _preview = c);
+    UnwindColors.setLightColor(c);
   }
 
   /// TODO(unwind): StoreKit 결제 연동 — 지금은 바로 Plus를 켠다 (테스트용).
@@ -87,9 +111,10 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       _event = ToddEvent.react; // 체크 축하 — 점프 + 별 버스트
       _tick++;
     });
-    await ref
-        .read(settingsControllerProvider.notifier)
-        .setPremiumEnabled(true);
+    final ctrl = ref.read(settingsControllerProvider.notifier);
+    await ctrl.setPremiumEnabled(true);
+    // 체험하던 색이 있으면 그대로 내 색이 된다 — "이 색으로 살래"의 순간
+    if (_preview != null) await ctrl.setLightColor(_preview!.name);
     // 축하가 눈에 담긴 뒤에 닫는다 — 고마움이 마지막 인상이 되게
     _doneTimer = Timer(const Duration(milliseconds: 1400), () {
       if (mounted) Navigator.of(context).pop();
@@ -131,6 +156,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                 ),
                 Expanded(
                   child: ListView(
+                    // 색 체험마다 화면이 재인플레이트된다 — 스크롤을 지킨다
+                    key: const PageStorageKey('paywall-list'),
                     padding: const EdgeInsets.fromLTRB(
                       UnwindSpacing.s20,
                       0,
@@ -179,6 +206,13 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                               emoji: '🌈',
                               title: l10n.plusFeatureColors,
                               caption: l10n.plusFeatureColorsCaption,
+                            ),
+                            const SizedBox(height: UnwindSpacing.s8),
+                            // 직접 체험 (발주자 요구): 누르는 순간 페이월이
+                            // 통째로 그 색이 된다
+                            _TryColorsRow(
+                              selected: _preview ?? UnwindColors.lightColor,
+                              onTap: _tryColor,
                             ),
                             const SizedBox(height: UnwindSpacing.s12),
                             _FeatureRow(
@@ -455,6 +489,75 @@ class _PlanCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+/// 조명 색 체험 스와치 (개정 2026-08-22 2차) — 자물쇠 없이 전부 눌러 볼 수
+/// 있다. 맛보기가 없으면 욕망도 없다: 누르는 순간 페이월 전체(CTA·글로우·
+/// 카드)가 그 색으로 물들고, 구독 없이 닫으면 원래 색으로 돌아간다.
+class _TryColorsRow extends StatelessWidget {
+  final UnwindLightColor selected;
+  final ValueChanged<UnwindLightColor> onTap;
+
+  const _TryColorsRow({required this.selected, required this.onTap});
+
+  String _label(AppLocalizations l10n, UnwindLightColor c) => switch (c) {
+    UnwindLightColor.amber => l10n.lightAmber,
+    UnwindLightColor.sunset => l10n.lightSunset,
+    UnwindLightColor.rose => l10n.lightRose,
+    UnwindLightColor.lavender => l10n.lightLavender,
+    UnwindLightColor.sky => l10n.lightSky,
+    UnwindLightColor.mint => l10n.lightMint,
+    UnwindLightColor.moon => l10n.lightMoon,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (final c in UnwindLightColor.values)
+          UnwindPressable(
+            onTap: () => onTap(c),
+            depth: 0,
+            pressScale: 0.85,
+            haptic: UnwindHapticKind.selection,
+            semanticLabel: _label(l10n, c),
+            isToggled: c == selected,
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: Center(
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: c == selected
+                          ? UnwindColors.textPrimary
+                          : const Color(0x00000000),
+                      width: UnwindStroke.base,
+                    ),
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: c.seed,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

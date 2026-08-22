@@ -665,7 +665,7 @@ abstract class AppLocalizations {
   /// No description provided for @plusHeroThanks.
   ///
   /// In en, this message translates to:
-  /// **'Thank you!\nWe\'re a team now'**
+  /// **'Yay!\nWe\'re a team now'**
   String get plusHeroThanks;
 
   /// No description provided for @plusFeatureColors.
@@ -677,7 +677,7 @@ abstract class AppLocalizations {
   /// No description provided for @plusFeatureColorsCaption.
   ///
   /// In en, this message translates to:
-  /// **'Set tonight\'s mood yourself'**
+  /// **'Tap one — try it right now 👇'**
   String get plusFeatureColorsCaption;
 
   /// No description provided for @plusFeatureRecurrence.

@@ -329,13 +329,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get plusHeroTitle => 'Wanna get\na little closer?';
 
   @override
-  String get plusHeroThanks => 'Thank you!\nWe\'re a team now';
+  String get plusHeroThanks => 'Yay!\nWe\'re a team now';
 
   @override
   String get plusFeatureColors => 'All 7 room light colors';
 
   @override
-  String get plusFeatureColorsCaption => 'Set tonight\'s mood yourself';
+  String get plusFeatureColorsCaption => 'Tap one — try it right now 👇';
 
   @override
   String get plusFeatureRecurrence => 'Unlimited repeating to-dos';

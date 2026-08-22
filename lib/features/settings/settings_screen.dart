@@ -50,18 +50,11 @@ class SettingsScreen extends ConsumerWidget {
         key: const PageStorageKey('settings-list'),
         padding: const EdgeInsets.only(bottom: UnwindSpacing.s48),
         children: [
-          // Todd Plus (수익화 2026-08-22) — 맨 위가 업셀의 자리이자
-          // 페이월 테스트 진입점이다
-          UnwindListRow(
-            label: '${l10n.plusTitle} ✨',
-            caption: settings.premiumEnabled
-                ? l10n.plusSettingsActive
-                : l10n.plusSettingsCaption,
+          // Todd Plus (수익화 2026-08-22, 2차: 리스트 행 → 메인 컬러 배너)
+          // — 맨 위가 업셀의 자리이자 페이월 테스트 진입점이다
+          _PlusBanner(
+            active: settings.premiumEnabled,
             onTap: () => showPaywall(context),
-            trailing: Text(
-              '›',
-              style: UnwindType.title.copyWith(color: UnwindColors.textMuted),
-            ),
           ),
 
           // Todd의 하루 (세계관 2026-08-15) — 기상·취침시간이 하루의 축이다
@@ -448,6 +441,81 @@ class _LightColorRow extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Todd Plus 배너 (개정 2026-08-22 2차) — 설정 최상단의 메인 컬러 CTA.
+/// 리스트 행들 사이에서 확실히 튀도록 버튼 물성(앰버 채움 + 4pt 압출)을
+/// 그대로 입힌다. 조명 색을 바꾸면 배너도 그 색을 따라간다.
+class _PlusBanner extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+
+  const _PlusBanner({required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final radius = BorderRadius.circular(UnwindRadius.md);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        UnwindSpacing.s20,
+        UnwindSpacing.s8,
+        UnwindSpacing.s20,
+        UnwindSpacing.s8,
+      ),
+      child: UnwindPressable(
+        onTap: onTap,
+        depth: UnwindDepth.base,
+        shadowColor: UnwindColors.accentDeep,
+        borderRadius: radius,
+        haptic: UnwindHapticKind.tap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: UnwindColors.accent,
+            borderRadius: radius,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: UnwindSpacing.s16,
+            vertical: UnwindSpacing.s12,
+          ),
+          child: Row(
+            children: [
+              const Text('✨', style: TextStyle(fontSize: 22)),
+              const SizedBox(width: UnwindSpacing.s12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.plusTitle,
+                      style: UnwindType.bodyStrong.copyWith(
+                        color: UnwindColors.onAccent,
+                        fontVariations: const [FontVariation('wght', 800)],
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: UnwindSpacing.s2),
+                    Text(
+                      active
+                          ? l10n.plusSettingsActive
+                          : l10n.plusSettingsCaption,
+                      style: UnwindType.caption.copyWith(
+                        color: UnwindColors.onAccent.withValues(alpha: 0.78),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '›',
+                style: UnwindType.title.copyWith(color: UnwindColors.onAccent),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

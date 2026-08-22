@@ -324,13 +324,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get plusHeroTitle => '우리, 조금 더\n가까워질까?';
 
   @override
-  String get plusHeroThanks => '고마워!\n우린 이제 한 팀이야';
+  String get plusHeroThanks => '야호!\n우린 이제 한 팀이야';
 
   @override
   String get plusFeatureColors => '방 조명 색 7가지 전부';
 
   @override
-  String get plusFeatureColorsCaption => '오늘 밤 무드는 내가 정해요';
+  String get plusFeatureColorsCaption => '하나 눌러 보세요 — 바로 바뀌어요 👇';
 
   @override
   String get plusFeatureRecurrence => '반복 할 일 무제한';

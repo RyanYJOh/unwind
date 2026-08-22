@@ -7,6 +7,7 @@ import 'package:unwind/core/haptics/haptics.dart';
 import 'package:unwind/data/db/database.dart';
 import 'package:unwind/data/db/tables/tables.dart';
 import 'package:unwind/features/compose/date_bar.dart';
+import 'package:unwind/features/premium/paywall_screen.dart';
 import 'package:unwind/features/settings/settings_screen.dart';
 import 'package:unwind/features/today/providers.dart';
 import 'package:unwind/l10n/generated/app_localizations.dart';
@@ -65,7 +66,13 @@ void main() {
     await pumpApp(tester);
     await trySaveRecurring(tester);
 
-    expect(find.text('TODD PLUS'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(PaywallScreen),
+        matching: find.text('TODD PLUS'),
+      ),
+      findsOneWidget,
+    );
     expect((await db.recurrenceDao.getActive()).length, 3);
 
     await tester.pumpWidget(const SizedBox());
@@ -78,7 +85,7 @@ void main() {
     await pumpApp(tester);
     await trySaveRecurring(tester);
 
-    expect(find.text('TODD PLUS'), findsNothing);
+    expect(find.byType(PaywallScreen), findsNothing);
     expect((await db.recurrenceDao.getActive()).length, 4);
 
     await tester.pumpWidget(const SizedBox());
@@ -110,7 +117,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('TODD PLUS'), findsOneWidget);
+    expect(find.byType(PaywallScreen), findsOneWidget);
     expect(await db.settingsDao.getValue('lightColor'), isNot('rose'));
 
     // 페이월 CTA — 구독하면 Plus가 켜지고 축하 뒤 닫힌다
