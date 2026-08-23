@@ -87,6 +87,8 @@
   "notifMorningGreeting": "좋은 아침! 난 방금 일어났어",
   "notifMorningGreetingNamed": "좋은 아침이야, {name}! 난 방금 일어났어",
   "@notifMorningGreetingNamed": {"placeholders": {"name": {"type": "String"}}},
+  "notifMorningGreetingCount": "{count, plural, other{좋은 아침! 오늘 할 일 {count}개, 같이 해치우자 \ud83d\udcaa}}",
+  "@notifMorningGreetingCount": {"placeholders": {"count": {"type": "int"}}},
 
   "settingsTitle": "설정",
   "sectionNotifications": "알림",

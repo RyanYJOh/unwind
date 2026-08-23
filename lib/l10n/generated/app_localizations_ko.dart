@@ -273,6 +273,16 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String notifMorningGreetingCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '좋은 아침! 오늘 할 일 $count개, 같이 해치우자 💪',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get settingsTitle => '설정';
 
   @override

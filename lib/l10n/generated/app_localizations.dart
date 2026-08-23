@@ -560,6 +560,12 @@ abstract class AppLocalizations {
   /// **'Good morning {name}, rise and shine!'**
   String notifMorningGreetingNamed(String name);
 
+  /// No description provided for @notifMorningGreetingCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Rise and shine! Let’s smash 1 task today 💪} other{Rise and shine! Let’s smash {count} tasks today 💪}}'**
+  String notifMorningGreetingCount(int count);
+
   /// No description provided for @settingsTitle.
   ///
   /// In en, this message translates to:

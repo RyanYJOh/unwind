@@ -369,6 +369,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     });
 
     // §10 밤 리마인더 조건 갱신 활성화
+    ref.watch(morningGreetingSchedulerProvider);
     ref.watch(nightReminderSchedulerProvider);
     ref.watch(todoReminderSchedulerProvider);
 

@@ -326,19 +326,21 @@ Future<void> flushWidgetSnapshot(WidgetRef ref) async {
   final day = await db.dayDao.getDay(todayKey);
   final prevKey = dayKey(addDays(parseDayKey(todayKey), -1));
   final restless = (await db.dayDao.getDay(prevKey))?.restless ?? false;
-  await ref.read(widgetSnapshotServiceProvider).flush(
-    WidgetSnapshot.fromTodos(
-      dayKey: todayKey,
-      statuses: todos.map((t) => t.status),
-      lightsOut: day?.lightsOutAt != null,
-      peakProgress: day?.peakProgress ?? 0.0,
-      darkCircles: restless,
-      wakeHour: ref.read(wakeHourProvider),
-      bedtimeHour: ref.read(bedtimeHourProvider),
-      languageCode:
-          ref.read(settingsControllerProvider).value?.languageCode ?? 'en',
-    ),
-  );
+  await ref
+      .read(widgetSnapshotServiceProvider)
+      .flush(
+        WidgetSnapshot.fromTodos(
+          dayKey: todayKey,
+          statuses: todos.map((t) => t.status),
+          lightsOut: day?.lightsOutAt != null,
+          peakProgress: day?.peakProgress ?? 0.0,
+          darkCircles: restless,
+          wakeHour: ref.read(wakeHourProvider),
+          bedtimeHour: ref.read(bedtimeHourProvider),
+          languageCode:
+              ref.read(settingsControllerProvider).value?.languageCode ?? 'en',
+        ),
+      );
 }
 
 /// 입력 시트의 기본 날짜 (§6.1): 취침 후엔 내일
@@ -486,8 +488,11 @@ AppLocalizations _l10nFor(Ref ref) => lookupAppLocalizations(
   Locale(ref.read(settingsControllerProvider).value?.languageCode ?? 'en'),
 );
 
-String _morningGreetingBody(Ref ref) {
+/// 아침 인사 본문 (개정 2026-08-23): 그날 할 일이 남아 있으면 개수로
+/// 응원하고, 빈 방이면 기존 인사 그대로다 — 빈 방을 다그치지 않는다 (§1).
+String _morningGreetingBody(Ref ref, int pending) {
   final l10n = _l10nFor(ref);
+  if (pending > 0) return l10n.notifMorningGreetingCount(pending);
   final name = ref.read(settingsControllerProvider).value?.userName?.trim();
   if (name != null && name.isNotEmpty) {
     return l10n.notifMorningGreetingNamed(name);
@@ -495,16 +500,11 @@ String _morningGreetingBody(Ref ref) {
   return l10n.notifMorningGreeting;
 }
 
-void _syncRepeatingNotifications(Ref ref, NotificationService service) {
+void _syncBillNotification(Ref ref, NotificationService service) {
   final settings = ref.read(settingsControllerProvider).value;
   service.scheduleBillNotification(
     enabled: settings?.billNotificationEnabled ?? true,
     body: _l10nFor(ref).notifBillArrived,
-  );
-  service.scheduleMorningGreeting(
-    enabled: settings?.morningGreetingEnabled ?? true,
-    wakeHour: settings?.wakeHour ?? 5,
-    body: _morningGreetingBody(ref),
   );
 }
 
@@ -512,21 +512,64 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   final service = NotificationService(
     onTap: (payload) => ref.read(notificationTapProvider.notifier).set(payload),
   );
-  service.init().then((_) => _syncRepeatingNotifications(ref, service));
-  // 청구서·아침 인사: on/off·시각·언어·이름 변경 연동
+  service.init().then((_) => _syncBillNotification(ref, service));
+  // 청구서: on/off·언어 변경 연동
+  // (아침 인사는 개수를 실어야 해서 morningGreetingSchedulerProvider가 맡는다)
   ref.listen(settingsControllerProvider, (prev, next) {
     final n = next.value;
     if (n == null) return;
     final p = prev?.value;
     final changed =
         n.billNotificationEnabled != p?.billNotificationEnabled ||
-        n.morningGreetingEnabled != p?.morningGreetingEnabled ||
-        n.wakeHour != p?.wakeHour ||
-        n.languageCode != p?.languageCode ||
-        n.userName != p?.userName;
-    if (changed) _syncRepeatingNotifications(ref, service);
+        n.languageCode != p?.languageCode;
+    if (changed) _syncBillNotification(ref, service);
   });
   return service;
+});
+
+/// 임의 날짜의 할 일 — 아침 인사가 "발송될 날의 방"을 세는 데 쓴다.
+final _todosForProvider = StreamProvider.family<List<Todo>, String>(
+  (ref, key) => ref.watch(todoRepositoryProvider).watchTodos(key),
+);
+
+/// 아침 인사가 다음에 울릴 날짜의 dayKey.
+/// clockProvider를 보지만 **키가 바뀔 때만** 아래 스케줄러를 깨운다
+/// (Provider는 값이 같으면 통지하지 않는다) — 1분마다 재예약하지 않는다.
+final _morningGreetingFireKeyProvider = Provider<String>((ref) {
+  final now = ref.watch(clockProvider).value ?? DateTime.now();
+  return dayKey(morningGreetingFireDate(now, ref.watch(wakeHourProvider)));
+});
+
+/// 아침 인사 갱신 (§10 · 개수 개정 2026-08-23).
+/// 본문은 예약하는 순간 굳으므로, **발송될 날의 방**에 남은 할 일을 세어
+/// 그 개수가 바뀔 때마다 다시 예약한다. 반복 인스턴스는 14일치가 미리
+/// 전개돼 있어(§4.2) 내일 아침 몫도 이미 DB에 있다 — 다만 자동 미루기로
+/// 넘어올 오늘의 잔여분은 롤오버 전이라 아직 세지 못한다.
+/// TodayScreen이 watch하는 것으로 활성화된다.
+final morningGreetingSchedulerProvider = Provider<void>((ref) {
+  final service = ref.watch(notificationServiceProvider);
+  final settings =
+      ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
+  if (!settings.morningGreetingEnabled) {
+    service.scheduleMorningGreeting(
+      enabled: false,
+      wakeHour: settings.wakeHour,
+      body: '',
+    );
+    return;
+  }
+  final todos = ref
+      .watch(_todosForProvider(ref.watch(_morningGreetingFireKeyProvider)))
+      .value;
+  if (todos == null) return; // 스트림 첫 프레임 — 값이 오면 다시 돈다
+  service.scheduleMorningGreeting(
+    enabled: true,
+    wakeHour: settings.wakeHour,
+    body: _morningGreetingBody(
+      ref,
+      todos.where((t) => t.status == TodoStatus.pending).length,
+    ),
+  );
 });
 
 /// 취침 알림 갱신 (§10 · 통합 2026-08-15, 30분 전 개정 2026-08-16):

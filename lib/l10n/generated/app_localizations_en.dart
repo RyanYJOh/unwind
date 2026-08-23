@@ -277,6 +277,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String notifMorningGreetingCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Rise and shine! Let’s smash $count tasks today 💪',
+      one: 'Rise and shine! Let’s smash 1 task today 💪',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get settingsTitle => 'Settings';
 
   @override

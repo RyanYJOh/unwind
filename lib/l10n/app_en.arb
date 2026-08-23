@@ -127,6 +127,8 @@
   "notifMorningGreeting": "Good morning, rise and shine!",
   "notifMorningGreetingNamed": "Good morning {name}, rise and shine!",
   "@notifMorningGreetingNamed": {"placeholders": {"name": {"type": "String"}}},
+  "notifMorningGreetingCount": "{count, plural, =1{Rise and shine! Let\u2019s smash 1 task today \ud83d\udcaa} other{Rise and shine! Let\u2019s smash {count} tasks today \ud83d\udcaa}}",
+  "@notifMorningGreetingCount": {"placeholders": {"count": {"type": "int"}}},
 
   "settingsTitle": "Settings",
   "sectionNotifications": "Notifications",

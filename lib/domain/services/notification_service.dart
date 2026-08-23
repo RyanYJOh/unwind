@@ -61,6 +61,16 @@ DateTime todoReminderAt({
 ({int hour, int minute}) morningGreetingClock(int wakeHour) =>
     (hour: (wakeHour + 1) % 24, minute: 0);
 
+/// 아침 인사가 **다음에 울릴 날짜** — [NotificationService.scheduleMorningGreeting]의
+/// 예약 규칙과 같다 (오늘 발송 시각이 아직 안 지났으면 오늘, 지났으면 내일).
+/// 본문은 예약하는 순간 굳으므로, 개수를 실으려면 "발송될 날의 방"을 세야 한다.
+DateTime morningGreetingFireDate(DateTime now, int wakeHour) {
+  final clock = morningGreetingClock(wakeHour);
+  final at = DateTime(now.year, now.month, now.day, clock.hour, clock.minute);
+  final today = DateTime(now.year, now.month, now.day);
+  return at.isAfter(now) ? today : addDays(today, 1);
+}
+
 bool shouldScheduleTodoReminder({
   required DateTime dueAt,
   required DateTime now,
