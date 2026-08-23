@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
@@ -18,20 +19,48 @@ import '../../l10n/generated/app_localizations.dart';
 /// §6.7 설정 — 유틸리티 화면. 앱 전체와 같은 다크 팔레트를 쓴다
 /// (개편 2026-08-12: 라이트 모드 폐기).
 Future<void> showSettingsScreen(BuildContext context) {
+  ToddAnalytics.track('Pageview settings');
   return Navigator.of(
     context,
     rootNavigator: true,
   ).push(CupertinoPageRoute(builder: (_) => const SettingsScreen()));
 }
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   /// pubspec version과 일치 유지
-  static const appVersion = '0.1.0';
+  static const appVersion = '1.0.0';
+
+  /// 심사 빌드용 — 하단 버전 10탭으로 풀린다. 배포 전 제거 예정.
+  @visibleForTesting
+  static bool devMenuUnlocked = false;
+
+  @visibleForTesting
+  static void resetDevMenuUnlock() => devMenuUnlocked = false;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  int _versionTaps = 0;
+
+  bool get _devMenuUnlocked => SettingsScreen.devMenuUnlocked;
+
+  void _onVersionTap() {
+    if (_devMenuUnlocked) return;
+    setState(() {
+      _versionTaps++;
+      if (_versionTaps >= 10) {
+        SettingsScreen.devMenuUnlocked = true;
+        _versionTaps = 0;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final settings =
         ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
@@ -50,40 +79,54 @@ class SettingsScreen extends ConsumerWidget {
         key: const PageStorageKey('settings-list'),
         padding: const EdgeInsets.only(bottom: UnwindSpacing.s48),
         children: [
-          // Todd Plus (수익화 2026-08-22, 2차: 리스트 행 → 메인 컬러 배너)
-          // — 맨 위가 업셀의 자리이자 페이월 테스트 진입점이다
-          _PlusBanner(
-            active: settings.premiumEnabled,
-            onTap: () => showPaywall(context),
-          ),
+          // Todd Plus — 심사 빌드에선 숨김 (버전 10탭으로 복구)
+          if (_devMenuUnlocked)
+            _PlusBanner(
+              active: settings.premiumEnabled,
+              onTap: () => showPaywall(context, from: 'settings'),
+            ),
 
-          // Todd의 하루 (세계관 2026-08-15) — 기상·취침시간이 하루의 축이다
+          // 유저의 하루 (개정 2026-08-23) — 피커는 유저 시각, Todd 시각은
+          // 온보딩과 같은 매핑으로 파생된다. 캡션에 Todd 시각을 적어 둔다.
           UnwindSectionLabel(l10n.sectionDay),
           UnwindListRow.value(
             label: l10n.wakeTime,
-            caption: l10n.wakeTimeCaption,
-            value: l10n.hourLabel(settings.wakeHour),
+            caption: l10n.wakeTimeCaption(l10n.hourLabel(settings.wakeHour)),
+            value: l10n.hourLabel(settings.displayUserWakeHour),
             onTap: () => _pickHour(
               context,
               title: l10n.wakeTime,
-              // 온보딩의 계산값(유저 기상 -1h)이 어디에 떨어져도 담기게
-              // 넉넉히 (개정 2026-08-15)
-              hours: [for (var h = 1; h <= 12; h++) h],
-              current: settings.wakeHour,
-              onPicked: ctrl.setWakeHour,
+              // 유저 기상. 온보딩 4~12 + 기존 유저 폴백(Todd+1) 2~13
+              hours: [for (var h = 2; h <= 13; h++) h],
+              current: settings.displayUserWakeHour,
+              onPicked: (h) {
+                if (h == settings.displayUserWakeHour) return;
+                ctrl.setUserWakeHour(h);
+                ctrl.setWakeHour(toddWakeFrom(h));
+                final time = ToddAnalytics.timeOfDay(h);
+                ToddAnalytics.setProfile('wake time', time);
+                ToddAnalytics.track('Click change-wake-time', {'value': time});
+              },
             ),
           ),
           UnwindListRow.value(
             label: l10n.bedtime,
-            caption: l10n.bedtimeCaption,
-            value: l10n.hourLabel(settings.bedtimeHour),
+            caption: l10n.bedtimeCaption(l10n.hourLabel(settings.bedtimeHour)),
+            value: l10n.hourLabel(settings.displayUserBedtimeHour),
             onTap: () => _pickHour(
               context,
               title: l10n.bedtime,
-              // 저녁 16시 ~ 새벽 2시 (자정 넘김 허용, 온보딩 계산값 포함)
-              hours: [for (var h = 16; h <= 23; h++) h, 0, 1, 2],
-              current: settings.bedtimeHour,
-              onPicked: ctrl.setBedtimeHour,
+              // 유저 취침. 온보딩 19~4 + 기존 유저 폴백(Todd+1) 17~3
+              hours: [for (var h = 17; h <= 23; h++) h, 0, 1, 2, 3, 4],
+              current: settings.displayUserBedtimeHour,
+              onPicked: (h) {
+                if (h == settings.displayUserBedtimeHour) return;
+                ctrl.setUserBedtimeHour(h);
+                ctrl.setBedtimeHour(toddBedtimeFrom(h));
+                final time = ToddAnalytics.timeOfDay(h);
+                ToddAnalytics.setProfile('bed time', time);
+                ToddAnalytics.track('Click change-bed-time', {'value': time});
+              },
             ),
           ),
 
@@ -105,22 +148,21 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: ctrl.setHapticsEnabled,
           ),
 
-          // 방 조명의 색 (선택형 2026-08-22, 발주자 지시) — 고르는 즉시
-          // 앱 전체 팔레트가 따라간다 (CTA·FAB·글로우·창문·위젯까지).
-          // 앰버 외 색은 Todd Plus (수익화 2026-08-22) — 무료는 자물쇠,
-          // 탭하면 페이월.
-          UnwindSectionLabel(l10n.sectionLight),
-          _LightColorRow(
-            selected: UnwindLightColor.fromName(settings.lightColor),
-            unlocked: settings.premiumEnabled,
-            onPicked: (c) {
-              if (!settings.premiumEnabled && c != UnwindLightColor.amber) {
-                showPaywall(context);
-                return;
-              }
-              ctrl.setLightColor(c.name);
-            },
-          ),
+          // 조명 색 — 심사 빌드에선 숨김 (버전 10탭으로 복구)
+          if (_devMenuUnlocked) ...[
+            UnwindSectionLabel(l10n.sectionLight),
+            _LightColorRow(
+              selected: UnwindLightColor.fromName(settings.lightColor),
+              unlocked: settings.premiumEnabled,
+              onPicked: (c) {
+                if (!settings.premiumEnabled && c != UnwindLightColor.amber) {
+                  showPaywall(context, from: 'light');
+                  return;
+                }
+                ctrl.setLightColor(c.name);
+              },
+            ),
+          ],
 
           UnwindSectionLabel(l10n.sectionLanguage),
           UnwindListRow.value(
@@ -129,7 +171,9 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _pickLanguage(context, settings.languageCode, ctrl),
           ),
 
-          UnwindSectionLabel(l10n.sectionData),
+          // 아래는 심사 빌드에선 숨김 (버전 10탭으로 복구)
+          if (_devMenuUnlocked) ...[
+            UnwindSectionLabel(l10n.sectionData),
           UnwindListRow.value(
             label: l10n.eraseData,
             caption: l10n.eraseDataCaption,
@@ -179,12 +223,25 @@ class SettingsScreen extends ConsumerWidget {
             value: '',
             onTap: () => _showWidgetDiagnostics(context, ref),
           ),
+          ],
 
           const SizedBox(height: UnwindSpacing.s24),
           Center(
-            child: Text(
-              'Unwind $appVersion',
-              style: UnwindType.caption.copyWith(color: UnwindColors.textMuted),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _onVersionTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: UnwindSpacing.s16,
+                  vertical: UnwindSpacing.s8,
+                ),
+                child: Text(
+                  'Todd ${SettingsScreen.appVersion}',
+                  style: UnwindType.caption.copyWith(
+                    color: UnwindColors.textMuted,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -483,7 +540,7 @@ class _PlusBanner extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Text('✨', style: TextStyle(fontSize: 22)),
+              const Text('🎁', style: TextStyle(fontSize: 22)),
               const SizedBox(width: UnwindSpacing.s12),
               Expanded(
                 child: Column(

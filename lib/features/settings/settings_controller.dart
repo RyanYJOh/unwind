@@ -17,8 +17,13 @@ class UnwindSettings {
   final bool morningGreetingEnabled;
   final bool todoReminderEnabled;
   final bool hapticsEnabled;
-  final int wakeHour; // 기본 5
-  final int bedtimeHour; // 기본 22
+  final int wakeHour; // 기본 5 — Todd
+  final int bedtimeHour; // 기본 22 — Todd
+
+  /// 온보딩에서 받은 유저 기상·취침. null = 기존 유저(키 없음) —
+  /// 표시는 Todd 시각 +1h 폴백.
+  final int? userWakeHour;
+  final int? userBedtimeHour;
   final bool onboardingCompleted;
 
   /// 온보딩 직후, 전등 줄 코치마크를 아직 안 보여 줌
@@ -47,6 +52,8 @@ class UnwindSettings {
     this.hapticsEnabled = true,
     this.wakeHour = 5,
     this.bedtimeHour = 22,
+    this.userWakeHour,
+    this.userBedtimeHour,
     this.onboardingCompleted = false,
     this.pullCordCoachAwaiting = false,
     this.pullCordCoachShown = false,
@@ -64,6 +71,8 @@ class UnwindSettings {
     bool? hapticsEnabled,
     int? wakeHour,
     int? bedtimeHour,
+    int? userWakeHour,
+    int? userBedtimeHour,
     bool? onboardingCompleted,
     bool? pullCordCoachAwaiting,
     bool? pullCordCoachShown,
@@ -81,6 +90,8 @@ class UnwindSettings {
     hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     wakeHour: wakeHour ?? this.wakeHour,
     bedtimeHour: bedtimeHour ?? this.bedtimeHour,
+    userWakeHour: userWakeHour ?? this.userWakeHour,
+    userBedtimeHour: userBedtimeHour ?? this.userBedtimeHour,
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     pullCordCoachAwaiting: pullCordCoachAwaiting ?? this.pullCordCoachAwaiting,
     pullCordCoachShown: pullCordCoachShown ?? this.pullCordCoachShown,
@@ -89,6 +100,12 @@ class UnwindSettings {
     lightColor: lightColor ?? this.lightColor,
     premiumEnabled: premiumEnabled ?? this.premiumEnabled,
   );
+
+  /// 설정에 보여줄 유저 기상. 저장된 값이 없으면 Todd 기상 +1h.
+  int get displayUserWakeHour => userWakeHour ?? (wakeHour + 1) % 24;
+
+  /// 설정에 보여줄 유저 취침. 저장된 값이 없으면 Todd 취침 +1h.
+  int get displayUserBedtimeHour => userBedtimeHour ?? (bedtimeHour + 1) % 24;
 }
 
 /// 설정 컨트롤러 — DB(settings 키/값)와 동기화
@@ -128,6 +145,12 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
         fallback: await dao.getInt(SettingKeys.legacyDayStartHour, fallback: 5),
       ),
       bedtimeHour: await dao.getInt(SettingKeys.bedtimeHour, fallback: 22),
+      userWakeHour: int.tryParse(
+        await dao.getValue(SettingKeys.userWakeHour) ?? '',
+      ),
+      userBedtimeHour: int.tryParse(
+        await dao.getValue(SettingKeys.userBedtimeHour) ?? '',
+      ),
       onboardingCompleted: await dao.getBool(
         SettingKeys.onboardingCompleted,
         fallback: false,
@@ -198,6 +221,18 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
     SettingKeys.bedtimeHour,
     '$hour',
     (s) => s.copyWith(bedtimeHour: hour),
+  );
+
+  Future<void> setUserWakeHour(int hour) => _set(
+    SettingKeys.userWakeHour,
+    '$hour',
+    (s) => s.copyWith(userWakeHour: hour),
+  );
+
+  Future<void> setUserBedtimeHour(int hour) => _set(
+    SettingKeys.userBedtimeHour,
+    '$hour',
+    (s) => s.copyWith(userBedtimeHour: hour),
   );
 
   Future<void> setUserName(String name) =>

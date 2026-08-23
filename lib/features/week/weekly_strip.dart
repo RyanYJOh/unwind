@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
@@ -89,6 +90,10 @@ class _WeeklyStripState extends ConsumerState<WeeklyStrip> {
                           currentT: widget.currentT,
                           selected: w.dateKey == viewedKey,
                           onTap: () {
+                            final target = w.isToday ? todayKey : w.dateKey;
+                            ToddAnalytics.track('Click change-date', {
+                              'target_date': ToddAnalytics.isoDate(target),
+                            });
                             // 오늘을 고르면 null — 롤오버 시 자동으로 따라간다
                             ref
                                 .read(selectedDateProvider.notifier)

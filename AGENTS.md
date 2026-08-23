@@ -35,7 +35,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 138개 통과가 기준선
+flutter analyze && flutter test                           # 143개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
 ```
@@ -50,7 +50,7 @@ flutter build ipa                                         # TestFlight용 (버�
 lib/
   core/tokens/       palette(고정 다크 팔레트)·타이포·간격/깊이·모션 상수
                      → 값 하드코딩 금지. 모든 UI는 이 토큰만 사용
-  core/analytics/    UnwindAnalytics — Mixpanel 래퍼 (§8.8, 릴리즈 전용)
+  core/analytics/    ToddAnalytics — Mixpanel 래퍼 (§8.8, 릴리즈 전용)
   core/haptics/      UnwindHaptics(햅틱 어휘) + UnwindHapticsScope(트리 주입)
   core/utils/        dates.dart(dayKey 유틸)
   ui/                **재사용 컴포넌트 라이브러리 (ui.dart 하나만 import)**
@@ -80,12 +80,15 @@ lib/
 ## 4. 상태 아키텍처 (features/today/providers.dart)
 
 ### 세계관 시계 (통합 2026-08-15) — Todd의 취침·기상시간
-- `wakeHourProvider` — **기상시간 = 하루의 경계** (기본 05시).
+- `wakeHourProvider` — **Todd 기상시간 = 하루의 경계** (기본 05시).
   "Todd가 일어나는 순간 새 하루가 시작된다." 구 dayStartHour를 흡수했다
   (설정 키 `wakeHour`, 옛 `dayStartHour` 값은 읽기 폴백).
-- `bedtimeHourProvider` — **취침시간** (기본 22시, 자정 넘김 허용).
+- `bedtimeHourProvider` — **Todd 취침시간** (기본 22시, 자정 넘김 허용).
   이 시각부터 Todd는 자야 하고, 취침 알림은 이 시각 30분 전에 발송한다.
-- 온보딩에서 받을 예정(아직 미구현) — 지금은 설정 > Todd의 하루에서 변경.
+- 설정 화면은 **유저** 기상·취침을 고른다 (온보딩과 같은 값, 키
+  `userWakeHour`/`userBedtimeHour`). 저장 시 Todd 시각은 온보딩 매핑으로
+  파생된다 (유저 기상 −1h, 유저 취침 −3h). 기존 유저(키 없음)는
+  Todd 시각 +1h 로 표시하고, 캡션에 Todd 시각을 적는다.
 
 ### 날짜 축 — 두 계열을 절대 섞지 말 것
 - `todayKeyProvider` — **실제 오늘** (기상시간 기본 05시 기준 롤오버).
@@ -187,6 +190,8 @@ lib/
   `UnwindHapticKind`를 받아 대신 쏘고, `UnwindHapticsScope`(main.dart에서 주입)가
   설정의 hapticsEnabled를 트리 전체에 흘린다. 컴포넌트를 쓰면 햅틱은 공짜다.
 - 연출 시퀀스(소등 도미노·전등 줄)만 화면이 직접 `hapticsProvider`를 쓴다.
+  온보딩 타이프라이터는 글자가 찍힐 때마다 `light()` (컴포넌트가 스코프에서
+  읽는다).
 
 ### 5.5 컴포넌트 — `lib/ui/`
 화면 코드는 `import '../../ui/ui.dart';` 하나면 된다.
@@ -198,7 +203,7 @@ lib/
 | `UnwindButton` | primary/secondary/danger/ghost · CTA 56pt, small 44pt |
 | `UnwindIconButton` | plain/filled/accent — 항상 44pt 이상 |
 | `UnwindCard` · `UnwindSectionLabel` · `UnwindDivider` | 면과 구분 |
-| `UnwindTodoTile` | 할 일 하나 = 등 하나 (타일 + 벽 스위치). `readOnlySwitch`면 우측이 비고 테두리로만 구분 |
+| `UnwindTodoTile` | 할 일 하나 = 등 하나 (타일 + 벽 스위치). `readOnlySwitch`면 우측이 비고 테두리로만 구분. `hasMemo`면 제목 끝에 작은 노트 아이콘 |
 | `UnwindLampSwitch` / `UnwindToggle` | 세로 벽 로커 / 가로 설정 토글 |
 | `UnwindTextField` | 포커스 시 테두리가 앰버로 |
 | `UnwindChip` | **선택** 알약 (반복 등 상호배타 선택 전용) |
@@ -208,7 +213,7 @@ lib/
 | `showUnwindConfirm` / `showUnwindActions` | 확인·선택 (Cupertino 시트 대체) |
 | `showUnwindToast` | 상단 푸시형 토스트 (`actionLabel`/`onAction`으로 되돌리기). 삭제 되돌리기는 **2초**. 탭 또는 **위로 스와이프**로 닫는다. 안내처럼 읽을 시간이 필요하면 `visibleFor`로 오버라이드 (온보딩 깨우기 안내 4.5초) |
 | `UnwindCalendar` | 월 그리드 달력 (2026-08-22, 월요일 시작). 입력 시트의 날짜 선택 — 시트가 좁아 **별도 바텀시트**로 띄운다 (날짜 셀 44pt). l10n을 몰라 요일·월 라벨은 호출자가 주입 |
-| `UnwindTypewriterText` | 타이프라이터 텍스트 (온보딩 초반 대사). 안 보인 글자를 투명 스팬으로 미리 그려 **레이아웃이 처음부터 고정**된다. `.`/`…`는 8배, `,`/`!`/`?`/줄바꿈은 4배로 쉬어 "To..d.." 같은 문장에서 말끝이 흐려지는 졸린 리듬이 나온다. text가 바뀌면 같은 자리에서 다시 친다. Reduce Motion이면 즉시 전체 표시 |
+| `UnwindTypewriterText` | 타이프라이터 텍스트 (온보딩 초반 대사). 안 보인 글자를 투명 스팬으로 미리 그려 **레이아웃이 처음부터 고정**된다. `.`/`…`는 8배, `,`/`!`/`?`/줄바꿈은 4배로 쉬어 "To..d.." 같은 문장에서 말끝이 흐려지는 졸린 리듬이 나온다. 글자마다 `light` 햅틱. text가 바뀌면 같은 자리에서 다시 친다. Reduce Motion이면 즉시 전체 표시 |
 | `UnwindCoachMark` | 스크림에 원형 구멍을 뚫어 손잡이 등을 가리키는 안내. 구멍 안은 히트가 통과한다 |
 | `UnwindScreen` + `UnwindHeader` | 화면 껍데기 (다크 배경·상태바·기본 글자) |
 
@@ -335,6 +340,7 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
    그린다. 문구는 넣지 않는다(2차 개정 — 그림자만으로 부재가 읽힌다;
    스크린 리더용 Semantics 라벨만 유지). 탭해도 반응 없음.
 3. 체크리스트 — `UnwindTodoTile`: 좌 텍스트(완료 시 삭선), 우 벽 로커 스위치.
+   메모가 있으면 제목 끝에 작은 노트 아이콘 (`hasMemo`).
    켜진 등은 **앰버 테두리**로만 구분한다 (타일이 빛을 흉내내지 않는다 — 빛의
    총량은 CornerGlow의 몫). 스위치=토글, 행 탭=편집 시트, 롱프레스·왼쪽
    스와이프=삭제. 취침 중 스위치 ON = **깨우기(undo)**.
@@ -488,8 +494,9 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 상단 진행 바 + 뒤로가기. CornerGlow는 플로우가 하나로 몰아 페이지 전환
 때 빛이 이어진다. **Todd는 크게 그린다**(hero 200~210 — 130 수준으로
 줄이지 말 것, 2차 개정). 위젯 안내는 홈 위젯 프리뷰가 히어로라 예외.
-**초반 대사(1·2페이지)는 `UnwindTypewriterText`로 타이핑**되고, 청구서
-페이지부터는 정적이다 (발주자 요구 2026-08-22).
+**초반 대사(1·2페이지)는 `UnwindTypewriterText`로 타이핑**되고, 글자가
+찍힐 때마다 light 햅틱이 따라간다. 청구서 페이지부터는 정적이다
+(발주자 요구 2026-08-22).
 
 1. **첫인사 — 잠꾸러기 토드 깨우기** (전면 개편 2026-08-22, 발주자 요구):
    **조명 없는 밤**(glow 0)에서 Todd가 "Hi, I'm To..d.." 인사를 타이핑하다
@@ -528,8 +535,9 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
    6. **취침시각**(유저 -3h = Todd 취침) → 7. **기상시각**(유저 -1h = Todd
    기상) — 피커(224pt, 굴러갈 때 selection 햅틱) 밑에 계산 결과가 라이브로
    보인다. 매핑은 `toddBedtimeFrom`/`toddWakeFrom` (단위 테스트 있음).
-   계산값은 클램프 없이 그대로 저장(발주자 결정) — 설정 피커 범위를 그만큼
-   넓혀 뒀다 (기상 1~12시, 취침 16~새벽 2시).
+   계산값은 클램프 없이 그대로 저장(발주자 결정). 유저 시각은
+   `userWakeHour`/`userBedtimeHour`에, Todd 시각은 `wakeHour`/`bedtimeHour`에
+   같이 쓴다. 설정 화면은 유저 시각을 고르고 같은 매핑으로 Todd를 갱신한다.
 5. 8. **원형 타임테이블** — 24시간 링(자정이 위), 수면 호(슬레이트+달)·
    활동 호(앰버+해), 중앙에 잠든 Todd, 경계 점+시각 라벨.
    → 9. **준비 확인 — 기대감 고조** (신설 2026-08-22, 발주자 지시):
@@ -657,30 +665,94 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   (다크패턴 금지). Plus 상태에선 "야호!" 감사 화면 + `Plus 해제 (dev)`
   (TODO: 배포 전 제거).
 
-## 8.8 애널리틱스 — Mixpanel (신설 2026-08-22)
+## 8.8 애넬리틱스 — Mixpanel (택소노미 정본, 2026-08-23)
 
-`core/analytics/analytics.dart`의 `UnwindAnalytics` 하나로만 쓴다.
-화면·서비스가 mixpanel_flutter를 직접 import하지 않는다.
+### 구현
 
+- **단일 진입점** — `core/analytics/analytics.dart`의 `ToddAnalytics`만 쓴다.
+  화면·서비스가 `mixpanel_flutter`를 직접 import하지 않는다.
 - **릴리즈 빌드에서만 전송** — 프로젝트(토큰)가 하나라 디버그 세션이
-  데이터를 오염시키지 않게 kReleaseMode로 가른다. 디버그에선
-  `[analytics] 이벤트명 {…}`이 콘솔에만 찍힌다 (무엇이 나가는지 검증용).
-- init은 main()에서 fire-and-forget — 앱 시작을 막지 않는다.
-  `track()`은 내부 Future에 붙으므로 초기화 완료를 기다릴 필요 없다.
-- **identify/reset 없음** — 계정·로그인이 없는 로컬 온리 앱. Mixpanel의
-  기기 단위 익명 id를 그대로 쓴다. 유저 프로필은 온보딩 이름 커밋 시
-  `setProfile(r'$name', 이름)` 하나만 올린다 — Mixpanel 예약 프로퍼티라
-  Users 목록의 표시 이름으로 잡힌다 (발주자 지시 2026-08-22).
-- **이벤트 규칙** (Mixpanel 스킬의 불변 규칙): 이름·프로퍼티는
-  `snake_case`, 숫자 값은 문자열로 감싸지 말 것, 이름을 런타임에 조립하지
-  말 것, 값 없는 프로퍼티는 null/"" 대신 생략, 이벤트 하나 = 의미 하나
-  ("button_clicked" 같은 범용 이벤트 금지). 새 이벤트를 심기 전에 기존
-  이벤트 재사용 가능한지 먼저 본다.
-- **현재 이벤트는 하나** — `Click add-to-do` (compose 시트에서 새 To do
-  저장 성공 시, 단건·반복 모두. 편집은 제외). Mixpanel verify connection용
-  으로 발주자가 이름까지 지정 (2026-08-22) — snake_case 규칙의 예외.
-  이후 심을 후보: 온보딩 완료, Value Moment(하루 닫기 — 소등·전부 완료),
-  페이월 노출/구독. 심은 뒤 Mixpanel Live View(Events)에서 도착 확인.
+  프로덕션 데이터를 오염시키지 않게 `kReleaseMode`로 가른다. 디버그에선
+  `[analytics] 이벤트명 {…}` / `[analytics] profile 키 = 값`이 콘솔에만
+  찍힌다 (페이로드 검증용).
+- **초기화** — `main()`에서 `ToddAnalytics.init()` fire-and-forget.
+  `track()`·`setProfile()`은 내부 Future에 붙어 init 완료를 알아서 기다린다.
+- **자동 이벤트 꺼짐** — `trackAutomaticEvents: false`. SDK 기본 App Open
+  등은 나가지 않는다. 콜드 스타트는 우리가 `App Open`을 직접 심는다.
+- **identify/reset 없음** — 로컬 온리·계정 없음. Mixpanel 기기 단위 익명 id.
+- **온보딩 preview** — `OnboardingFlow(preview: true)`는 Pageview·People
+  모두 생략한다 (설정 > Onboarding dev).
+
+### 네이밍 컨벤션
+
+#### 이벤트 이름
+
+| 접두 | 의미 | 예 |
+|---|---|---|
+| `Click …` | 사용자가 무언가를 **눌러** 행동이 확정된 순간 | `Click add-to-do` |
+| `Pageview …` | 화면·단계에 **진입**한 순간 (1회) | `Pageview settings` |
+| `View …` | 오버레이·모달 **노출** | `View paywall` |
+| `App Open` | 프로세스 **콜드 스타트** (예외: Title Case·공백) | — |
+
+- **기본 규칙**: 이벤트·프로퍼티 **키**는 `snake_case`.
+- **발주자 지정 예외** (Mixpanel verify·가독성): 아래 이벤트는 **Title Case +
+  kebab-case** 혼합을 그대로 쓴다 — 새 이벤트에 임의로 확대하지 말 것.
+  - `Click add-to-do`, `Click delete-to-do`, `Click toggle-to-do`, …
+  - `App Open`
+  - `Pageview …` / `View …` 계열도 동일 (`Pageview onboarding-hello` 등).
+- **금지**: 런타임에 이벤트 이름 조립, 범용 이벤트(`button_clicked`),
+  이벤트 하나에 의미 둘 이상.
+
+#### 프로퍼티 키
+
+- **항상 `snake_case`**: `target_date`, `has_memo`, `is_auto_postpone`.
+- **값이 없으면 키 자체를 생략** — `null`/`""`로 보내지 않는다.
+- **숫자·bool은 native 타입** — 문자열로 감싸지 않는다.
+  (`value: 3`, `is_accessible: true`. `value: 'on'`/`'off'`만 문자열 enum.)
+
+#### 프로퍼티 값 — 타입 규약
+
+| 키 | 타입 | 비고 |
+|---|---|---|
+| `target_date`, `start_date`, `end_date` | `DateTime` | dayKey → 로컬 자정 (`isoDate`) |
+| `time`, `value`(시각) | `DateTime` | 시각만 의미, 날짜는 오늘 (`timeOfDay`) |
+| `title` | string | To-do 제목 |
+| `has_memo`, `is_auto_postpone`, `is_accessible` | bool | |
+| `repeat_type` | string | `daily` / `weekdays` / `weekly` / `monthly` |
+| `noti_name` | string | 사람 읽기 영문 4종 — `"morning greeting"`, `"night reminder"`, `"todo reminder"`, `"bill notification"` |
+| `value`(토글·등급) | string 또는 int | 알림 `on`/`off`; rating `1`/`2`/`3` |
+| `from`, `plan` | string | `from`: settings/light/repeat · `plan`: monthly/annual/lifetime |
+
+`todoEventProps` 묶음: `title`, `target_date`, `has_memo`, `is_auto_postpone`,
+`repeat_type`(반복만), `time`(시간 있을 때만) — add·toggle 공용.
+
+#### People(프로필) 키 — 이벤트와 다른 규칙
+
+발주자 지정: 공백·하이픈 포함 **표시용 이름**을 그대로 쓴다.
+
+| 키 | 타입 | 갱신 시점 |
+|---|---|---|
+| `$name` | string | 온보딩 이름 커밋 (Mixpanel 예약 프로퍼티) |
+| `initial to-do` | List\<string\> | 온보딩 루틴 "다음" ("아직 없어"는 **생략**) |
+| `bed time` | DateTime | 온보딩 취침 "다음" · 설정 취침 저장 |
+| `wake time` | DateTime | 온보딩 기상 "다음" · 설정 기상 저장 |
+
+### 코드 헬퍼 (`ToddAnalytics`)
+
+| 메서드 | 용도 |
+|---|---|
+| `track(name, [props])` | 이벤트 1건 |
+| `setProfile(key, value)` | People 1필드 |
+| `isoDate(dayKey)` | `yyyy-MM-dd` → DateTime(자정) |
+| `timeOfDay(hour, [minute])` | 오늘 날짜 + 시·분 → DateTime |
+| `todoEventProps(...)` | add / toggle 공용 프로퍼티 묶음 (위 표) |
+
+### 새 이벤트 추가 체크리스트
+
+1. 기존 이벤트·`todoEventProps` 재사용 가능한지 먼저 본다 (`ToddAnalytics.track` grep).
+2. `ToddAnalytics.track` / `setProfile`만 쓴다 — SDK 직접 호출 금지.
+3. 이름·키 규칙(위 표)을 따르고, 없는 프로퍼티는 보내지 않는다.
+4. 릴리즈 전 Mixpanel Live View에서 도착 확인 (디버그는 콘솔).
 
 ## 9. 개발용 기능 (배포 전 제거 대상)
 
@@ -694,7 +766,8 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **139개** 전부 통과가 기준선 (2026-08-23 아침 인사 개수 +1. 2026-08-22 Plus 게이트 +3·조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
+2. `flutter test` — **143개** 전부 통과가 기준선 (2026-08-23 Mixpanel +2·
+   아침 인사 개수 +1. 2026-08-22 Plus 게이트 +3·조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
    +5. 이전 126: 주간 미완료 필터, 125: 위젯 스냅샷 +3, 122: 현지 통화).
    UI 변경 시 위젯 테스트가 히트 영역 겹침·오버플로 같은 실제 버그를 잡아 온
    전적이 있다.

@@ -845,7 +845,7 @@ abstract class AppLocalizations {
   /// No description provided for @sectionDay.
   ///
   /// In en, this message translates to:
-  /// **'Todd\'s day'**
+  /// **'Your day'**
   String get sectionDay;
 
   /// No description provided for @wakeTime.
@@ -857,8 +857,8 @@ abstract class AppLocalizations {
   /// No description provided for @wakeTimeCaption.
   ///
   /// In en, this message translates to:
-  /// **'A new day begins when Todd wakes up'**
-  String get wakeTimeCaption;
+  /// **'Todd wakes up at {time}'**
+  String wakeTimeCaption(String time);
 
   /// No description provided for @bedtime.
   ///
@@ -869,8 +869,8 @@ abstract class AppLocalizations {
   /// No description provided for @bedtimeCaption.
   ///
   /// In en, this message translates to:
-  /// **'Todd needs the lights out by then'**
-  String get bedtimeCaption;
+  /// **'Todd goes to sleep at {time}'**
+  String bedtimeCaption(String time);
 
   /// No description provided for @hourLabel.
   ///
@@ -983,7 +983,7 @@ abstract class AppLocalizations {
   /// No description provided for @obNightTitle.
   ///
   /// In en, this message translates to:
-  /// **'I need to sleep but..'**
+  /// **'I gotta sleep but..'**
   String get obNightTitle;
 
   /// No description provided for @obNightBody.
@@ -1183,6 +1183,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You\'re all set!'**
   String get obGreetingNoName;
+
+  /// No description provided for @obNameToddCoincidence.
+  ///
+  /// In en, this message translates to:
+  /// **'(What are the odds.. Todd?)'**
+  String get obNameToddCoincidence;
 
   /// No description provided for @obWidgetTitle.
   ///

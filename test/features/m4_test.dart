@@ -60,6 +60,13 @@ void main() {
       expect(await db.settingsDao.getValue('wakeHour'), '4');
       expect(await db.settingsDao.getValue('bedtimeHour'), '23');
 
+      await ctrl.setUserWakeHour(8);
+      await ctrl.setUserBedtimeHour(0);
+      expect(await db.settingsDao.getValue('userWakeHour'), '8');
+      expect(await db.settingsDao.getValue('userBedtimeHour'), '0');
+      expect(c.read(settingsControllerProvider).value!.displayUserWakeHour, 8);
+      expect(c.read(settingsControllerProvider).value!.displayUserBedtimeHour, 0);
+
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
     });
@@ -193,7 +200,7 @@ void main() {
       // 2. 눈부신 밤 + 소등 체험 (병합 2026-08-15 2차) —
       //    반드시 전부 꺼야 다음으로 (발주자 요구)
       expect(
-        find.text('I need to sleep but..', findRichText: true),
+        find.text('I gotta sleep but..', findRichText: true),
         findsOneWidget,
       );
       expect(find.byType(UnwindTodoTile), findsNWidgets(3));

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 
 import '../core/tokens/palette.dart';
@@ -41,6 +42,10 @@ class UnwindTodoTile extends StatelessWidget {
   /// 스위치를 조작할 수 없는 자리(주간 뷰). 우측이 비고, 상태는 테두리로만.
   final bool readOnlySwitch;
 
+  /// 메모가 있으면 제목 끝에 작은 노트 아이콘을 단다 — 내용이 아니라
+  /// 존재만 알린다 (홈 2026-08-23).
+  final bool hasMemo;
+
   const UnwindTodoTile({
     super.key,
     required this.title,
@@ -54,6 +59,7 @@ class UnwindTodoTile extends StatelessWidget {
     this.onLongPress,
     this.lit = 1.0,
     this.readOnlySwitch = false,
+    this.hasMemo = false,
   });
 
   @override
@@ -114,19 +120,39 @@ class UnwindTodoTile extends StatelessWidget {
                       ),
                       const SizedBox(height: UnwindSpacing.s2),
                     ],
-                    Text(
-                      title,
-                      style: UnwindType.bodyStrong.copyWith(
-                        color: isDone
-                            ? UnwindColors.textMuted
-                            : isOn
-                            ? UnwindColors.textPrimary
-                            : UnwindColors.textSecondary,
-                        decoration: isDone
-                            ? TextDecoration.lineThrough
-                            : TextDecoration.none,
-                        decorationColor: UnwindColors.textMuted,
-                        decorationThickness: 2,
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: title,
+                            style: UnwindType.bodyStrong.copyWith(
+                              color: isDone
+                                  ? UnwindColors.textMuted
+                                  : isOn
+                                  ? UnwindColors.textPrimary
+                                  : UnwindColors.textSecondary,
+                              decoration: isDone
+                                  ? TextDecoration.lineThrough
+                                  : TextDecoration.none,
+                              decorationColor: UnwindColors.textMuted,
+                              decorationThickness: 2,
+                            ),
+                          ),
+                          if (hasMemo)
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  left: UnwindSpacing.s4,
+                                ),
+                                child: Icon(
+                                  Icons.sticky_note_2_rounded,
+                                  size: 12,
+                                  color: UnwindColors.textMuted,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],

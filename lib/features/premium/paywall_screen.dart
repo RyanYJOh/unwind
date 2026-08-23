@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
@@ -28,7 +29,8 @@ import 'premium_providers.dart';
 ///   "…and many more to come!"으로 기대를 심는다 (발주자 요구).
 /// - 신뢰 요소: 언제든 해지 캡션, 닫기 버튼은 즉시 노출 (다크패턴 금지 —
 ///   릴랙스 앱의 예의).
-Future<void> showPaywall(BuildContext context) {
+Future<void> showPaywall(BuildContext context, {required String from}) {
+  ToddAnalytics.track('View paywall', {'from': from});
   return Navigator.of(context, rootNavigator: true).push(
     CupertinoPageRoute(
       fullscreenDialog: true,
@@ -38,6 +40,12 @@ Future<void> showPaywall(BuildContext context) {
 }
 
 enum _Plan { monthly, yearly, lifetime }
+
+String _planAnalyticsName(_Plan plan) => switch (plan) {
+  _Plan.monthly => 'monthly',
+  _Plan.yearly => 'annual',
+  _Plan.lifetime => 'lifetime',
+};
 
 class PaywallScreen extends ConsumerStatefulWidget {
   const PaywallScreen({super.key});
@@ -113,6 +121,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     });
     final ctrl = ref.read(settingsControllerProvider.notifier);
     await ctrl.setPremiumEnabled(true);
+    ToddAnalytics.track('Click confirm-subscription', {
+      'plan': _planAnalyticsName(_plan),
+    });
     // 체험하던 색이 있으면 그대로 내 색이 된다 — "이 색으로 살래"의 순간
     if (_preview != null) await ctrl.setLightColor(_preview!.name);
     // 축하가 눈에 담긴 뒤에 닫는다 — 고마움이 마지막 인상이 되게

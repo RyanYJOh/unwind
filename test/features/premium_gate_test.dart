@@ -21,6 +21,7 @@ void main() {
   late UnwindDatabase db;
 
   setUp(() async {
+    SettingsScreen.resetDevMenuUnlock();
     db = UnwindDatabase.withExecutor(NativeDatabase.memory());
     await db.settingsDao.setValue('onboardingCompleted', 'true');
   });
@@ -93,6 +94,7 @@ void main() {
   });
 
   testWidgets('무료가 앰버 외 스와치를 탭하면 페이월, 설정은 앰버 유지', (tester) async {
+    SettingsScreen.devMenuUnlocked = true;
     tester.view.physicalSize = const Size(800, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

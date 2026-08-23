@@ -4,6 +4,7 @@ import 'package:flutter/material.dart'
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
 import '../../core/tokens/typography.dart';
@@ -32,6 +33,10 @@ import '../../l10n/generated/app_localizations.dart';
 /// [mondayKey]로 **아무 주나** 열 수 있다 (개편 2026-08-13) — 하단 스트립을
 /// 넘긴 주를 그대로 연다.
 Future<void> showWeekScreen(BuildContext context, {required String mondayKey}) {
+  ToddAnalytics.track('Pageview weekly-view', {
+    'start_date': ToddAnalytics.isoDate(mondayKey),
+    'end_date': ToddAnalytics.isoDate(dayKey(addDays(parseDayKey(mondayKey), 6))),
+  });
   return Navigator.of(
     context,
     rootNavigator: true,
@@ -348,6 +353,7 @@ class _WeekTodoRow extends ConsumerWidget {
       ),
       child: UnwindTodoTile(
         title: todo.title,
+        hasMemo: (todo.memo ?? '').trim().isNotEmpty,
         timeLabel: todo.scheduledTimeMinutes == null
             ? null
             : MaterialLocalizations.of(context).formatTimeOfDay(

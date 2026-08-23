@@ -15,7 +15,10 @@ import 'features/today/today_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  UnwindAnalytics.init(); // §8.8 — 릴리즈 빌드에서만 켜진다. await 금지
+  ToddAnalytics.init(); // §8.8 — 릴리즈 빌드에서만 켜진다. await 금지
+  // 콜드 스타트만. main()은 프로세스가 죽은 뒤 켜질 때만 돈다 —
+  // 백그라운드→포그라운드는 AppLifecycleState.resumed이지 main()이 아니다.
+  ToddAnalytics.track('App Open');
   runApp(const ProviderScope(child: UnwindApp()));
 }
 

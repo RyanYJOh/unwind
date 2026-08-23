@@ -221,7 +221,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get sleepDeep => '토드가 완벽하게 잤어요';
 
   @override
-  String get sleepWell => '토드가 잘 잤어요';
+  String get sleepWell => '토드가 꽤 잘 잤어요';
 
   @override
   String get sleepTossed => '토드가 조금 뒤척였어요';
@@ -259,7 +259,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get diffSame => '지난주와 같은 요금이야';
 
   @override
-  String get notifNightReminder => '나 이제 자고 싶은데에.. 눈이 부셔..';
+  String get notifNightReminder => '나 이제 자고 싶은데.. 너무 밝다..';
 
   @override
   String get notifBillArrived => '지난주 청구서가 도착했어!';
@@ -336,25 +336,25 @@ class AppLocalizationsKo extends AppLocalizations {
   String get plusTitle => 'TODD PLUS';
 
   @override
-  String get plusHeroTitle => '우리, 조금 더\n가까워질까?';
+  String get plusHeroTitle => '우리 조금 더\n가까워져 볼까?';
 
   @override
   String get plusHeroThanks => '야호!\n우린 이제 한 팀이야';
 
   @override
-  String get plusFeatureColors => '방 조명 색 7가지 전부';
+  String get plusFeatureColors => '조명 색 7가지 변경';
 
   @override
-  String get plusFeatureColorsCaption => '하나 눌러 보세요 — 바로 바뀌어요 👇';
+  String get plusFeatureColorsCaption => '하나씩 직접 눌러봐! 👇';
 
   @override
   String get plusFeatureRecurrence => '반복 할 일 무제한';
 
   @override
-  String get plusFeatureRecurrenceCaption => '습관이 몇 개든 전부 담아요';
+  String get plusFeatureRecurrenceCaption => '일일이 신경 쓸 필요 없어!';
 
   @override
-  String get plusFeatureMore => '…그리고 계속 늘어날 거예요!';
+  String get plusFeatureMore => '…혜택이 계속해서 추가될 거래';
 
   @override
   String get plusMonthly => '월간';
@@ -372,7 +372,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get plusYearlyPrice => '₩29,000';
 
   @override
-  String get plusYearlyCaption => '한 달에 약 ₩2,400꼴';
+  String get plusYearlyCaption => '한 달에 약 ₩2,400';
 
   @override
   String get plusLifetime => '평생';
@@ -390,7 +390,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get plusCta => '토드와 함께하기';
 
   @override
-  String get plusCancelNote => '언제든 해지할 수 있어요';
+  String get plusCancelNote => '언제든 해지할 수 있어!';
 
   @override
   String get plusSettingsCaption => '토드와 더 가까워지기';
@@ -423,19 +423,23 @@ class AppLocalizationsKo extends AppLocalizations {
   String get haptics => '햅틱';
 
   @override
-  String get sectionDay => '토드의 하루';
+  String get sectionDay => '나의 하루';
 
   @override
   String get wakeTime => '기상시간';
 
   @override
-  String get wakeTimeCaption => '토드가 일어나면 새 하루가 시작돼';
+  String wakeTimeCaption(String time) {
+    return '토드는 $time에 일어나요';
+  }
 
   @override
   String get bedtime => '취침시간';
 
   @override
-  String get bedtimeCaption => '이 시각까지는 불을 다 꺼 줘야 해';
+  String bedtimeCaption(String time) {
+    return '토드는 $time에 자야 해요';
+  }
 
   @override
   String hourLabel(int hour) {
@@ -473,13 +477,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obNext => '다음';
 
   @override
-  String get obHelloSleepy => '안녕, 난 토..드..';
+  String get obHelloSleepy => '안녕, 난 토..ㄷ..';
 
   @override
   String get obHelloAwake => '앗 안녕! 난 토드야';
 
   @override
-  String get obHelloAwakeBody => '미안, 내가 잠이 좀 많은 편이거든..';
+  String get obHelloAwakeBody => '미안, 내가 잠이 좀 많은 편이거든...';
 
   @override
   String get obWakeToastTitle => '토드가 잠들어 버렸어요!';
@@ -501,7 +505,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obWakeAction => '토드 깨우기';
 
   @override
-  String get obNightTitle => '난 밤에 자야 하는데..';
+  String get obNightTitle => '밤이 되면 자야 하는데..';
 
   @override
   String get obNightBody => '빛이 너무 밝아서 잠들 수가 없어.\n할 일을 체크해서 불을 꺼줄래?';
@@ -552,7 +556,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obHabitsDefault => '물 2L 이상 마시기';
 
   @override
-  String get obReadyTitle => '나와 함께 하루를\n생산적으로 관리할\n준비 됐어?';
+  String get obReadyTitle => '하루를 생산적으로\n관리할 준비 됐어?';
 
   @override
   String get obReadyNo => '🥱 아니, 별로';
@@ -611,6 +615,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obGreetingNoName => '만나서 반가워!';
 
   @override
+  String get obNameToddCoincidence => '(엄청난 우연의 일치군..)';
+
+  @override
   String get obWidgetTitle => '참, 하나만 더..';
 
   @override
@@ -647,11 +654,11 @@ class AppLocalizationsKo extends AppLocalizations {
   String get taskTimeNone => '시간 없음';
 
   @override
-  String get notifTimedTitle => '10분 남았어!';
+  String get notifTimedTitle => '10분 전 알림!';
 
   @override
   String notifTimedBody(String title) {
-    return '...\"$title\" 말이야';
+    return '곧 \"$title\" 할 시간이야';
   }
 
   @override

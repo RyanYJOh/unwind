@@ -31,6 +31,13 @@ int toddBedtimeFrom(int userSleepHour) => (userSleepHour - 3 + 24) % 24;
 /// 유저 기상시각 → Todd 기상시간 = 하루의 경계 (1시간 먼저 일어난다)
 int toddWakeFrom(int userWakeHour) => (userWakeHour - 1 + 24) % 24;
 
+/// 이름이 Todd/토드와 같을 때 인사 화면 easter egg.
+bool isToddCoincidenceName(String name) {
+  final trimmed = name.trim();
+  if (trimmed.toLowerCase() == 'todd') return true;
+  return trimmed == '토드';
+}
+
 /// §6.6 온보딩 (전면 개편 2026-08-15) — 컨셉 소개 → 소등 체험 → 청구서 →
 /// 질문(매일 항목·취침/기상·이름) → 인사 → 위젯 안내. 계정 없음, 저장은
 /// 이름 직후 한 번 (플래그는 Got it 때).
@@ -49,6 +56,21 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   static const _pageCount = 12;
   static const _greetingPage = 10;
+
+  /// 온보딩 Pageview 이벤트 — PageView 인덱스(0-based). 질문 인트로(3)·
+  /// 인사(10)는 발주자 지정 범위 밖이라 없다.
+  static const _pageviewEvents = <int, String>{
+    0: 'Pageview onboarding-hello',
+    1: 'Pageview onboarding-demo',
+    2: 'Pageview onboarding-weekly-bill',
+    4: 'Pageview onboarding-initial-routine',
+    5: 'Pageview onboarding-bed-time',
+    6: 'Pageview onboarding-wake-time',
+    7: 'Pageview onboarding-todd-schedule',
+    8: 'Pageview onboarding-rating',
+    9: 'Pageview onboarding-name',
+    11: 'Pageview onboarding-widget',
+  };
 
   final _pageCtrl = PageController();
   int _page = 0;
@@ -92,6 +114,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    // PageView는 초기 페이지(0)에서 onPageChanged를 안 부른다
+    WidgetsBinding.instance.addPostFrameCallback((_) => _trackPageview(0));
+  }
+
+  @override
   void dispose() {
     _greetJoy?.cancel();
     _greetPermission?.cancel();
@@ -101,13 +130,26 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     super.dispose();
   }
 
+  void _trackPageview(int page) {
+    if (widget.preview) return;
+    final name = _pageviewEvents[page];
+    if (name != null) ToddAnalytics.track(name);
+  }
+
   void _onPageChanged(int p) {
     setState(() => _page = p);
+    _trackPageview(p);
     if (p == _greetingPage) {
       // 인사: 한 박자 뒤 까르르 → 0.5초 뒤 권한 → 위젯 안내로
       _greetJoy?.cancel();
       _greetPermission?.cancel();
       _greetDone?.cancel();
+      if (isToddCoincidenceName(_nameCtrl.text)) {
+        showUnwindToast(
+          context,
+          title: AppLocalizations.of(context).obNameToddCoincidence,
+        );
+      }
       _greetJoy = Timer(const Duration(milliseconds: 350), () {
         if (mounted) setState(() => _greetTick++);
       });
@@ -142,6 +184,37 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     );
   }
 
+  /// 매일 루틴 — "아직 없어" (프로필 initial to-do는 넣지 않는다)
+  void _habitsSkip() => _next();
+
+  /// 매일 루틴 — "다음" (입력·목록에 있는 항목만 프로필에)
+  void _habitsContinue(List<String> habits) {
+    if (!widget.preview && habits.isNotEmpty) {
+      ToddAnalytics.setProfile('initial to-do', habits);
+    }
+    _next();
+  }
+
+  void _bedTimeNext() {
+    if (!widget.preview) {
+      ToddAnalytics.setProfile(
+        'bed time',
+        ToddAnalytics.timeOfDay(_userSleepHour),
+      );
+    }
+    _next();
+  }
+
+  void _wakeTimeNext() {
+    if (!widget.preview) {
+      ToddAnalytics.setProfile(
+        'wake time',
+        ToddAnalytics.timeOfDay(_userWakeHour),
+      );
+    }
+    _next();
+  }
+
   /// 이름 페이지의 CTA — 답변을 커밋하고(미리보기는 건너뜀) 인사 페이지로.
   /// onboardingCompleted 플래그는 아직 세우지 않는다 — 세우는 순간
   /// main.dart의 home이 바뀌어 인사가 잘린다.
@@ -149,13 +222,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     if (!widget.preview) {
       final l10n = AppLocalizations.of(context);
       final ctrl = ref.read(settingsControllerProvider.notifier);
+      await ctrl.setUserBedtimeHour(_userSleepHour);
+      await ctrl.setUserWakeHour(_userWakeHour);
       await ctrl.setBedtimeHour(_toddBedtime);
       await ctrl.setWakeHour(_toddWake);
       final name = _nameCtrl.text.trim();
       if (name.isNotEmpty) {
         await ctrl.setUserName(name);
         // §8.8 — 프로필 표시 이름 반영 (발주자 지시 2026-08-22)
-        UnwindAnalytics.setProfile(r'$name', name);
+        ToddAnalytics.setProfile(r'$name', name);
       }
 
       // 매일 항목 → 매일 반복 규칙 (없다고 했으면 디폴트 하나)
@@ -277,7 +352,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                         habits: _habits,
                         autofocus: _page == 4,
                         onChanged: () => setState(() {}),
-                        onNext: _next,
+                        onSkip: _habitsSkip,
+                        onContinue: _habitsContinue,
                       ),
                       _HourQuestionPage(
                         title: l10n.obSleepQTitle,
@@ -288,7 +364,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                         resultText: (h) =>
                             l10n.obSleepQResult(l10n.hourLabel(toddBedtimeFrom(h))),
                         onChanged: (h) => setState(() => _userSleepHour = h),
-                        onNext: _next,
+                        onNext: _bedTimeNext,
                       ),
                       _HourQuestionPage(
                         title: l10n.obWakeQTitle,
@@ -298,14 +374,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                         resultText: (h) =>
                             l10n.obWakeQResult(l10n.hourLabel(toddWakeFrom(h))),
                         onChanged: (h) => setState(() => _userWakeHour = h),
-                        onNext: _next,
+                        onNext: _wakeTimeNext,
                       ),
                       _SchedulePage(
                         bedHour: _toddBedtime,
                         wakeHour: _toddWake,
                         onNext: _next,
                       ),
-                      _ReadyPage(onNext: _next),
+                      _ReadyPage(onNext: _next, preview: widget.preview),
                       _NamePage(
                         controller: _nameCtrl,
                         autofocus: _page == 9,
@@ -1136,12 +1212,14 @@ class _HabitsPage extends StatefulWidget {
   final List<String> habits;
   final bool autofocus;
   final VoidCallback onChanged;
-  final VoidCallback onNext;
+  final VoidCallback onSkip;
+  final void Function(List<String> habits) onContinue;
 
   const _HabitsPage({
     required this.habits,
     required this.onChanged,
-    required this.onNext,
+    required this.onSkip,
+    required this.onContinue,
     this.autofocus = false,
   });
 
@@ -1208,7 +1286,7 @@ class _HabitsPageState extends State<_HabitsPage> {
   /// "다음" — 쓰다 만 입력도 함께 저장하고 넘어간다
   void _submit() {
     if (_fieldHasText) _add();
-    widget.onNext();
+    widget.onContinue(List<String>.from(widget.habits));
   }
 
   @override
@@ -1291,7 +1369,7 @@ class _HabitsPageState extends State<_HabitsPage> {
         ],
       ),
       secondary: widget.habits.isEmpty && !_fieldHasText
-          ? UnwindButton.ghost(label: l10n.obHabitsNone, onPressed: widget.onNext)
+          ? UnwindButton.ghost(label: l10n.obHabitsNone, onPressed: widget.onSkip)
           : null,
       cta: l10n.obNext,
       ctaEnabled: widget.habits.isNotEmpty || _fieldHasText,
@@ -1631,8 +1709,9 @@ class _ScheduleRingPainter extends CustomPainter {
 /// 다음으로.
 class _ReadyPage extends ConsumerStatefulWidget {
   final VoidCallback onNext;
+  final bool preview;
 
-  const _ReadyPage({required this.onNext});
+  const _ReadyPage({required this.onNext, this.preview = false});
 
   @override
   ConsumerState<_ReadyPage> createState() => _ReadyPageState();
@@ -1651,9 +1730,24 @@ class _ReadyPageState extends ConsumerState<_ReadyPage> {
     });
   }
 
-  /// "아니, 별로" / "어느 정도" — 판단 없이 조용히 다음으로
-  void _chooseCalm() {
+  void _trackRating(int value) {
+    if (widget.preview) return;
+    ToddAnalytics.track('Click onboarding-rating', {'value': value});
+  }
+
+  /// "아니, 별로" — 판단 없이 조용히 다음으로
+  void _chooseNo() {
     if (_advancing) return;
+    _trackRating(1);
+    _advancing = true;
+    widget.onNext();
+    _unlockLater();
+  }
+
+  /// "어느 정도" — 판단 없이 조용히 다음으로
+  void _chooseSomewhat() {
+    if (_advancing) return;
+    _trackRating(2);
     _advancing = true;
     widget.onNext();
     _unlockLater();
@@ -1662,6 +1756,7 @@ class _ReadyPageState extends ConsumerState<_ReadyPage> {
   /// "응, 기대돼!" — Todd가 축하로 화답하고, 정점에서 별점 팝업.
   void _chooseExcited() {
     if (_advancing) return;
+    _trackRating(3);
     _advancing = true;
     ref.read(hapticsProvider).success();
     setState(() {
@@ -1705,10 +1800,10 @@ class _ReadyPageState extends ConsumerState<_ReadyPage> {
           const SizedBox(height: UnwindSpacing.s8),
           UnwindButton.secondary(
             label: l10n.obReadySomewhat,
-            onPressed: _chooseCalm,
+            onPressed: _chooseSomewhat,
           ),
           const SizedBox(height: UnwindSpacing.s8),
-          UnwindButton.secondary(label: l10n.obReadyNo, onPressed: _chooseCalm),
+          UnwindButton.secondary(label: l10n.obReadyNo, onPressed: _chooseNo),
         ],
       ),
     );

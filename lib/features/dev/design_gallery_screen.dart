@@ -178,6 +178,7 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
                 title: '아침 스트레칭',
                 timeLabel: '오전 9:00',
                 isOn: _lamp,
+                hasMemo: true,
                 switchSemanticsOn: 'On',
                 switchSemanticsOff: 'Off',
                 onToggle: () => setState(() => _lamp = !_lamp),

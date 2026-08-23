@@ -429,19 +429,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get haptics => 'Haptics';
 
   @override
-  String get sectionDay => 'Todd\'s day';
+  String get sectionDay => 'Your day';
 
   @override
   String get wakeTime => 'Wake-up time';
 
   @override
-  String get wakeTimeCaption => 'A new day begins when Todd wakes up';
+  String wakeTimeCaption(String time) {
+    return 'Todd wakes up at $time';
+  }
 
   @override
   String get bedtime => 'Bedtime';
 
   @override
-  String get bedtimeCaption => 'Todd needs the lights out by then';
+  String bedtimeCaption(String time) {
+    return 'Todd goes to sleep at $time';
+  }
 
   @override
   String hourLabel(int hour) {
@@ -511,7 +515,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obWakeAction => 'Wake Todd';
 
   @override
-  String get obNightTitle => 'I need to sleep but..';
+  String get obNightTitle => 'I gotta sleep but..';
 
   @override
   String get obNightBody =>
@@ -621,6 +625,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get obGreetingNoName => 'You\'re all set!';
+
+  @override
+  String get obNameToddCoincidence => '(What are the odds.. Todd?)';
 
   @override
   String get obWidgetTitle => 'Oh, one last thing...';

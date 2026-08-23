@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../core/haptics/haptics.dart';
+
 /// 타이프라이터 텍스트 (온보딩 2026-08-22) — 글자가 하나씩 나타나며
 /// 캐릭터가 직접 말을 거는 감각을 만든다.
 ///
@@ -12,6 +14,7 @@ import 'package:flutter/widgets.dart';
 ///   (졸린) 리듬**이 공짜로 생긴다.
 /// - [text]가 바뀌면 처음부터 다시 친다 (같은 자리에서 대사가 바뀌는 연출).
 /// - Reduce Motion이면 전체 문장을 즉시 보여주고 [onDone]을 바로 부른다.
+/// - 글자가 하나 나올 때마다 `UnwindHaptics.light` (설정이 꺼져 있으면 무음).
 /// - 스크린 리더에는 항상 **전체 문장**을 읽힌다 (부분 문자열이 아니라).
 class UnwindTypewriterText extends StatefulWidget {
   final String text;
@@ -123,6 +126,9 @@ class _UnwindTypewriterTextState extends State<UnwindTypewriterText> {
   void _advance() {
     if (!mounted) return;
     setState(() => _shown++);
+    // 글자가 찍힐 때마다 가벼운 틱 — 타이핑이 손에 닿는 감각
+    // (Reduce Motion·정적 모드는 _start가 즉시 끝내므로 여기 안 온다)
+    UnwindHapticsScope.of(context).light();
     widget.onAdvance?.call(_clusters.take(_shown).join());
     if (_shown >= _clusters.length) {
       widget.onDone?.call();

@@ -192,7 +192,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
       if (!ref.read(premiumProvider)) {
         final activeRules = await db.recurrenceDao.getActive();
         if (activeRules.length >= kFreeRecurrenceLimit) {
-          if (mounted) await showPaywall(context);
+          if (mounted) await showPaywall(context, from: 'repeat');
           return;
         }
       }
@@ -222,8 +222,18 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
       );
     }
 
-    // §8.8 — 첫 이벤트 (Mixpanel verify connection용, 발주자 지시 2026-08-22)
-    UnwindAnalytics.track('Click add-to-do');
+    // §8.8 — 새 To-do 저장 (편집 제외). repeat_type·time은 있을 때만.
+    ToddAnalytics.track(
+      'Click add-to-do',
+      ToddAnalytics.todoEventProps(
+        title: title,
+        targetDateKey: _dateKey,
+        hasMemo: memo.isNotEmpty,
+        isAutoPostpone: _autoDefer,
+        repeatType: _rule?.name,
+        scheduledTimeMinutes: _scheduledTimeMinutes,
+      ),
+    );
 
     // 저장하면 키보드와 함께 시트도 닫힌다 (개정 2026-08-12).
     // 확인 토스트는 없앴다 — 방에 등이 하나 늘어난 것이 곧 피드백이다.

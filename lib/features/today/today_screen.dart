@@ -5,6 +5,7 @@ import 'package:flutter/material.dart'
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/tokens/motion.dart';
 import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
@@ -206,6 +207,27 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       });
     }
     await repo.setDone(todo, done); // 동기 쓰기 → 스트림이 UI 갱신 (§3.2)
+
+    String? repeatType;
+    final recurrenceId = todo.recurrenceId;
+    if (recurrenceId != null) {
+      final db = ref.read(databaseProvider);
+      final rec = await (db.select(db.recurrences)
+            ..where((r) => r.id.equals(recurrenceId)))
+          .getSingleOrNull();
+      repeatType = rec?.rule.name;
+    }
+    ToddAnalytics.track(
+      'Click toggle-to-do',
+      ToddAnalytics.todoEventProps(
+        title: todo.title,
+        targetDateKey: todo.date,
+        hasMemo: todo.memo != null && todo.memo!.isNotEmpty,
+        isAutoPostpone: todo.recurrenceId == null && todo.autoDefer,
+        repeatType: repeatType,
+        scheduledTimeMinutes: todo.scheduledTimeMinutes,
+      ),
+    );
   }
 
   // ── Todd를 톡 건드리기 (개편 2026-08-12) ─────────────────────
@@ -233,7 +255,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   /// 월요일에만 지난주 청구서를 연다. 다른 요일이면 안내 영수증.
   Future<void> _openBill() async {
     final todayKey = ref.read(todayKeyProvider);
-    if (!isMondayKey(todayKey)) {
+    final accessible = isMondayKey(todayKey);
+    ToddAnalytics.track('Click weekly-bill', {'is_accessible': accessible});
+    if (!accessible) {
       if (!mounted) return;
       await showBillMondayOnly(context);
       return;
@@ -323,6 +347,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     // DB 기록 (개정 2026-08-15): 일괄 소등 = 일괄 완료 — 남은 등을 전부
     // 체크(done)하고 lightsOutAt/finalT를 기록한다 (§6.4)
     await repo.pullCord(todayKey, DateTime.now());
+    ToddAnalytics.track('Click pull-light-string', {
+      'target_date': ToddAnalytics.isoDate(todayKey),
+    });
 
     if (reduce) {
       _stars.value = 1.0;
@@ -638,6 +665,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       ),
       child: UnwindTodoTile(
         title: todo.title,
+        hasMemo: (todo.memo ?? '').trim().isNotEmpty,
         timeLabel: todo.scheduledTimeMinutes == null
             ? null
             : MaterialLocalizations.of(context).formatTimeOfDay(

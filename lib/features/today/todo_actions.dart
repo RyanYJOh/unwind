@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../data/db/database.dart';
 import '../../data/repositories/todo_repository.dart';
 import '../../ui/ui.dart';
@@ -50,6 +51,13 @@ Future<bool> deleteTodoWithUndo(
     final undo = deleteFuture
         ? await repo.removeRecurringFrom(todo)
         : await repo.remove(todo);
+    ToddAnalytics.track(
+      'Click delete-to-do',
+      {
+        'title': todo.title,
+        'target_date': ToddAnalytics.isoDate(todo.date),
+      },
+    );
     if (context.mounted) _showDeletedToast(context, todo, undo);
     return true;
   }
@@ -64,6 +72,13 @@ Future<bool> deleteTodoWithUndo(
     if (!ok || !context.mounted) return false;
   }
   final undo = await repo.remove(todo);
+  ToddAnalytics.track(
+    'Click delete-to-do',
+    {
+      'title': todo.title,
+      'target_date': ToddAnalytics.isoDate(todo.date),
+    },
+  );
   if (context.mounted) _showDeletedToast(context, todo, undo);
   return true;
 }

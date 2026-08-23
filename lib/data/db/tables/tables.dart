@@ -123,6 +123,12 @@ abstract final class SettingKeys {
   /// 취침 알림(nightReminderEnabled)은 이 시각 30분 전에 발송한다.
   static const bedtimeHour = 'bedtimeHour';
 
+  /// 유저 기상시간 (온보딩에서 받음). 없으면 Todd 기상 +1h 로 표시.
+  static const userWakeHour = 'userWakeHour';
+
+  /// 유저 취침시간 (온보딩에서 받음). 없으면 Todd 취침 +1h 로 표시.
+  static const userBedtimeHour = 'userBedtimeHour';
+
   /// Todd가 부르는 사용자 이름 (온보딩 2026-08-15). 없을 수 있다.
   static const userName = 'userName';
 

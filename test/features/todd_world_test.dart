@@ -85,6 +85,33 @@ void main() {
       expect(toddWakeFrom(4), 3);
       expect(toddWakeFrom(0), 23);
     });
+
+    test('유저 시각이 없으면 Todd +1h 로 보여 준다', () {
+      const s = UnwindSettings(wakeHour: 5, bedtimeHour: 22);
+      expect(s.userWakeHour, isNull);
+      expect(s.userBedtimeHour, isNull);
+      expect(s.displayUserWakeHour, 6);
+      expect(s.displayUserBedtimeHour, 23);
+      const stored = UnwindSettings(
+        wakeHour: 6,
+        bedtimeHour: 20,
+        userWakeHour: 7,
+        userBedtimeHour: 23,
+      );
+      expect(stored.displayUserWakeHour, 7);
+      expect(stored.displayUserBedtimeHour, 23);
+    });
+  });
+
+  group('이름 easter egg', () {
+    test('Todd/토드만 우연의 일치로 본다', () {
+      expect(isToddCoincidenceName('Todd'), isTrue);
+      expect(isToddCoincidenceName('todd'), isTrue);
+      expect(isToddCoincidenceName('  Todd  '), isTrue);
+      expect(isToddCoincidenceName('토드'), isTrue);
+      expect(isToddCoincidenceName('Ryan'), isFalse);
+      expect(isToddCoincidenceName('토드야'), isFalse);
+    });
   });
 
   group('다크서클 (전날 불을 남긴 밤)', () {
