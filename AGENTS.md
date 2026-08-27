@@ -35,7 +35,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 143개 통과가 기준선
+flutter analyze && flutter test                           # 146개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
 ```
@@ -94,6 +94,12 @@ lib/
 - `todayKeyProvider` — **실제 오늘** (기상시간 기본 05시 기준 롤오버).
   취침 알림·청구서 생성·반복 전개 등 **서비스**는 전부 이쪽
   (`todayTodosProvider`/`todayDayProvider`).
+  **경계를 타이머 하나에 맡기지 않는다** (2026-08-27): iOS는 suspend 중
+  Dart 타이머를 얼리고 기기가 잠들면 모노토닉 시계도 멈춰, 밤을 넘긴 뒤
+  resume해도 5시 타이머가 영영 안 터질 수 있다 — 그러면 todayKey가 어제에
+  고착돼 위젯이 "Good morning"에 갇힌다 (앱 안은 자기일관이라 티가 안 남).
+  `DayRolloverService.checkNow`가 벽시계 기준으로 재검사한다 — 앱 resume
+  (main.dart AppLifecycleListener)과 1분 시계(clockProvider listen)마다.
 - `selectedDateProvider`(null=오늘 따라감) → `viewedDayKeyProvider` — **화면이
   보여주는 날짜**. 하단 스트립에서 과거 날짜를 고르면 홈 전체(리스트·조도·
   Todd·타이틀)가 그 날짜의 방으로 바뀐다. 화면용 데이터는
@@ -203,7 +209,7 @@ lib/
 | `UnwindButton` | primary/secondary/danger/ghost · CTA 56pt, small 44pt |
 | `UnwindIconButton` | plain/filled/accent — 항상 44pt 이상 |
 | `UnwindCard` · `UnwindSectionLabel` · `UnwindDivider` | 면과 구분 |
-| `UnwindTodoTile` | 할 일 하나 = 등 하나 (타일 + 벽 스위치). `readOnlySwitch`면 우측이 비고 테두리로만 구분. `hasMemo`면 제목 끝에 작은 노트 아이콘 |
+| `UnwindTodoTile` | 할 일 하나 = 등 하나 (타일 + 벽 스위치). `readOnlySwitch`면 우측이 비고 테두리로만 구분. `hasMemo`면 제목 끝에 작은 노트 아이콘, `hasRepeat`면 반복 아이콘 (같은 문법, 2026-08-27) |
 | `UnwindLampSwitch` / `UnwindToggle` | 세로 벽 로커 / 가로 설정 토글 |
 | `UnwindTextField` | 포커스 시 테두리가 앰버로 |
 | `UnwindChip` | **선택** 알약 (반복 등 상호배타 선택 전용) |
@@ -436,10 +442,14 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
   ① Todd 상태(카드, 이미지+문구 한 줄) ② 완수한 일 `n / m`(가장 낮음)
   ③ 전기요금(요일별 합산, 메인).
   요금은 **밤에 남긴 등**만 본다: 등 하나 × 취침~기상(기본 7h) × 0.06kWh.
-  표시 통화는 **기기 지역** (한화·달러·유로 등). 단가는 재미용 **100배**
-  (한국 15,200원/kWh). 하루를 닫으면
+  표시 통화는 **기기 지역** (한화·달러·유로 등). 단가는 재미용 **50배**
+  (한국 7,600원/kWh — 개정 2026-08-27: 100배가 과하게 느껴져 전 통화
+  절반 인하). 하루를 닫으면
   (소등·전부 완료·빈 방) 그날 0. **7일을 모두 닫으면 주간 총액 0.**
-  기본료는 없다. Todd 수면 등급은
+  기본료는 없다. **총액 바로 아래에 지난주 대비 증감**을 색+화살표로
+  보여준다 (2026-08-27 — Todd 카드 캡션에서 이동. 지난주 청구서가 없으면
+  그리지 않는다. 한국어 문구는 예외적으로 경어체 "~많아요/적어요").
+  Todd 수면 등급은
   소등한 밤/7 — 100% perfect / 80~100% fine / 50~80% tossed /
   20~50% barely / 20% 미만 awake. bill_calculator는 순수 로직 + 테스트
   필수. 월요일 09:00 알림.
@@ -457,6 +467,23 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
   본문 "...for \"{할 일}\"") ④ 청구서 (월요일 09:00). Todo 알림은 실제 기기 타임존을 사용하고, 완료·삭제·
   시간 제거·오늘 소등 시 취소한다. 권한 요청은 온보딩 인사 화면 도착
   0.5초 후.
+  **+ 위젯 설치 넛지 (1회성, 2026-08-27, 발주자 지시)**: 홈에서 **첫
+  To-do를 저장**했을 때(compose 시트 — 편집·온보딩 루틴 제외) 홈 위젯이
+  없으면 **5분 뒤** "토드를 위젯과 함께 써봐!" 푸시 한 번
+  (`maybeScheduleWidgetNudge`, 설정 키 `widgetNudgeDone`). 이미 설치돼
+  있었으면 넛지 없이 종결, 조회 실패면 다음 저장 때 재시도. 5분 안에
+  설치를 마치면 resume의 has_widget 감지가 예약을 거둬 간다. 1회성이라
+  설정 > 푸시 토글은 없다. **+ 시간을 정해 저장할 때** 기기 권한이 꺼져 있으면 입력
+  시트가 안내 확인 → OS 요청을 띄운다 (2026-08-27, compose_sheet —
+  OS가 이미 거부 상태면 **두 번째 시트**의 "설정 열기" CTA가
+  `unwind/system_settings` 네이티브 채널로 설정 앱의 이 앱 알림 화면을
+  연다. 토스트는 한 줄이라 문구가 잘려 폐기).
+  **문구 언어 (2026-08-27)**: 앱 언어가 한국어인데 푸시가 영어로 오던
+  버그의 원인은 둘 — ① 설정(DB) 로드 전에 스케줄러가 돌면 languageCode
+  폴백 'en'으로 예약됐다 → 모든 스케줄러는 **설정 로드 전에는 예약하지
+  않는다** ② 언어 변경·로드 직후 옛 문구 패스와 새 패스가 인터리브되면
+  먼저 시작한 옛 패스가 나중에 끝나 이겼다 → NotificationService의 모든
+  예약·취소는 **내부 큐로 직렬화**된다 (`_enqueue`).
 - **반복**: 규칙 저장 → recurrence_expander가 롤오버마다 인스턴스 생성.
   주간/월간 라벨은 선택 날짜 기준 `Every Monday`/`Every 3rd`처럼 표시하며,
   규칙의 지정 시간은 모든 생성 회차에 전파한다.
@@ -585,7 +612,13 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   스트림이 잇달아 방출돼 리로드가 연달아 나가면, WidgetKit이 진행 중인
   타임라인 생성에 뒤 리로드를 합쳐 버려(coalescing) 옛 개수가 최종본으로
   남는 간헐 이슈가 있었다 — 버스트당 한 번만 쓰고 리로드도
-  `reloadTimelines(ofKind:)` 하나만 쏜다. 백그라운드 진입(onInactive) 땐
+  `reloadTimelines(ofKind:)` 하나만 쏜다.
+  **+ 확인 리로드** (2026-08-27): 디바운스는 180ms 안의 버스트만 합친다 —
+  몇 초 간격의 연속 체크는 여전히 coalescing 경쟁에 걸려 밤에 끈 등이
+  위젯 개수에 안 실리곤 했다. 마지막 write 2.5초 뒤 리로드만 한 번 더
+  쏴서(`reload` 채널 메서드) 최종 스냅샷을 확정한다. 브리지는 파일 write가
+  실패하면 옛 파일을 지운다 — 남겨 두면 방금 쓴 defaults 폴백을 파일이
+  가려 낡은 개수로 고정된다. 백그라운드 진입(onInactive) 땐
   `flushWidgetSnapshot`이 DB를 직접 읽어 **즉시** 쓴다 (suspend되면
   디바운스 타이머가 언다). 위젯은 파일을 먼저 읽고 UserDefaults는
   폴백. 키·의미는 `widget_snapshot_service.dart` ↔ `ToddWidget.swift`가
@@ -609,7 +642,9 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   상태만** 보여준다. 어제 불을 남겼으면(미완+미소등) 다크서클은 추론해 얹는다.
 - **⚠️ 실기기에서만 나는 함정 (2026-08-16)**: 위젯이 "Good morning"에서 안
   바뀌는 증상은 `computeState(snapshot: nil)` 폴백이다 — **시뮬레이터에선
-  절대 재현되지 않는다** (시뮬레이터엔 데이터 보호가 없다). 두 가지를 지킬 것.
+  절대 재현되지 않는다** (시뮬레이터엔 데이터 보호가 없다). 같은 증상의
+  세 번째 원인은 앱 쪽 dayKey 고착이다 (§4 checkNow, 2026-08-27) — 앱을
+  열어도 계속 아침 인사면 스냅샷의 dayKey가 어제인지부터 볼 것. 두 가지를 지킬 것.
   ① 스냅샷 파일은 **반드시 `.completeFileProtectionUntilFirstUserAuthentication`**
   으로 쓴다. 기본 보호 등급이면 잠긴 기기에서 타임라인이 생성될 때 읽기가
   실패한다 (UserDefaults 폴백도 같은 이유로 막힌다).
@@ -736,6 +771,7 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 | `initial to-do` | List\<string\> | 온보딩 루틴 "다음" ("아직 없어"는 **생략**) |
 | `bed time` | DateTime | 온보딩 취침 "다음" · 설정 취침 저장 |
 | `wake time` | DateTime | 온보딩 기상 "다음" · 설정 기상 저장 |
+| `has_widget` | bool | 앱 시작·resume마다 `WidgetCenter` 조회 (발주자 지정 키, 2026-08-27). 값이 바뀌었을 때만 전송, 조회 실패(null)면 미전송 — `WidgetSnapshotService.reportPresence` |
 
 ### 코드 헬퍼 (`ToddAnalytics`)
 
@@ -762,12 +798,19 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   작업 시 여기서 검증한다.
 - 설정 > **Full reset (dev)**.
 - `features/today/m0_prototype_screen.dart` — 온보딩 2단계가 재사용 (보존).
+- **앱스토어 스크린샷 추출** (2026-08-27, 발주자 컨펌):
+  `SHOT_EXPORT=1 flutter test test/tools/appstore_shot_export_test.dart`
+  → `build/appstore/{en,ko}/0N_*.png` 8장 (1320×2868, 6.9"). 4프레임 카피·
+  구성은 테스트 파일 상단 `_copies`가 정본. 폰 목업 내부는 실제 앱 위젯을
+  스테이징해 캡처하므로 **UI가 바뀌면 재추출만 하면 스크린샷이 따라온다**.
+  `SHOT_ONLY=ko2`처럼 한 장만 다시 굽는다. 평소 flutter test에서는 skip.
 
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **143개** 전부 통과가 기준선 (2026-08-23 Mixpanel +2·
-   아침 인사 개수 +1. 2026-08-22 Plus 게이트 +3·조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
+2. `flutter test` — **146개** 전부 통과가 기준선 (2026-08-27 롤오버 checkNow
+   +2. 2026-08-23 Mixpanel +2·아침 인사 개수 +1. 2026-08-22 Plus 게이트
+   +3·조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
    +5. 이전 126: 주간 미완료 필터, 125: 위젯 스냅샷 +3, 122: 현지 통화).
    UI 변경 시 위젯 테스트가 히트 영역 겹침·오버플로 같은 실제 버그를 잡아 온
    전적이 있다.
