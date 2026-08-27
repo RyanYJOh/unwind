@@ -147,6 +147,41 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
     if (picked != null && mounted) setState(() => _dateKey = picked);
   }
 
+  /// 시간 지정 알림(§10 ③)은 기기 권한이 꺼져 있으면 도착하지 않는다 —
+  /// 시간을 정해 저장하는 바로 그 순간이 권한을 청할 자리다 (2026-08-27).
+  /// 안내 시트에서 수락하면 OS 요청을 띄우고, OS가 이미 거부 상태라
+  /// 다이얼로그가 다시 뜨지 않으면 **두 번째 시트**로 설정 앱을 안내한다
+  /// (토스트는 한 줄이라 문구가 잘려 폐기 — 발주자 지시 2026-08-27).
+  Future<void> _promptReminderPermissionIfNeeded() async {
+    if (_scheduledTimeMinutes == null) return;
+    final service = ref.read(notificationServiceProvider);
+    if (await service.permissionEnabled()) return;
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final allow = await showUnwindConfirm(
+      context,
+      title: l10n.notifPermissionTitle,
+      message: l10n.notifPermissionBody,
+      confirmLabel: l10n.notifPermissionConfirm,
+      cancelLabel: l10n.notifPermissionLater,
+      destructive: false,
+    );
+    if (!allow) return;
+    final granted = await service.requestPermission();
+    if (granted || !mounted) return;
+    // OS에서 이미 거부된 상태 — 요청 다이얼로그가 다시 뜨지 않으니
+    // 설정 앱의 이 앱 알림 화면으로 바로 보내는 CTA를 단다 (2026-08-27).
+    final open = await showUnwindConfirm(
+      context,
+      title: l10n.notifPermissionSettingsTitle,
+      message: l10n.notifPermissionSettingsBody,
+      confirmLabel: l10n.notifPermissionOpenSettings,
+      cancelLabel: l10n.notifPermissionLater,
+      destructive: false,
+    );
+    if (open) await service.openSystemNotificationSettings();
+  }
+
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
@@ -177,6 +212,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
               updateScheduledTime: true,
             );
       }
+      await _promptReminderPermissionIfNeeded();
       if (mounted) Navigator.of(context).pop();
       return;
     }
@@ -234,6 +270,11 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
         scheduledTimeMinutes: _scheduledTimeMinutes,
       ),
     );
+
+    // 첫 To-do 저장이면: 위젯 미설치 시 5분 뒤 설치 넛지 (1회성, 2026-08-27)
+    await maybeScheduleWidgetNudge(ref);
+
+    await _promptReminderPermissionIfNeeded();
 
     // 저장하면 키보드와 함께 시트도 닫힌다 (개정 2026-08-12).
     // 확인 토스트는 없앴다 — 방에 등이 하나 늘어난 것이 곧 피드백이다.
