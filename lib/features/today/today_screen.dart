@@ -666,6 +666,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       child: UnwindTodoTile(
         title: todo.title,
         hasMemo: (todo.memo ?? '').trim().isNotEmpty,
+        hasRepeat: todo.recurrenceId != null,
         timeLabel: todo.scheduledTimeMinutes == null
             ? null
             : MaterialLocalizations.of(context).formatTimeOfDay(

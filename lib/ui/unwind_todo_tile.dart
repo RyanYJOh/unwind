@@ -46,6 +46,10 @@ class UnwindTodoTile extends StatelessWidget {
   /// 존재만 알린다 (홈 2026-08-23).
   final bool hasMemo;
 
+  /// 반복 항목이면 제목 끝에 작은 반복 아이콘을 단다 — 메모 아이콘과 같은
+  /// 문법 (2026-08-27). 규칙 내용이 아니라 반복이라는 사실만 알린다.
+  final bool hasRepeat;
+
   const UnwindTodoTile({
     super.key,
     required this.title,
@@ -60,6 +64,7 @@ class UnwindTodoTile extends StatelessWidget {
     this.lit = 1.0,
     this.readOnlySwitch = false,
     this.hasMemo = false,
+    this.hasRepeat = false,
   });
 
   @override
@@ -147,6 +152,20 @@ class UnwindTodoTile extends StatelessWidget {
                                 ),
                                 child: Icon(
                                   Icons.sticky_note_2_rounded,
+                                  size: 12,
+                                  color: UnwindColors.textMuted,
+                                ),
+                              ),
+                            ),
+                          if (hasRepeat)
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  left: UnwindSpacing.s4,
+                                ),
+                                child: Icon(
+                                  Icons.repeat_rounded,
                                   size: 12,
                                   color: UnwindColors.textMuted,
                                 ),

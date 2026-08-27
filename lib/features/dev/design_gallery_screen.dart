@@ -193,6 +193,16 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
                 onToggle: () {},
                 onTap: () {},
               ),
+              // 반복 항목 — 제목 끝 반복 아이콘 (메모 아이콘과 같은 문법)
+              UnwindTodoTile(
+                title: '물 2L 마시기',
+                isOn: true,
+                hasRepeat: true,
+                switchSemanticsOn: 'On',
+                switchSemanticsOff: 'Off',
+                onToggle: () {},
+                onTap: () {},
+              ),
               // 읽기 전용 (주간 뷰) — 우측이 비고 테두리로만 구분
               UnwindTodoTile(
                 title: '주간 뷰: 테두리로만 구분',
