@@ -121,9 +121,32 @@ class _WidgetSyncState extends ConsumerState<_WidgetSync> {
     // invalidate는 캐시된 스트림 값으로 다시 쓰는 방식이라, 변이 직후
     // 바로 나가면 아직 안 따라온 옛 값을 쓸 수 있었다. 디바운스 중인
     // 스냅샷도 이 플러시가 확정한다 (suspend되면 타이머가 언다).
+    //
+    // resume 시엔 날짜 경계부터 재검사한다 (2026-08-27): 5시 롤오버
+    // 타이머는 suspend로 얼고 기기 잠들기로 모노토닉 결손이 쌓여, 밤을
+    // 넘긴 뒤 앱을 다시 열어도 안 터질 수 있다. 그러면 todayKey가 어제에
+    // 고착돼 위젯이 "Good morning"에서 영영 안 벗어난다.
     _lifecycle = AppLifecycleListener(
+      onResume: () {
+        ref.read(todayKeyProvider.notifier).checkNow();
+        _reportWidgetPresence();
+      },
       onInactive: () => flushWidgetSnapshot(ref),
     );
+    // 콜드 스타트에서도 한 번 — resume 콜백은 상태 전이 때만 온다
+    _reportWidgetPresence();
+  }
+
+  /// 위젯 설치 여부 → Mixpanel has_widget (값이 바뀌었을 때만 전송).
+  /// 위젯이 있으면 대기 중인 설치 넛지 푸시도 거둬 간다 — 예약 후 5분
+  /// 안에 설치를 마친 유저에게 뒷북 안내를 보내지 않는다 (2026-08-27).
+  Future<void> _reportWidgetPresence() async {
+    final present = await ref
+        .read(widgetSnapshotServiceProvider)
+        .reportPresence();
+    if (present == true) {
+      await ref.read(notificationServiceProvider).cancelWidgetNudge();
+    }
   }
 
   @override

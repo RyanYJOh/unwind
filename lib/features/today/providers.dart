@@ -72,8 +72,19 @@ final todayKeyProvider = NotifierProvider<TodayKeyNotifier, String>(
 class TodayKeyNotifier extends Notifier<String> {
   DayRolloverService? _service;
 
+  /// 벽시계 기준으로 날짜 경계를 재검사한다 — 앱 resume 시(main.dart)와
+  /// 1분 시계마다 부른다. 5시 타이머는 suspend·기기 잠들기로 얼 수 있어
+  /// 타이머 하나에 경계를 맡기면 위젯·앱이 어제 dayKey에 고착된다.
+  Future<void> checkNow() async => _service?.checkNow();
+
   @override
   String build() {
+    // 1분마다 경계 재검사 (시간대 전환·타이머 결손 자가 회복).
+    // watch가 아니라 listen — 시계가 뛸 때마다 notifier를 재생성하지 않는다.
+    ref.listen(clockProvider, (_, next) {
+      final now = next.value;
+      if (now != null) _service?.checkNow(now);
+    });
     final dayStart = ref.watch(wakeHourProvider);
     final expander = ref.watch(recurrenceExpanderProvider);
     final service = DayRolloverService(
@@ -343,6 +354,29 @@ Future<void> flushWidgetSnapshot(WidgetRef ref) async {
       );
 }
 
+/// 위젯 설치 넛지 (2026-08-27, 발주자 지시): **첫 To-do 저장** 직후 홈
+/// 위젯이 없으면 5분 뒤 로컬 푸시로 설치를 안내한다 (1회성).
+/// compose 시트의 새 To-do 저장 성공 경로가 부른다 (편집 제외 —
+/// 온보딩 루틴은 시트를 거치지 않으므로 홈에서의 첫 입력이 기준).
+/// 조회 실패(null)면 플래그를 남기지 않아 다음 저장 때 재시도한다.
+Future<void> maybeScheduleWidgetNudge(WidgetRef ref) async {
+  final settings = ref.read(settingsControllerProvider).value;
+  if (settings == null || settings.widgetNudgeDone) return;
+  final present = await ref.read(widgetSnapshotServiceProvider).hasWidget();
+  if (present == null) return; // 모름 (비 iOS·조회 실패) — 판정 보류
+  if (!present) {
+    final l10n = lookupAppLocalizations(Locale(settings.languageCode));
+    await ref
+        .read(notificationServiceProvider)
+        .scheduleWidgetNudge(
+          title: l10n.widgetNudgeTitle,
+          body: l10n.widgetNudgeBody,
+        );
+  }
+  // 이미 설치돼 있었으면 넛지 없이 종결 — 어느 쪽이든 1회로 끝낸다
+  await ref.read(settingsControllerProvider.notifier).setWidgetNudgeDone();
+}
+
 /// 입력 시트의 기본 날짜 (§6.1): 취침 후엔 내일
 final composeDefaultDateProvider = Provider<String>((ref) {
   final todayKey = ref.watch(todayKeyProvider);
@@ -502,8 +536,12 @@ String _morningGreetingBody(Ref ref, int pending) {
 
 void _syncBillNotification(Ref ref, NotificationService service) {
   final settings = ref.read(settingsControllerProvider).value;
+  // 설정 로드 전에는 예약하지 않는다 (2026-08-27): 이때 예약하면 언어가
+  // 폴백('en')으로 굳어 앱 언어와 다른 문구가 나간다. 로드가 끝나면
+  // notificationServiceProvider의 listener가 다시 부른다.
+  if (settings == null) return;
   service.scheduleBillNotification(
-    enabled: settings?.billNotificationEnabled ?? true,
+    enabled: settings.billNotificationEnabled,
     body: _l10nFor(ref).notifBillArrived,
   );
 }
@@ -548,8 +586,10 @@ final _morningGreetingFireKeyProvider = Provider<String>((ref) {
 /// TodayScreen이 watch하는 것으로 활성화된다.
 final morningGreetingSchedulerProvider = Provider<void>((ref) {
   final service = ref.watch(notificationServiceProvider);
-  final settings =
-      ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
+  // 설정 로드 전에는 예약하지 않는다 (2026-08-27) — 기본값('en')으로
+  // 예약된 문구가 앱 언어와 어긋난다. 로드가 끝나면 다시 돈다.
+  final settings = ref.watch(settingsControllerProvider).value;
+  if (settings == null) return;
   if (!settings.morningGreetingEnabled) {
     service.scheduleMorningGreeting(
       enabled: false,
@@ -583,8 +623,9 @@ final nightReminderSchedulerProvider = Provider<void>((ref) {
 
   final pending = todos.where((t) => t.status == TodoStatus.pending).length;
   final pulled = day?.lightsOutAt != null;
-  final settings =
-      ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
+  // 설정 로드 전에는 예약하지 않는다 (2026-08-27) — 언어 폴백 방지
+  final settings = ref.watch(settingsControllerProvider).value;
+  if (settings == null) return;
 
   if (settings.nightReminderEnabled && pending > 0 && !pulled) {
     final l10n = _l10nFor(ref);
@@ -605,8 +646,9 @@ final todoReminderSchedulerProvider = Provider<void>((ref) {
   final today = ref.watch(todayKeyProvider);
   final todayDay = ref.watch(todayDayProvider).value;
   final dayStartHour = ref.watch(wakeHourProvider);
-  final settings =
-      ref.watch(settingsControllerProvider).value ?? const UnwindSettings();
+  // 설정 로드 전에는 예약하지 않는다 (2026-08-27) — 언어 폴백 방지
+  final settings = ref.watch(settingsControllerProvider).value;
+  if (settings == null) return;
   if (todos == null) return;
 
   if (!settings.todoReminderEnabled) {

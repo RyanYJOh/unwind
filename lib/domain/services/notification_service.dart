@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -87,6 +88,7 @@ class NotificationService {
   static const _nightReminderId = 1;
   static const _billId = 2;
   static const _morningId = 3;
+  static const _widgetNudgeId = 4;
   static const _todoIdFloor = 1000;
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -96,6 +98,19 @@ class NotificationService {
   final void Function(String payload)? onTap;
 
   bool _initialized = false;
+
+  /// 예약·취소 직렬화 큐 (2026-08-27). 언어 변경·설정 로드 직후에는 옛
+  /// 문구 패스와 새 문구 패스가 잇달아 나가는데, 각 메서드가 내부에서
+  /// 여러 번 await하므로 두 패스가 인터리브되면 **먼저 시작한 옛(영어)
+  /// 패스가 나중에 끝나 이기는** 경합이 있었다 — 앱 언어가 한국어인데
+  /// 푸시가 영어로 오던 원인. 모든 변이는 이 큐에 한 줄로 세운다.
+  Future<void> _serial = Future.value();
+
+  Future<void> _enqueue(Future<void> Function() op) {
+    final next = _serial.then((_) => op());
+    _serial = next.catchError((_) {});
+    return next;
+  }
 
   NotificationService({this.onTap});
 
@@ -155,12 +170,64 @@ class NotificationService {
     }
   }
 
+  /// 기기 알림 권한이 켜져 있는가 (2026-08-27 — 시간 지정 Todo 저장 시
+  /// 권한 프롬프트의 근거). 판단할 수 없는 환경(테스트 등)은 true로 쳐서
+  /// 쓸데없이 조르지 않는다.
+  Future<bool> permissionEnabled() async {
+    await init();
+    if (!_initialized) return true;
+    try {
+      final ios = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      if (ios != null) {
+        final permissions = await ios.checkPermissions();
+        return permissions?.isEnabled ?? false;
+      }
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      return await android?.areNotificationsEnabled() ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  static const _systemSettingsChannel = MethodChannel('unwind/system_settings');
+
+  /// 설정 앱의 이 앱 알림 화면을 연다 (2026-08-27) — OS 권한이 거부로
+  /// 고착돼 요청 다이얼로그가 다시 뜨지 않을 때, 안내 토스트의
+  /// "설정 열기" CTA가 부른다. 네이티브는 AppDelegate의
+  /// `unwind/system_settings` 채널 (iOS 전용 — 채널이 없으면 false).
+  Future<bool> openSystemNotificationSettings() async {
+    try {
+      return await _systemSettingsChannel.invokeMethod<bool>(
+            'openNotificationSettings',
+          ) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 밤 리마인더 (§10): 오늘 lightsOutAt이 없고 pending이 1개 이상일 때만.
   /// 조건은 호출자가 판단해 매일 갱신한다 — 조건이 깨지면 [cancelNightReminder].
   /// 발송은 Todd 취침시간 [bedtimeHour]의 30분 전. 오늘 그 시각이 지났으면
   /// 보내지 않는다 (내일 조건은 내일 앱이 열릴 때 다시 판정).
   /// [body]는 호출 시점의 앱 언어로 로컬라이즈해 전달한다.
   Future<void> scheduleNightReminder({
+    required String title,
+    required int bedtimeHour,
+    required String body,
+  }) => _enqueue(() => _scheduleNightReminder(
+    title: title,
+    bedtimeHour: bedtimeHour,
+    body: body,
+  ));
+
+  Future<void> _scheduleNightReminder({
     required String title,
     required int bedtimeHour,
     required String body,
@@ -194,16 +261,26 @@ class NotificationService {
     );
   }
 
-  Future<void> cancelNightReminder() async {
+  Future<void> cancelNightReminder() => _enqueue(() async {
     await init();
     if (!_initialized) return;
     await _plugin.cancel(id: _nightReminderId);
-  }
+  });
 
   /// 아침 인사: Todd 기상시간 1시간 뒤, 매일 반복.
   /// 조건 없이 반기는 알림이라 OS가 시각만 맞추면 된다.
   Future<void> scheduleMorningGreeting({
     bool enabled = true,
+    required int wakeHour,
+    required String body,
+  }) => _enqueue(() => _scheduleMorningGreeting(
+    enabled: enabled,
+    wakeHour: wakeHour,
+    body: body,
+  ));
+
+  Future<void> _scheduleMorningGreeting({
+    required bool enabled,
     required int wakeHour,
     required String body,
   }) async {
@@ -242,6 +319,11 @@ class NotificationService {
   Future<void> scheduleBillNotification({
     bool enabled = true,
     required String body,
+  }) => _enqueue(() => _scheduleBillNotification(enabled: enabled, body: body));
+
+  Future<void> _scheduleBillNotification({
+    required bool enabled,
+    required String body,
   }) async {
     await init();
     if (!_initialized) return;
@@ -268,6 +350,35 @@ class NotificationService {
     );
   }
 
+  /// 위젯 설치 넛지 (2026-08-27, 1회성): 첫 To-do 저장 시 홈 위젯이 없으면
+  /// [delay](기본 5분) 뒤 설치 안내 한 번. 그 사이 위젯을 설치하면
+  /// resume 감지가 [cancelWidgetNudge]로 거둬 간다.
+  Future<void> scheduleWidgetNudge({
+    required String title,
+    required String body,
+    Duration delay = const Duration(minutes: 5),
+  }) => _enqueue(() async {
+    await init();
+    if (!_initialized) return;
+    await _plugin.zonedSchedule(
+      id: _widgetNudgeId,
+      title: title,
+      body: body,
+      scheduledDate: tz.TZDateTime.now(tz.local).add(delay),
+      notificationDetails: const NotificationDetails(
+        iOS: DarwinNotificationDetails(presentSound: false),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: 'home',
+    );
+  });
+
+  Future<void> cancelWidgetNudge() => _enqueue(() async {
+    await init();
+    if (!_initialized) return;
+    await _plugin.cancel(id: _widgetNudgeId);
+  });
+
   static int todoNotificationId(String todoId) {
     var hash = 0x811c9dc5;
     for (final unit in todoId.codeUnits) {
@@ -277,14 +388,26 @@ class NotificationService {
     return _todoIdFloor + hash;
   }
 
-  Future<void> cancelTodoReminder(String todoId) async {
+  Future<void> cancelTodoReminder(String todoId) => _enqueue(() async {
     await init();
     if (!_initialized) return;
     await _plugin.cancel(id: todoNotificationId(todoId));
-  }
+  });
 
   /// 가장 가까운 회차만 유지해 iOS의 보류 알림 개수 제한을 넘지 않는다.
   Future<void> syncTodoReminders({
+    required Iterable<TodoReminder> reminders,
+    required String title,
+    required String Function(String todoTitle) bodyFor,
+    DateTime? now,
+  }) => _enqueue(() => _syncTodoReminders(
+    reminders: reminders,
+    title: title,
+    bodyFor: bodyFor,
+    now: now,
+  ));
+
+  Future<void> _syncTodoReminders({
     required Iterable<TodoReminder> reminders,
     required String title,
     required String Function(String todoTitle) bodyFor,

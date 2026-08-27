@@ -247,16 +247,16 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String diffLess(String amount) {
-    return '지난주보다 $amount 적어';
+    return '지난주보다 $amount 적어요';
   }
 
   @override
   String diffMore(String amount) {
-    return '지난주보다 $amount 많아';
+    return '지난주보다 $amount 많아요';
   }
 
   @override
-  String get diffSame => '지난주와 같은 요금이야';
+  String get diffSame => '지난주와 같은 요금이에요';
 
   @override
   String get notifNightReminder => '나 이제 자고 싶은데.. 너무 밝다..';
@@ -281,6 +281,34 @@ class AppLocalizationsKo extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get widgetNudgeTitle => '토드를 위젯과 함께 써봐!';
+
+  @override
+  String get widgetNudgeBody => '홈 화면을 꾹 누르면 위젯을 추가할 수 있어 👻';
+
+  @override
+  String get notifPermissionTitle => '알림을 켜 둘래?';
+
+  @override
+  String get notifPermissionBody => '기기 알림 권한이 꺼져 있어서, 정해 둔 시간에 알려줄 수가 없어.';
+
+  @override
+  String get notifPermissionConfirm => '알림 켜기';
+
+  @override
+  String get notifPermissionLater => '나중에';
+
+  @override
+  String get notifPermissionSettingsTitle => '설정으로 데려다줄게!';
+
+  @override
+  String get notifPermissionSettingsBody =>
+      '거기서 내 알림이 꺼져 있더라구. 켜 주면 정한 시간에 딱 맞춰 알려줄게 ✨';
+
+  @override
+  String get notifPermissionOpenSettings => '설정 열기';
 
   @override
   String get settingsTitle => '설정';

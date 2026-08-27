@@ -288,6 +288,36 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get widgetNudgeTitle => 'Try Todd as a widget!';
+
+  @override
+  String get widgetNudgeBody =>
+      'Long-press your Home Screen to add the widget 👻';
+
+  @override
+  String get notifPermissionTitle => 'Turn on notifications?';
+
+  @override
+  String get notifPermissionBody =>
+      'Notifications are off on this device, so I can\'t nudge you at the time you set.';
+
+  @override
+  String get notifPermissionConfirm => 'Allow notifications';
+
+  @override
+  String get notifPermissionLater => 'Not now';
+
+  @override
+  String get notifPermissionSettingsTitle => 'I\'ll take you to Settings!';
+
+  @override
+  String get notifPermissionSettingsBody =>
+      'My notifications are switched off there. Flip them on, and I\'ll nudge you right on time ✨';
+
+  @override
+  String get notifPermissionOpenSettings => 'Open Settings';
+
+  @override
   String get settingsTitle => 'Settings';
 
   @override

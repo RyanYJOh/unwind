@@ -32,6 +32,9 @@ class UnwindSettings {
   /// 전등 줄 코치마크를 이미 보여 줌 (최초 1회)
   final bool pullCordCoachShown;
 
+  /// 위젯 설치 넛지 처리 완료 (2026-08-27, 1회성) — 첫 To-do 저장 시 판정
+  final bool widgetNudgeDone;
+
   /// Todd가 부르는 사용자 이름 (온보딩 2026-08-15). null = 안 알려줌.
   final String? userName;
 
@@ -57,6 +60,7 @@ class UnwindSettings {
     this.onboardingCompleted = false,
     this.pullCordCoachAwaiting = false,
     this.pullCordCoachShown = false,
+    this.widgetNudgeDone = false,
     this.userName,
     this.languageCode = 'en',
     this.lightColor = 'amber',
@@ -76,6 +80,7 @@ class UnwindSettings {
     bool? onboardingCompleted,
     bool? pullCordCoachAwaiting,
     bool? pullCordCoachShown,
+    bool? widgetNudgeDone,
     String? userName,
     String? languageCode,
     String? lightColor,
@@ -95,6 +100,7 @@ class UnwindSettings {
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     pullCordCoachAwaiting: pullCordCoachAwaiting ?? this.pullCordCoachAwaiting,
     pullCordCoachShown: pullCordCoachShown ?? this.pullCordCoachShown,
+    widgetNudgeDone: widgetNudgeDone ?? this.widgetNudgeDone,
     userName: userName ?? this.userName,
     languageCode: languageCode ?? this.languageCode,
     lightColor: lightColor ?? this.lightColor,
@@ -161,6 +167,10 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
       ),
       pullCordCoachShown: await dao.getBool(
         SettingKeys.pullCordCoachShown,
+        fallback: false,
+      ),
+      widgetNudgeDone: await dao.getBool(
+        SettingKeys.widgetNudgeDone,
         fallback: false,
       ),
       userName: await dao.getValue(SettingKeys.userName),
@@ -263,6 +273,13 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
       (s) => s.copyWith(pullCordCoachAwaiting: false),
     );
   }
+
+  /// 위젯 설치 넛지 처리 완료 (1회성 — 예약했든, 이미 설치돼 있었든)
+  Future<void> setWidgetNudgeDone() => _set(
+    SettingKeys.widgetNudgeDone,
+    'true',
+    (s) => s.copyWith(widgetNudgeDone: true),
+  );
 
   Future<void> setLanguageCode(String code) => _set(
     SettingKeys.languageCode,

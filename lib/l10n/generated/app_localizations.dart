@@ -566,6 +566,60 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{Rise and shine! Let’s smash 1 task today 💪} other{Rise and shine! Let’s smash {count} tasks today 💪}}'**
   String notifMorningGreetingCount(int count);
 
+  /// No description provided for @widgetNudgeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Todd as a widget!'**
+  String get widgetNudgeTitle;
+
+  /// No description provided for @widgetNudgeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-press your Home Screen to add the widget 👻'**
+  String get widgetNudgeBody;
+
+  /// No description provided for @notifPermissionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on notifications?'**
+  String get notifPermissionTitle;
+
+  /// No description provided for @notifPermissionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are off on this device, so I can\'t nudge you at the time you set.'**
+  String get notifPermissionBody;
+
+  /// No description provided for @notifPermissionConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow notifications'**
+  String get notifPermissionConfirm;
+
+  /// No description provided for @notifPermissionLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get notifPermissionLater;
+
+  /// No description provided for @notifPermissionSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ll take you to Settings!'**
+  String get notifPermissionSettingsTitle;
+
+  /// No description provided for @notifPermissionSettingsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'My notifications are switched off there. Flip them on, and I\'ll nudge you right on time ✨'**
+  String get notifPermissionSettingsBody;
+
+  /// No description provided for @notifPermissionOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get notifPermissionOpenSettings;
+
   /// No description provided for @settingsTitle.
   ///
   /// In en, this message translates to:

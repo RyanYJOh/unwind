@@ -21,6 +21,48 @@ enum WidgetSnapshotBridge {
         result(diagnose(appGroupId: appGroupId))
         return
       }
+      // 위젯 설치 여부 (2026-08-27) — 홈 화면에 이 앱 위젯이 있는가.
+      // Mixpanel 유저 프로퍼티 has_widget의 근거. 조회 실패는 false가
+      // 아니라 에러로 돌려 "모름"으로 남긴다 (false 오보 방지).
+      if call.method == "hasWidget" {
+        if #available(iOS 14.0, *) {
+          let kind = (call.arguments as? [String: Any])?["kind"] as? String
+          WidgetCenter.shared.getCurrentConfigurations { res in
+            DispatchQueue.main.async {
+              switch res {
+              case .success(let infos):
+                result(infos.contains { kind == nil || $0.kind == kind })
+              case .failure(let error):
+                result(
+                  FlutterError(
+                    code: "has-widget-failed",
+                    message: error.localizedDescription,
+                    details: nil
+                  )
+                )
+              }
+            }
+          }
+        } else {
+          result(false)
+        }
+        return
+      }
+      // 확인 리로드 (2026-08-27) — 스냅샷은 이미 최종본, 리로드만 다시 쏜다.
+      // persist 직후의 리로드가 진행 중인 타임라인 생성에 합쳐져(coalescing)
+      // 옛 파일을 읽은 결과로 굳는 경쟁을, 잠잠해진 뒤 한 번 더 리로드해 푼다.
+      if call.method == "reload" {
+        if #available(iOS 14.0, *) {
+          let kind = (call.arguments as? [String: Any])?["kind"] as? String
+          if let kind {
+            WidgetCenter.shared.reloadTimelines(ofKind: kind)
+          } else {
+            WidgetCenter.shared.reloadAllTimelines()
+          }
+        }
+        result(true)
+        return
+      }
       guard call.method == "persist" else {
         result(FlutterMethodNotImplemented)
         return
@@ -82,29 +124,42 @@ enum WidgetSnapshotBridge {
       throw SnapshotError.emptyDayKey
     }
 
-    guard let defaults = UserDefaults(suiteName: appGroupId) else {
-      throw SnapshotError.noSuite
+    // defaults(폴백)를 먼저, 파일(우선순위 높음)을 나중에 쓴다. 어느 한쪽만
+    // 성공해도 리로드는 나간다 — 이전엔 파일 write가 던지면 defaults는 새
+    // 값인데 리로드가 통째로 생략됐고, 위젯은 파일을 먼저 읽으므로 남아 있는
+    // **옛 파일**이 새 defaults를 가려 낡은 개수로 고정됐다 (2026-08-27).
+    var defaultsOk = false
+    if let defaults = UserDefaults(suiteName: appGroupId) {
+      for (key, value) in payload {
+        defaults.setValue(value, forKey: key)
+      }
+      defaults.synchronize()
+      defaultsOk = true
     }
-    for (key, value) in payload {
-      defaults.setValue(value, forKey: key)
-    }
-    defaults.synchronize()
 
     guard
       let root = FileManager.default.containerURL(
         forSecurityApplicationGroupIdentifier: appGroupId
       )
     else {
+      if defaultsOk { return } // 파일은 못 써도 defaults 폴백으로 갱신된다
       throw SnapshotError.noContainer
     }
-    let data = try JSONSerialization.data(withJSONObject: payload, options: [])
-    // 잠긴 기기에서도 위젯이 읽어야 한다. 기본 보호 등급이면 타임라인 생성이
-    // 잠금 중에 돌 때 읽기가 실패하고, .atEnd 정책 탓에 그 빈 결과가 24시간
-    // 고정된다 (시뮬레이터엔 데이터 보호가 없어 재현되지 않는다).
-    try data.write(
-      to: root.appendingPathComponent(fileName),
-      options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
-    )
+    do {
+      let data = try JSONSerialization.data(withJSONObject: payload, options: [])
+      // 잠긴 기기에서도 위젯이 읽어야 한다. 기본 보호 등급이면 타임라인 생성이
+      // 잠금 중에 돌 때 읽기가 실패하고, .atEnd 정책 탓에 그 빈 결과가 24시간
+      // 고정된다 (시뮬레이터엔 데이터 보호가 없어 재현되지 않는다).
+      try data.write(
+        to: root.appendingPathComponent(fileName),
+        options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
+      )
+    } catch {
+      // 옛 파일이 남아 있으면 방금 쓴 defaults보다 우선 읽혀 낡은 상태가
+      // 이긴다 — 지워서 폴백이 보이게 한다.
+      try? FileManager.default.removeItem(at: root.appendingPathComponent(fileName))
+      if !defaultsOk { throw error }
+    }
   }
 
   /// App Group이 실제로 붙었는지, 스냅샷이 남아 있는지 그대로 보고한다.

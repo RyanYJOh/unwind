@@ -129,6 +129,16 @@
   "@notifMorningGreetingNamed": {"placeholders": {"name": {"type": "String"}}},
   "notifMorningGreetingCount": "{count, plural, =1{Rise and shine! Let\u2019s smash 1 task today \ud83d\udcaa} other{Rise and shine! Let\u2019s smash {count} tasks today \ud83d\udcaa}}",
   "@notifMorningGreetingCount": {"placeholders": {"count": {"type": "int"}}},
+  "widgetNudgeTitle": "Try Todd as a widget!",
+  "widgetNudgeBody": "Long-press your Home Screen to add the widget \ud83d\udc7b",
+
+  "notifPermissionTitle": "Turn on notifications?",
+  "notifPermissionBody": "Notifications are off on this device, so I can't nudge you at the time you set.",
+  "notifPermissionConfirm": "Allow notifications",
+  "notifPermissionLater": "Not now",
+  "notifPermissionSettingsTitle": "I'll take you to Settings!",
+  "notifPermissionSettingsBody": "My notifications are switched off there. Flip them on, and I'll nudge you right on time ✨",
+  "notifPermissionOpenSettings": "Open Settings",
 
   "settingsTitle": "Settings",
   "sectionNotifications": "Notifications",

@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/tokens/palette.dart';
 import '../../data/db/tables/tables.dart';
 import 'brightness_engine.dart';
@@ -111,6 +112,15 @@ class WidgetSnapshotService {
   /// 버스트가 잦아들고 한 번만 쓴다.
   static const _debounceMs = 180;
 
+  /// 확인 리로드 지연 — 디바운스는 180ms 안의 버스트만 합친다. 몇 초
+  /// 간격의 연속 액션(밤에 할 일을 하나씩 체크)은 각각 write+reload를
+  /// 쏘는데, WidgetKit이 진행 중인 타임라인 생성에 뒤 리로드를 합쳐 버리면
+  /// (coalescing) **옛 파일을 읽은 생성 결과가 최종본으로 남는다**. 마지막
+  /// write 뒤 잠잠해지고 나서 한 번 더 리로드해 최종 스냅샷을 확정한다
+  /// (밤 체크가 위젯 개수에 안 실리던 간헐 이슈, 2026-08-27).
+  static const _confirmReloadMs = 2500;
+  Timer? _confirmReload;
+
   /// 마지막 write 결과 — 릴리즈 빌드에선 debugPrint가 보이지 않아, 실기기에서
   /// 실패해도 아무 흔적이 없었다. 설정 > 위젯 진단(dev)이 이 값을 읽는다.
   String lastResult = 'not written yet';
@@ -146,6 +156,47 @@ class WidgetSnapshotService {
       await _persist(s);
     });
     return _chain;
+  }
+
+  /// 홈 화면에 이 앱의 위젯이 설치돼 있는가. null = 모름 (iOS 아님·조회 실패).
+  Future<bool?> hasWidget() async {
+    if (kIsWeb || !Platform.isIOS) return null;
+    try {
+      return await _channel.invokeMethod<bool>('hasWidget', {
+        'kind': iOSWidgetName,
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool? _lastReportedPresence;
+
+  /// 위젯 설치 여부를 Mixpanel 유저 프로퍼티 `has_widget`으로 올린다
+  /// (2026-08-27, 발주자 지시). 앱 시작·resume마다 불리므로 값이 바뀌었을
+  /// 때만 전송한다. 조회가 실패하면(null) 아무것도 올리지 않는다 —
+  /// false 오보보다 공백이 낫다.
+  /// 판정 결과를 그대로 돌려준다 — 호출자(main.dart)가 위젯이 있으면
+  /// 대기 중인 설치 넛지 푸시를 거둬 가는 데 쓴다.
+  Future<bool?> reportPresence() async {
+    final present = await hasWidget();
+    if (present == null) return null;
+    if (present != _lastReportedPresence) {
+      _lastReportedPresence = present;
+      ToddAnalytics.setProfile('has_widget', present);
+    }
+    return present;
+  }
+
+  /// 스냅샷을 다시 쓰지 않고 타임라인 리로드만 요청한다 (확인 리로드).
+  /// 파일은 이미 최종본이라, 설령 이 리로드가 또 합쳐져도 읽는 내용이 같다.
+  Future<void> _requestReload() async {
+    if (kIsWeb || !Platform.isIOS) return;
+    try {
+      await _channel.invokeMethod<bool>('reload', {'kind': iOSWidgetName});
+    } catch (_) {
+      // 위젯 미설치 등 — 확인 리로드 실패는 조용히 넘어간다
+    }
   }
 
   /// App Group이 실제로 붙었는지 네이티브에 그대로 묻는다 (dev 진단용).
@@ -188,6 +239,11 @@ class WidgetSnapshotService {
         'onAccent': UnwindColors.onAccent.toARGB32(),
       });
       lastResult = 'ok ${s.dayKey} ${s.remaining}/${s.total}';
+      _confirmReload?.cancel();
+      _confirmReload = Timer(
+        const Duration(milliseconds: _confirmReloadMs),
+        _requestReload,
+      );
     } catch (e, st) {
       // 위젯 미설치여도 앱은 계속 돌아야 한다. 삼키되 원인은 남긴다.
       // 릴리즈 빌드에선 debugPrint가 아무 데도 안 보이므로 결과도 붙잡아 둔다.

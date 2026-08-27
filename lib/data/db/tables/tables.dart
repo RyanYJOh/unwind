@@ -146,6 +146,12 @@ abstract final class SettingKeys {
 
   /// 전등 줄 코치마크를 이미 보여 줬음 (최초 1회)
   static const pullCordCoachShown = 'pullCordCoachShown';
+
+  /// 위젯 설치 넛지 처리 완료 (2026-08-27) — 첫 To-do 저장 때 위젯이
+  /// 없으면 5분 뒤 설치 안내 푸시를 예약하고 이 플래그를 세운다 (1회성).
+  /// 위젯이 이미 있었으면 예약 없이 세운다. 조회 실패면 세우지 않아
+  /// 다음 저장 때 재시도한다.
+  static const widgetNudgeDone = 'widgetNudgeDone';
   // dayStartHour는 2026-08-15에 wakeHour로 통합됐다 (읽기 폴백만 유지).
   // nightReminderTime은 취침시간과 통합돼 제거됐다.
   // weekViewOpen은 2026-08-13에 제거됐다 — 주간 뷰가 오버레이 토글에서
