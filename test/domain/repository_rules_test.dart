@@ -366,4 +366,49 @@ void main() {
       expect((await db.dayDao.getDay('2026-08-05'))!.finalT, 1.0);
     });
   });
+
+  group('checkNow — 경계 재검사 (타이머 불신, 2026-08-27)', () {
+    test('밤을 넘긴 뒤 부르면 봉인하고 새 dayKey로 롤오버한다', () async {
+      await repo.add(title: '남긴 등', date: '2026-08-05', autoDefer: true);
+      String? rolledTo;
+      final service = DayRolloverService(
+        db: db,
+        onRollover: (key) => rolledTo = key,
+        now: DateTime(2026, 8, 5, 23), // 앱이 어제 밤에 떠 있던 상태
+      );
+      expect(service.todayKey, '2026-08-05');
+
+      // suspend로 5시 타이머가 얼어 있다가 아침에 resume된 상황
+      await service.checkNow(DateTime(2026, 8, 6, 9));
+      service.dispose();
+
+      expect(service.todayKey, '2026-08-06');
+      expect(rolledTo, '2026-08-06');
+      // 지난 밤 봉인 + 자동 미루기까지 정상 롤오버와 동일하게 수행된다
+      expect((await db.dayDao.getDay('2026-08-05'))!.restless, true);
+      expect(
+        (await db.todoDao.getByDate('2026-08-06')).map((todo) => todo.title),
+        ['남긴 등'],
+      );
+    });
+
+    test('같은 날에는 아무것도 하지 않는다', () async {
+      await repo.add(title: '오늘 일', date: '2026-08-05');
+      var rollovers = 0;
+      final service = DayRolloverService(
+        db: db,
+        onRollover: (_) => rollovers++,
+        now: DateTime(2026, 8, 5, 10),
+      );
+
+      await service.checkNow(DateTime(2026, 8, 5, 23));
+      // 새벽 2시는 아직 어제의 방 (기상시간 5시 전)
+      await service.checkNow(DateTime(2026, 8, 6, 2));
+      service.dispose();
+
+      expect(service.todayKey, '2026-08-05');
+      expect(rollovers, 0);
+      expect((await db.dayDao.getDay('2026-08-05'))?.finalT, isNull);
+    });
+  });
 }

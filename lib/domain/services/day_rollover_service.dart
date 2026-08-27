@@ -42,18 +42,44 @@ class DayRolloverService {
     _schedule();
   }
 
+  bool _checking = false;
+
+  /// 지금이 새 날인지 확인하고, 넘어갔으면 롤오버를 실행한다.
+  ///
+  /// iOS는 suspend 중 Dart 타이머를 얼리고, 기기가 잠들면 타이머가 쓰는
+  /// 모노토닉 시계 자체가 멈춘다 — 밤새 잠든 기기에서 아침에 앱을 열면
+  /// 5시 타이머는 아직 몇 시간 남은 것으로 남아 영영 안 터질 수 있다.
+  /// 그래서 경계는 타이머 하나에 맡기지 않고, 앱 resume과 1분 시계마다
+  /// 이 함수로 벽시계 기준 재검사한다 (위젯이 "Good morning"에 고착되던
+  /// 버그, 2026-08-27). 날이 같으면 문자열 비교 한 번으로 끝난다.
+  Future<void> checkNow([DateTime? at]) async {
+    if (_disposed || _checking) return;
+    _checking = true;
+    try {
+      final now = at ?? DateTime.now();
+      final key = logicalTodayKey(now, dayStartHour: dayStartHour);
+      if (key != _todayKey) {
+        await sealAndDefer(now);
+        _todayKey = key;
+        onRollover(_todayKey);
+      }
+    } finally {
+      _checking = false;
+    }
+    // 날이 안 바뀌었어도 타이머를 벽시계 기준으로 다시 앉힌다 —
+    // 모노토닉 결손이 쌓인 낡은 타이머를 계속 믿지 않는다.
+    _schedule();
+  }
+
   void _schedule() {
     if (_disposed) return; // dispose 이후 start()의 잔여 비동기가 타이머를 걸지 않도록
     _timer?.cancel();
     final now = DateTime.now();
     final next = nextRolloverAt(now, dayStartHour: dayStartHour);
-    _timer = Timer(next.difference(now) + const Duration(seconds: 1), () async {
-      final now2 = DateTime.now();
-      await sealAndDefer(now2);
-      _todayKey = logicalTodayKey(now2, dayStartHour: dayStartHour);
-      onRollover(_todayKey);
-      _schedule();
-    });
+    _timer = Timer(
+      next.difference(now) + const Duration(seconds: 1),
+      checkNow,
+    );
   }
 
   Future<void> sealAndDefer(DateTime now) async {
