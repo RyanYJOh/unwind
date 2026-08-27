@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -358,39 +359,11 @@ class _Receipt extends StatelessWidget {
                   ),
                   const SizedBox(width: UnwindSpacing.s12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _sleepText(l10n, grade),
-                          style: UnwindType.bodyStrong.copyWith(
-                            color: _sleepColor(grade),
-                          ),
-                        ),
-                        if (diff != null) ...[
-                          const SizedBox(height: UnwindSpacing.s4),
-                          Text(
-                            diff == 0
-                                ? l10n.diffSame
-                                : diff < 0
-                                ? l10n.diffLess(
-                                    money.format(
-                                      -diff,
-                                      languageCode: languageCode,
-                                    ),
-                                  )
-                                : l10n.diffMore(
-                                    money.format(
-                                      diff,
-                                      languageCode: languageCode,
-                                    ),
-                                  ),
-                            style: UnwindType.caption.copyWith(
-                              color: _Paper.inkFaint,
-                            ),
-                          ),
-                        ],
-                      ],
+                    child: Text(
+                      _sleepText(l10n, grade),
+                      style: UnwindType.bodyStrong.copyWith(
+                        color: _sleepColor(grade),
+                      ),
                     ),
                   ),
                 ],
@@ -426,6 +399,42 @@ class _Receipt extends StatelessWidget {
             textAlign: TextAlign.center,
             style: _mono.copyWith(fontSize: 34, fontWeight: FontWeight.w700),
           ),
+          // 지난주 대비 (개정 2026-08-27) — 금액 바로 아래에서 비교한다.
+          // 지난주 청구서가 없으면(previous == null) 그리지 않는다.
+          if (diff != null) ...[
+            const SizedBox(height: UnwindSpacing.s4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (diff != 0)
+                  Icon(
+                    diff < 0
+                        ? Icons.arrow_drop_down_rounded
+                        : Icons.arrow_drop_up_rounded,
+                    size: 18,
+                    color: diff < 0 ? _Paper.closed : _Paper.leftover,
+                  ),
+                Text(
+                  diff == 0
+                      ? l10n.diffSame
+                      : diff < 0
+                      ? l10n.diffLess(
+                          money.format(-diff, languageCode: languageCode),
+                        )
+                      : l10n.diffMore(
+                          money.format(diff, languageCode: languageCode),
+                        ),
+                  style: UnwindType.caption.copyWith(
+                    color: diff == 0
+                        ? _Paper.inkFaint
+                        : diff < 0
+                        ? _Paper.closed
+                        : _Paper.leftover,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: UnwindSpacing.s2),
           Text(
             l10n.billTotalCaption(bill.kwh.toStringAsFixed(2)),

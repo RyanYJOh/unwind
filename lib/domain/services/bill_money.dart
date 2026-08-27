@@ -22,74 +22,74 @@ class BillCurrency {
   static const krw = BillCurrency(
     code: 'KRW',
     symbol: '₩',
-    pricePerKwh: 15200, // 재미용 100배
+    pricePerKwh: 7600, // 재미용 50배 (개정 2026-08-27: 절반 인하)
     decimals: 0,
     roundTo: 10,
   );
   static const usd = BillCurrency(
     code: 'USD',
     symbol: r'$',
-    pricePerKwh: 16,
+    pricePerKwh: 8,
     decimals: 2,
   );
   static const eur = BillCurrency(
     code: 'EUR',
     symbol: '€',
-    pricePerKwh: 28,
+    pricePerKwh: 14,
     decimals: 2,
   );
   static const gbp = BillCurrency(
     code: 'GBP',
     symbol: '£',
-    pricePerKwh: 24,
+    pricePerKwh: 12,
     decimals: 2,
   );
   static const jpy = BillCurrency(
     code: 'JPY',
     symbol: '¥',
-    pricePerKwh: 3000,
+    pricePerKwh: 1500,
     decimals: 0,
   );
   static const cny = BillCurrency(
     code: 'CNY',
     symbol: 'CN¥',
-    pricePerKwh: 60,
+    pricePerKwh: 30,
     decimals: 2,
   );
   static const aud = BillCurrency(
     code: 'AUD',
     symbol: r'A$',
-    pricePerKwh: 30,
+    pricePerKwh: 15,
     decimals: 2,
   );
   static const cad = BillCurrency(
     code: 'CAD',
     symbol: r'CA$',
-    pricePerKwh: 15,
+    pricePerKwh: 7.5,
     decimals: 2,
   );
   static const inr = BillCurrency(
     code: 'INR',
     symbol: '₹',
-    pricePerKwh: 800,
+    pricePerKwh: 400,
     decimals: 0,
   );
   static const twd = BillCurrency(
     code: 'TWD',
     symbol: r'NT$',
-    pricePerKwh: 350,
+    pricePerKwh: 175,
     decimals: 1,
   );
   static const hkd = BillCurrency(
     code: 'HKD',
     symbol: r'HK$',
-    pricePerKwh: 130,
+    pricePerKwh: 65,
     decimals: 2,
   );
   static const sgd = BillCurrency(
     code: 'SGD',
     symbol: r'S$',
-    pricePerKwh: 28,
+    pricePerKwh: 14,
     decimals: 2,
   );
 

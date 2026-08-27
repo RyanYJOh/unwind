@@ -51,7 +51,7 @@ void main() {
       expect(day.lightsOut, false);
       expect(day.leftover, 2);
       expect(day.kwh, closeTo(0.84, 1e-9));
-      expect(day.amount, 12768); // 0.84 * 15200
+      expect(day.amount, 6384); // 0.84 * 7600
       expect(day.sleepScore, 0);
     });
   });
@@ -142,7 +142,7 @@ void main() {
       );
       expect(bill, isNotNull);
       expect(bill!.kwh, closeTo(0.42, 1e-9));
-      expect(bill.amount, 6380);
+      expect(bill.amount, 3190); // round10(0.42 * 7600)
       final contents = decodeBillPayload(bill.payload);
       expect(contents.completed, 0);
       expect(contents.total, 1);
@@ -150,7 +150,7 @@ void main() {
       final lit = contents.days.where((d) => !d.lightsOut).toList();
       expect(lit, hasLength(1));
       expect(lit.first.leftover, 1);
-      expect(lit.first.amount, 6384); // 0.42 * 15200
+      expect(lit.first.amount, 3192); // 0.42 * 7600
     });
   });
 }

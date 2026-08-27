@@ -58,7 +58,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('12 / 18'), findsOneWidget);
-    expect(find.text(r'$6.72'), findsWidgets);
+    expect(find.text(r'$3.36'), findsWidgets);
     expect(find.text('Todd tossed and turned a little'), findsOneWidget);
     expect(find.textContaining('%'), findsNothing);
 

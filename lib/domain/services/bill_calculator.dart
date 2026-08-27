@@ -6,7 +6,8 @@ import '../../data/db/tables/tables.dart';
 
 // §6.5 계산 상수 — 모든 상수는 파일 상단에 선언. 임의 변경 금지.
 const double kBulbKwhPerHour = 0.06; // 60W 등 하나가 한 시간에 쓰는 전력
-const int kUnitPrice = 15200; // 원/kWh — 재미용 100배 (개정 2026-08-17)
+// 원/kWh — 재미용 50배 (개정 2026-08-27: 100배가 과하게 느껴져 절반 인하)
+const int kUnitPrice = 7600;
 
 /// 10원 반올림 (§4.4)
 int round10(double won) => ((won / 10).round()) * 10;
