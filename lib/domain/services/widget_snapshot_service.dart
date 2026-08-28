@@ -43,6 +43,10 @@ class WidgetSnapshot {
   /// 앱 언어 — 위젯 문구는 시스템이 아니라 앱 설정을 따른다
   final String languageCode;
 
+  /// 위젯 배경 (선택형 2026-08-28) — WidgetBackground.name.
+  /// 게이트(§8.7 ③)는 호출자가 적용해 **유효한 값**을 넣는다.
+  final String background;
+
   const WidgetSnapshot({
     required this.dayKey,
     required this.remaining,
@@ -53,6 +57,7 @@ class WidgetSnapshot {
     required this.wakeHour,
     required this.bedtimeHour,
     required this.languageCode,
+    this.background = 'deepNight',
   });
 
   /// 오늘 방의 할 일 상태에서 위젯 스냅샷을 만든다.
@@ -65,6 +70,7 @@ class WidgetSnapshot {
     required int wakeHour,
     required int bedtimeHour,
     required String languageCode,
+    String background = 'deepNight',
   }) {
     final counted = statuses.where((s) => s != TodoStatus.deferred);
     final pending = counted.where((s) => s == TodoStatus.pending).length;
@@ -87,6 +93,7 @@ class WidgetSnapshot {
       wakeHour: wakeHour,
       bedtimeHour: bedtimeHour,
       languageCode: languageCode,
+      background: background,
     );
   }
 }
@@ -231,6 +238,8 @@ class WidgetSnapshotService {
         'wakeHour': s.wakeHour,
         'bedtimeHour': s.bedtimeHour,
         'languageCode': s.languageCode,
+        // 위젯 배경 (선택형 2026-08-28) — Swift SceneBackground가 그린다
+        'background': s.background,
         // 조명 색 (선택형 2026-08-22) — 위젯의 알약·글로우가 따라간다.
         // 항상 persist 시점의 현재 팔레트를 싣는다 (설정 변경도
         // widgetSyncProvider가 settings를 watch하므로 새로 write된다).

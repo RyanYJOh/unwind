@@ -115,6 +115,8 @@ enum WidgetSnapshotBridge {
       "wakeHour": NSNumber(value: intVal(args["wakeHour"], fallback: 5)),
       "bedtimeHour": NSNumber(value: intVal(args["bedtimeHour"], fallback: 22)),
       "languageCode": args["languageCode"] as? String ?? "en",
+      // 위젯 배경 (선택형 2026-08-28) — SceneBackground가 그린다
+      "background": args["background"] as? String ?? "deepNight",
       // 조명 색 (선택형 2026-08-22) — ARGB. 기본값은 앰버
       "accent": NSNumber(value: intVal(args["accent"], fallback: 0xFFFF_B224)),
       "accentDeep": NSNumber(value: intVal(args["accentDeep"], fallback: 0xFFC5_7F12)),

@@ -394,6 +394,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get plusFeatureRecurrenceCaption => 'However many habits you keep';
 
   @override
+  String get plusFeatureWidgetBg => '8 widget backgrounds';
+
+  @override
+  String get plusFeatureWidgetBgCaption => 'Tap to peek at all 8 nights 👇';
+
+  @override
   String get plusFeatureMore => '…and many more to come!';
 
   @override
@@ -485,6 +491,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String hourLabel(int hour) {
     return '$hour:00';
   }
+
+  @override
+  String get sectionWidget => 'Widget';
+
+  @override
+  String get widgetBackgroundTitle => 'Widget background';
+
+  @override
+  String get widgetBackgroundCaption => 'Todd\'s room on your Home Screen';
+
+  @override
+  String get bgDeepNight => 'Deep Night';
+
+  @override
+  String get bgFireflies => 'Fireflies';
+
+  @override
+  String get bgRainWindow => 'Rainy Window';
+
+  @override
+  String get bgBigMoon => 'Big Moon';
+
+  @override
+  String get bgStarrySea => 'Starry Sea';
+
+  @override
+  String get bgFirstSnow => 'First Snow';
+
+  @override
+  String get bgAurora => 'Aurora';
+
+  @override
+  String get bgPastelDream => 'Pastel Dream';
+
+  @override
+  String get bgBlanketFort => 'Blanket Fort';
 
   @override
   String get sectionLanguage => 'Language';

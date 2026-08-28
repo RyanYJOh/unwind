@@ -9,6 +9,7 @@ import '../../data/db/tables/tables.dart';
 import '../../data/repositories/bill_repository.dart';
 import '../../data/repositories/todo_repository.dart';
 import '../../domain/models/todd_state.dart';
+import '../../domain/models/widget_background.dart';
 import '../../domain/services/brightness_engine.dart';
 import '../../domain/services/day_rollover_service.dart';
 import '../../domain/services/notification_service.dart';
@@ -323,6 +324,14 @@ final widgetSyncProvider = Provider<void>((ref) {
       bedtimeHour: ref.watch(bedtimeHourProvider),
       languageCode:
           ref.watch(settingsControllerProvider).value?.languageCode ?? 'en',
+      // 위젯 배경 (선택형 2026-08-28) — 깊은 밤 외 전부 Plus (§8.7 ③).
+      // 조명 색과 같은 규칙: 저장은 남기고 유효값만 게이트한다.
+      background: WidgetBackground.effective(
+        premium:
+            ref.watch(settingsControllerProvider).value?.premiumEnabled ??
+            false,
+        stored: ref.watch(settingsControllerProvider).value?.widgetBackground,
+      ).name,
     ),
   );
 });
@@ -350,6 +359,15 @@ Future<void> flushWidgetSnapshot(WidgetRef ref) async {
           bedtimeHour: ref.read(bedtimeHourProvider),
           languageCode:
               ref.read(settingsControllerProvider).value?.languageCode ?? 'en',
+          background: WidgetBackground.effective(
+            premium:
+                ref.read(settingsControllerProvider).value?.premiumEnabled ??
+                false,
+            stored: ref
+                .read(settingsControllerProvider)
+                .value
+                ?.widgetBackground,
+          ).name,
         ),
       );
 }

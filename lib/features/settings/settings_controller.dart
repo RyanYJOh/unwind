@@ -47,6 +47,9 @@ class UnwindSettings {
   /// Todd Plus (수익화 2026-08-22) — 조명 색·반복 무제한의 게이트
   final bool premiumEnabled;
 
+  /// iOS 홈 위젯 배경 (선택형 2026-08-28) — WidgetBackground.name
+  final String widgetBackground;
+
   const UnwindSettings({
     this.nightReminderEnabled = true,
     this.billNotificationEnabled = true,
@@ -65,6 +68,7 @@ class UnwindSettings {
     this.languageCode = 'en',
     this.lightColor = 'amber',
     this.premiumEnabled = false,
+    this.widgetBackground = 'deepNight',
   });
 
   UnwindSettings copyWith({
@@ -85,6 +89,7 @@ class UnwindSettings {
     String? languageCode,
     String? lightColor,
     bool? premiumEnabled,
+    String? widgetBackground,
   }) => UnwindSettings(
     nightReminderEnabled: nightReminderEnabled ?? this.nightReminderEnabled,
     billNotificationEnabled:
@@ -105,6 +110,7 @@ class UnwindSettings {
     languageCode: languageCode ?? this.languageCode,
     lightColor: lightColor ?? this.lightColor,
     premiumEnabled: premiumEnabled ?? this.premiumEnabled,
+    widgetBackground: widgetBackground ?? this.widgetBackground,
   );
 
   /// 설정에 보여줄 유저 기상. 저장된 값이 없으면 Todd 기상 +1h.
@@ -180,6 +186,8 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
         SettingKeys.premiumEnabled,
         fallback: false,
       ),
+      widgetBackground:
+          await dao.getValue(SettingKeys.widgetBackground) ?? 'deepNight',
     );
   }
 
@@ -301,6 +309,14 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
     SettingKeys.premiumEnabled,
     '$v',
     (s) => s.copyWith(premiumEnabled: v),
+  );
+
+  /// iOS 홈 위젯 배경 (선택형 2026-08-28) — 적용은 widgetSyncProvider가
+  /// 설정을 watch하며 스냅샷에 실어 나른다.
+  Future<void> setWidgetBackground(String name) => _set(
+    SettingKeys.widgetBackground,
+    name,
+    (s) => s.copyWith(widgetBackground: name),
   );
 
   /// §6.7 데이터 초기화 — 할 일·기록·반복·청구서 전부 삭제 (설정은 유지)

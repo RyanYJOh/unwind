@@ -14,6 +14,7 @@ import '../today/providers.dart';
 import 'ghost_demo_screen.dart';
 import 'push_settings_screen.dart';
 import 'settings_controller.dart';
+import 'widget_background_strip.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// §6.7 설정 — 유틸리티 화면. 앱 전체와 같은 다크 팔레트를 쓴다
@@ -162,6 +163,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ctrl.setLightColor(c.name);
               },
             ),
+
+            // 위젯 배경 (3차 개정 2026-08-28) — 별도 화면 없이 설정에서
+            // 가로 스크롤로 바로 미리 본다. 탭 = 선택 + 설치 안내 시트.
+            // 조명 색과 같은 이유로 심사 빌드에선 숨긴다.
+            UnwindSectionLabel(l10n.sectionWidget),
+            const WidgetBackgroundStrip(),
           ],
 
           UnwindSectionLabel(l10n.sectionLanguage),

@@ -147,6 +147,10 @@ abstract final class SettingKeys {
   /// 전등 줄 코치마크를 이미 보여 줬음 (최초 1회)
   static const pullCordCoachShown = 'pullCordCoachShown';
 
+  /// iOS 홈 위젯 배경 (선택형 2026-08-28) — WidgetBackground.name,
+  /// 기본 'deepNight'. 깊은 밤 외 전부 Todd Plus (§8.7 게이트 ③).
+  static const widgetBackground = 'widgetBackground';
+
   /// 위젯 설치 넛지 처리 완료 (2026-08-27) — 첫 To-do 저장 때 위젯이
   /// 없으면 5분 뒤 설치 안내 푸시를 예약하고 이 플래그를 세운다 (1회성).
   /// 위젯이 이미 있었으면 예약 없이 세운다. 조회 실패면 세우지 않아

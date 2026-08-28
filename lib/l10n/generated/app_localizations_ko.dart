@@ -386,6 +386,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get plusFeatureRecurrenceCaption => '일일이 신경 쓸 필요 없어!';
 
   @override
+  String get plusFeatureWidgetBg => '위젯 배경 8종';
+
+  @override
+  String get plusFeatureWidgetBgCaption => '눌러서 여덟 밤 미리 구경하기 👇';
+
+  @override
   String get plusFeatureMore => '…혜택이 계속해서 추가될 거래';
 
   @override
@@ -477,6 +483,42 @@ class AppLocalizationsKo extends AppLocalizations {
   String hourLabel(int hour) {
     return '$hour시';
   }
+
+  @override
+  String get sectionWidget => '위젯';
+
+  @override
+  String get widgetBackgroundTitle => '위젯 배경';
+
+  @override
+  String get widgetBackgroundCaption => '홈 화면 속 토드의 방';
+
+  @override
+  String get bgDeepNight => '깊은 밤';
+
+  @override
+  String get bgFireflies => '반딧불이';
+
+  @override
+  String get bgRainWindow => '창가의 비';
+
+  @override
+  String get bgBigMoon => '큰 달';
+
+  @override
+  String get bgStarrySea => '밤바다';
+
+  @override
+  String get bgFirstSnow => '첫눈';
+
+  @override
+  String get bgAurora => '오로라';
+
+  @override
+  String get bgPastelDream => '몽글몽글';
+
+  @override
+  String get bgBlanketFort => '이불 속';
 
   @override
   String get sectionLanguage => '언어';

@@ -752,6 +752,18 @@ abstract class AppLocalizations {
   /// **'However many habits you keep'**
   String get plusFeatureRecurrenceCaption;
 
+  /// No description provided for @plusFeatureWidgetBg.
+  ///
+  /// In en, this message translates to:
+  /// **'8 widget backgrounds'**
+  String get plusFeatureWidgetBg;
+
+  /// No description provided for @plusFeatureWidgetBgCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to peek at all 8 nights 👇'**
+  String get plusFeatureWidgetBgCaption;
+
   /// No description provided for @plusFeatureMore.
   ///
   /// In en, this message translates to:
@@ -925,6 +937,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hour}:00'**
   String hourLabel(int hour);
+
+  /// No description provided for @sectionWidget.
+  ///
+  /// In en, this message translates to:
+  /// **'Widget'**
+  String get sectionWidget;
+
+  /// No description provided for @widgetBackgroundTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Widget background'**
+  String get widgetBackgroundTitle;
+
+  /// No description provided for @widgetBackgroundCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Todd\'s room on your Home Screen'**
+  String get widgetBackgroundCaption;
+
+  /// No description provided for @bgDeepNight.
+  ///
+  /// In en, this message translates to:
+  /// **'Deep Night'**
+  String get bgDeepNight;
+
+  /// No description provided for @bgFireflies.
+  ///
+  /// In en, this message translates to:
+  /// **'Fireflies'**
+  String get bgFireflies;
+
+  /// No description provided for @bgRainWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Rainy Window'**
+  String get bgRainWindow;
+
+  /// No description provided for @bgBigMoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Big Moon'**
+  String get bgBigMoon;
+
+  /// No description provided for @bgStarrySea.
+  ///
+  /// In en, this message translates to:
+  /// **'Starry Sea'**
+  String get bgStarrySea;
+
+  /// No description provided for @bgFirstSnow.
+  ///
+  /// In en, this message translates to:
+  /// **'First Snow'**
+  String get bgFirstSnow;
+
+  /// No description provided for @bgAurora.
+  ///
+  /// In en, this message translates to:
+  /// **'Aurora'**
+  String get bgAurora;
+
+  /// No description provided for @bgPastelDream.
+  ///
+  /// In en, this message translates to:
+  /// **'Pastel Dream'**
+  String get bgPastelDream;
+
+  /// No description provided for @bgBlanketFort.
+  ///
+  /// In en, this message translates to:
+  /// **'Blanket Fort'**
+  String get bgBlanketFort;
 
   /// No description provided for @sectionLanguage.
   ///

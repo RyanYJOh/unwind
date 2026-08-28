@@ -35,7 +35,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 145개 통과가 기준선
+flutter analyze && flutter test                           # 149개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
 ```
@@ -661,7 +661,20 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 - **디자인**: 고정 다크 팔레트를 Swift 상수로 미러(`Palette` —
   palette.dart가 바뀌면 함께 갱신). **조명 색은 스냅샷이 실어 나른다**
   (선택형 2026-08-22): `accent`/`accentDeep`/`onAccent` ARGB 3종 — 알약과
-  글로우가 따라가고, 없으면 앰버 폴백. 코너 글로우는 우상단 radial gradient
+  글로우가 따라가고, 없으면 앰버 폴백.
+  **위젯 배경도 스냅샷이 실어 나른다** (선택형 2026-08-28, 발주자 지시 —
+  8안 전부): `background` = `WidgetBackground.name` 9종 (deepNight 기본 ·
+  fireflies · rainWindow · bigMoon · starrySea · firstSnow · aurora ·
+  pastelDream · blanketFort). 장면은 Swift `SceneBackground`가 도형·
+  그라데이션만으로 그린다 (에셋 0장, §11 블러 금지 — 발광은 다층 radial).
+  Flutter 미러는 `features/settings/widget_background_preview.dart`
+  (설정 갤러리 미리보기) — **장면을 고치면 두 곳을 함께 고칠 것.**
+  설계 규칙(조사 2026-08-28): 우상단은 글로우의 자리(배경 최대 밝기는
+  글로우 아래), 좌하단은 어둠(§5.1), 구조는 색이 아니라 **명도 대비**
+  (iOS 18 Tinted 모드가 색을 luminanceToAlpha로 뭉갠다), 채도는 낮게.
+  깊은 밤 외 전부 Plus (§8.7 게이트 ③) — 스냅샷에는 항상 **게이트를
+  통과한 유효값**이 실린다 (`WidgetBackground.effective`).
+  코너 글로우는 우상단 radial gradient
   (§11 블러 금지 준수), 개수는 듀오링고식 3D 압출 알약(blur 0 오프셋),
   숫자는 SF Rounded heavy (Pretendard는 위젯에 번들하지 않는다 — 큰 숫자
   중심이라 rounded가 톤에 더 맞고 폰트 등록 리스크가 없다).
@@ -690,6 +703,22 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 - **게이트 ② 조명 색**: 무료는 앰버만. 다른 스와치엔 자물쇠, 탭하면 페이월.
   main.dart가 !premium이면 표시를 앰버로 강제하되 **저장된 색은 남긴다**
   (재구독 시 되살아남).
+- **게이트 ③ 위젯 배경** (2026-08-28, 3차: 별도 갤러리 화면 폐기):
+  무료는 깊은 밤만. 설정 > 위젯 섹션의 **가로 스크롤 스트립**
+  (`widget_background_strip.dart` — 카드가 실제 위젯 구성 그대로: 배경 +
+  글로우 + 잠든 Todd, 112pt 셀 + 이름 캡션)에서 바로 미리 보고 고른다.
+  잠긴 카드를 탭하면 페이월, 열린 카드를 탭하면 **선택 + 위젯 설치 안내
+  바텀시트** (`showWidgetInstallSheet` — 배경을 골라도 홈에 위젯이 없으면
+  아무것도 안 보이므로. 문구는 온보딩 위젯 단계 obWidget* 재사용).
+  조명 색과 같은 규칙 — 저장된 선택은 남기고
+  `WidgetBackground.effective`가 유효값만 스냅샷에 싣는다. 스트립 섹션은
+  조명 색과 같은 이유로 심사 빌드에선 숨김 (버전 10탭 복구).
+  **페이월에서도 직접 보여준다** (2026-08-28 2차, 발주자 지시): 기능
+  목록의 "위젯 배경 8종 🌙" 행을 누르면 **캐러셀 바텀시트**
+  (paywall_screen `_WidgetBgCarousel` — PageView viewportFraction 0.62,
+  이름 라벨 + 페이지 점)로 Plus 8종을 하나씩 구경한다. 카드 알맹이는
+  갤러리와 공유(`WidgetBackgroundPreviewCard`, widget_background_preview).
+  깊은 밤(무료)은 캐러셀에서 뺀다 — 보여주는 것이 곧 사는 물건이다.
 - **페이월** (features/premium/paywall_screen.dart, 설정 최상단의
   **메인 컬러 배너**(_PlusBanner — 버튼 물성)로 진입): Todd가 주인공 —
   들어오면 까르르, 결제하면 체크 축하 후 1.4초 뒤 닫힘. 기능 목록은
@@ -804,9 +833,10 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 - `features/today/m0_prototype_screen.dart` — 온보딩 2단계가 재사용 (보존).
 - **앱스토어 스크린샷 추출** (2026-08-27, 발주자 컨펌 · 2규격 2026-08-28):
   `SHOT_EXPORT=1 flutter test test/tools/appstore_shot_export_test.dart`
-  → `build/appstore/{en,ko}/{1320x2868,1242x2688}/0N_*.png` 16장 — App Store
-  Connect 필수 규격 6.9"·6.5" (아이패드 미지원 기준). 디자인은 440×956 논리
-  캔버스 하나, 규격마다 BoxFit.cover. 4프레임 카피·구성은 테스트 파일 상단
+  → `build/appstore/{en,ko}/{1320x2868,1242x2688,2064x2752}/0N_*.png` 24장 —
+  App Store Connect 필수 규격 6.9"·6.5"·iPad 13". 디자인은 440×956 논리
+  캔버스 하나, 폰 규격은 BoxFit.cover·iPad는 배경만 캔버스 전체에 다시
+  그리고 본문을 중앙 확대(×1376/956). 4프레임 카피·구성은 테스트 파일 상단
   `_copies`가 정본. 폰 목업 내부는 실제 앱 위젯을 스테이징해 캡처하므로
   **UI가 바뀌면 재추출만 하면 스크린샷이 따라온다**. `SHOT_ONLY=ko2`처럼
   한 프레임만(두 규격) 다시 굽는다. 평소 flutter test에서는 skip.
@@ -814,8 +844,8 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **145개** 전부 통과가 기준선 (2026-08-28 청구서 월요일
-   잠금 테스트 -1. 2026-08-27 롤오버 checkNow +2. 2026-08-23 Mixpanel +2·아침 인사 개수 +1. 2026-08-22 Plus 게이트
+2. `flutter test` — **149개** 전부 통과가 기준선 (2026-08-28 위젯 배경
+   +4 · 청구서 월요일 잠금 테스트 -1. 2026-08-27 롤오버 checkNow +2. 2026-08-23 Mixpanel +2·아침 인사 개수 +1. 2026-08-22 Plus 게이트
    +3·조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
    +5. 이전 126: 주간 미완료 필터, 125: 위젯 스냅샷 +3, 122: 현지 통화).
    UI 변경 시 위젯 테스트가 히트 영역 겹침·오버플로 같은 실제 버그를 잡아 온

@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/analytics/analytics.dart';
 import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
+import '../../core/haptics/haptics.dart';
+import '../../core/tokens/motion.dart';
 import '../../core/tokens/typography.dart';
 import '../../domain/models/todd_state.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -15,6 +17,8 @@ import '../../ui/ui.dart';
 import '../../widgets/corner_glow.dart';
 import '../../widgets/todd/todd_view.dart';
 import '../settings/settings_controller.dart';
+import '../../domain/models/widget_background.dart';
+import '../settings/widget_background_preview.dart';
 import '../today/providers.dart';
 import 'premium_providers.dart';
 
@@ -230,6 +234,35 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                               emoji: '♾️',
                               title: l10n.plusFeatureRecurrence,
                               caption: l10n.plusFeatureRecurrenceCaption,
+                            ),
+                            const SizedBox(height: UnwindSpacing.s12),
+                            // 위젯 배경 8종 (2026-08-28) — 행을 누르면
+                            // 캐러셀 시트로 하나씩 구경한다. 페이월에서
+                            // 사는 물건을 직접 보여준다 (조명 색 체험과
+                            // 같은 원칙).
+                            UnwindPressable(
+                              onTap: () => _showWidgetBgPeek(context),
+                              haptic: UnwindHapticKind.tap,
+                              depth: 0,
+                              pressScale: 0.98,
+                              semanticLabel: l10n.plusFeatureWidgetBg,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _FeatureRow(
+                                      emoji: '🌙',
+                                      title: l10n.plusFeatureWidgetBg,
+                                      caption: l10n.plusFeatureWidgetBgCaption,
+                                    ),
+                                  ),
+                                  Text(
+                                    '›',
+                                    style: UnwindType.title.copyWith(
+                                      color: UnwindColors.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: UnwindSpacing.s12),
                             // 기대를 심는 마지막 줄 (발주자 요구) — 로드맵은
@@ -568,6 +601,112 @@ class _TryColorsRow extends StatelessWidget {
               ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+
+/// 위젯 배경 미리보기 캐러셀 (2026-08-28, 발주자 지시) — 페이월의
+/// "위젯 배경 8종" 행에서 연다. 깊은 밤(무료)은 빼고 Plus 8종만 —
+/// 여기서 보여주는 것이 곧 사는 물건이다.
+Future<void> _showWidgetBgPeek(BuildContext context) {
+  return showUnwindSheet(
+    context,
+    builder: (context) {
+      final l10n = AppLocalizations.of(context);
+      return UnwindSheet(
+        title: l10n.widgetBackgroundTitle,
+        child: const _WidgetBgCarousel(),
+      );
+    },
+  );
+}
+
+class _WidgetBgCarousel extends StatefulWidget {
+  const _WidgetBgCarousel();
+
+  @override
+  State<_WidgetBgCarousel> createState() => _WidgetBgCarouselState();
+}
+
+class _WidgetBgCarouselState extends State<_WidgetBgCarousel> {
+  // 무료 기본(깊은 밤)은 캐러셀에서 뺀다 — Plus로 열리는 8종만
+  static final _bgs = [
+    for (final b in WidgetBackground.values)
+      if (b != WidgetBackground.deepNight) b,
+  ];
+
+  final _controller = PageController(viewportFraction: 0.62);
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: UnwindSpacing.s8),
+        SizedBox(
+          height: 232,
+          child: PageView.builder(
+            controller: _controller,
+            onPageChanged: (i) {
+              setState(() => _page = i);
+              UnwindHapticsScope.of(context).selection();
+            },
+            itemCount: _bgs.length,
+            itemBuilder: (context, i) => Center(
+              child: AnimatedScale(
+                scale: i == _page ? 1.0 : 0.88,
+                duration: const Duration(
+                  milliseconds: UnwindMotion.textFadeMs,
+                ),
+                child: SizedBox(
+                  width: 216,
+                  height: 216,
+                  child: WidgetBackgroundPreviewCard(
+                    bg: _bgs[i],
+                    accent: UnwindColors.accent,
+                    borderRadius: UnwindRadius.xl,
+                    toddSize: 88,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: UnwindSpacing.s12),
+        Text(
+          widgetBackgroundLabel(l10n, _bgs[_page]),
+          style: UnwindType.headline.copyWith(color: UnwindColors.textPrimary),
+        ),
+        const SizedBox(height: UnwindSpacing.s8),
+        // 페이지 점 — 지금 몇 번째 밤인지
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < _bgs.length; i++)
+              Container(
+                width: i == _page ? 16 : 6,
+                height: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(3),
+                  color: i == _page
+                      ? UnwindColors.accent
+                      : UnwindColors.borderStrong,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: UnwindSpacing.s8),
       ],
     );
   }
