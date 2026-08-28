@@ -1085,7 +1085,7 @@ abstract class AppLocalizations {
   /// No description provided for @obBillOnMe.
   ///
   /// In en, this message translates to:
-  /// **'Don\'t worry — it\'s on me!'**
+  /// **'Don\'t worry, nobody\'s actually charging you 😉'**
   String get obBillOnMe;
 
   /// No description provided for @obQuestionsTitle.

@@ -564,7 +564,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get obBillBody => '지난주에 불을 얼마나 켜뒀는지 보자.';
 
   @override
-  String get obBillOnMe => '걱정 마 — 내가 낼게!';
+  String get obBillOnMe => '걱정 마, 실제로 결제되지는 않아 😉';
 
   @override
   String get obQuestionsTitle => '이제 물어볼 게\n몇 가지 있어!';

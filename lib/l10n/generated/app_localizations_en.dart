@@ -578,7 +578,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obBillBody => 'Let\'s see how much light\nyou kept on last week.';
 
   @override
-  String get obBillOnMe => 'Don\'t worry — it\'s on me!';
+  String get obBillOnMe => 'Don\'t worry, nobody\'s actually charging you 😉';
 
   @override
   String get obQuestionsTitle => 'Now I got a few\nquick questions!';
