@@ -68,8 +68,6 @@
   "billTasksClosed": "{done} / {total}",
   "billTasksCaption": "지난주에 끝낸 일",
   "billTotalCaption": "밤새 켜 둔 불 {kwh} kWh",
-  "billMondayOnly": "청구서는 매주 월요일에만 열 수 있어",
-  "billMondayOnlyBody": "그때까지 이번 주 할 일들을 잘 해나가 보자!",
   "wonAmount": "{amount}원",
   "sleepDeep": "토드가 완벽하게 잤어요",
   "sleepWell": "토드가 꽤 잘 잤어요",

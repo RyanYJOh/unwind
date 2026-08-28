@@ -208,13 +208,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get billMondayOnly => 'The bill opens on Mondays';
-
-  @override
-  String get billMondayOnlyBody =>
-      'Meanwhile, let\'s smash\nthis week\'s to-dos!';
-
-  @override
   String wonAmount(String amount) {
     return '₩$amount';
   }

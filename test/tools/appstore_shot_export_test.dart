@@ -12,6 +12,7 @@ import 'package:unwind/data/db/database.dart';
 import 'package:unwind/domain/models/todd_state.dart';
 import 'package:unwind/features/today/providers.dart';
 import 'package:unwind/main.dart';
+import 'package:unwind/ui/ui.dart';
 import 'package:unwind/widgets/night_sky.dart';
 import 'package:unwind/widgets/todd/ghost_contract.dart';
 import 'package:unwind/widgets/todd/ghost_painter_view.dart';
@@ -20,14 +21,29 @@ import 'package:unwind/widgets/todd/ghost_painter_view.dart';
 ///
 ///   SHOT_EXPORT=1 flutter test test/tools/appstore_shot_export_test.dart
 ///
-/// 출력: build/appstore/{en,ko}/0N_*.png — 정확히 1320×2868 (6.9").
-/// 4프레임 × 2개 언어. 조도 스토리 아크: 1(낮) → 4(밤)으로 점점 어두워진다.
+/// 출력: build/appstore/{en,ko}/{1320x2868,1242x2688}/0N_*.png —
+/// App Store Connect 필수 두 규격 (6.9" · 6.5", 2026-08-28 확장).
+/// 4프레임 × 2개 언어 × 2개 규격. 디자인은 440×956 논리 캔버스 하나로 하고,
+/// 규격마다 BoxFit.cover로 앉힌다 (두 비율 차이는 0.4% — 크롭은 수 px).
+/// 조도 스토리 아크: 1(낮) → 4(밤)으로 점점 어두워진다.
 /// 2·3번의 폰 목업 내부는 **실제 앱 위젯**(UnwindApp)을 스테이징해 캡처한다.
 /// 평소 flutter test에서는 skip.
 
 // ── 캔버스 ──────────────────────────────────────────────────
-const _canvasW = 440.0; // ×3 = 1320
-const _canvasH = 956.0; // ×3 = 2868
+const _canvasW = 440.0; // 디자인 기준 캔버스 (6.9" 논리 크기)
+const _canvasH = 956.0;
+
+class _Preset {
+  final String dir; // 출력 폴더명 = 픽셀 규격
+  final double pw, ph; // 물리 px
+  const _Preset(this.dir, this.pw, this.ph);
+}
+
+/// App Store Connect 필수 규격 (아이패드 미지원 앱 기준)
+const _presets = [
+  _Preset('1320x2868', 1320, 2868), // 6.9" (iPhone 17 Pro Max급)
+  _Preset('1242x2688', 1242, 2688), // 6.5" (iPhone 11 Pro Max급)
+];
 const _screenW = 402.0; // 폰 목업 내부 논리 크기 (iPhone 17)
 const _screenH = 874.0;
 const _keyboardH = 244.0; // F3 가짜 키보드 영역 (viewInsets와 일치)
@@ -167,51 +183,75 @@ Future<ui.Image> _captureApp(
   return image!;
 }
 
-// ── 최종 프레임 렌더 → PNG ──────────────────────────────────
+// ── 최종 프레임 렌더 → PNG (필수 규격 전부) ─────────────────
 Future<void> _renderPng(
   WidgetTester tester,
   Widget frame,
-  String outPath, {
+  String lang,
+  String fileName, {
   Duration settle = const Duration(milliseconds: 900),
   // 이벤트 포즈용 2차 pump — settle 중에 발화한 이벤트(간지럼 등)의
   // 애니메이션을 원하는 지점까지 진행시킨다 (발화 프레임에 캡처하면 t=0)
   Duration pose = Duration.zero,
 }) async {
-  tester.view.physicalSize = const Size(_canvasW * 3, _canvasH * 3);
-  tester.view.devicePixelRatio = 3;
-  tester.view.padding = FakeViewPadding.zero;
-  tester.view.viewInsets = FakeViewPadding.zero;
+  for (final preset in _presets) {
+    final lw = preset.pw / 3;
+    final lh = preset.ph / 3;
+    tester.view.physicalSize = Size(preset.pw, preset.ph);
+    tester.view.devicePixelRatio = 3;
+    tester.view.padding = FakeViewPadding.zero;
+    tester.view.viewInsets = FakeViewPadding.zero;
 
-  final key = GlobalKey();
-  await tester.pumpWidget(
-    MediaQuery(
-      data: const MediaQueryData(size: Size(_canvasW, _canvasH)),
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: RepaintBoundary(key: key, child: frame),
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MediaQuery(
+        data: MediaQueryData(size: Size(lw, lh)),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: RepaintBoundary(
+            key: key,
+            child: SizedBox(
+              width: lw,
+              height: lh,
+              child: FittedBox(
+                fit: BoxFit.cover,
+                clipBehavior: Clip.hardEdge,
+                child: SizedBox(
+                  width: _canvasW,
+                  height: _canvasH,
+                  child: frame,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
-    ),
-  );
-  for (var i = 0; i < 10; i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 60)),
     );
-    await tester.pump();
-  }
-  await tester.pump(settle);
-  if (pose > Duration.zero) await tester.pump(pose);
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 60)),
+      );
+      await tester.pump();
+    }
+    await tester.pump(settle);
+    if (pose > Duration.zero) await tester.pump(pose);
 
-  final boundary =
-      key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-  final bytes = await tester.runAsync(() async {
-    final image = await boundary.toImage(pixelRatio: 3.0);
-    final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
-    return data!.buffer.asUint8List();
-  });
-  File(outPath)
-    ..parent.createSync(recursive: true)
-    ..writeAsBytesSync(bytes!);
+    final boundary =
+        key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final bytes = await tester.runAsync(() async {
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      return data!.buffer.asUint8List();
+    });
+    File('build/appstore/$lang/${preset.dir}/$fileName')
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync(bytes!);
+
+    // 다음 규격 렌더에서 이벤트 타이머·포즈가 처음부터 다시 돌도록 초기화
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 40));
+  }
 }
 
 // ── 프레임 뼈대 ─────────────────────────────────────────────
@@ -642,6 +682,49 @@ class _FakeKeyboard extends StatelessWidget {
   }
 }
 
+// ── F1 장식: 비스듬한 투두 타일 3장 (보조 — 주인공은 토드) ──
+class _TiltedTodos extends StatelessWidget {
+  final String lang;
+  const _TiltedTodos({required this.lang});
+
+  @override
+  Widget build(BuildContext context) {
+    final titles = _todoTitles[lang]!;
+    Widget tile({
+      required String title,
+      required double angle,
+      required double dx,
+      bool done = false,
+    }) {
+      return Transform.translate(
+        offset: Offset(dx, 0),
+        child: Transform.rotate(
+          angle: angle,
+          child: UnwindTodoTile(
+            title: title,
+            isOn: !done,
+            isDone: done,
+            switchSemanticsOn: 'On',
+            switchSemanticsOff: 'Off',
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: 384,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          tile(title: titles[0], angle: -0.05, dx: -14),
+          tile(title: titles[1], angle: 0.042, dx: 18, done: true),
+          tile(title: titles[2], angle: -0.028, dx: -8),
+        ],
+      ),
+    );
+  }
+}
+
 // ── 프레임 1 · 4 콘텐츠 ─────────────────────────────────────
 /// 이벤트(간지럼 등)는 didUpdateWidget에서만 발화하므로, 첫 프레임을 그린
 /// 뒤 timer로 이벤트를 쏜다 — settle pump가 원하는 포즈 지점까지 진행시킨다.
@@ -702,7 +785,6 @@ void main() {
 
       for (final lang in ['en', 'ko']) {
         final copy = _copies[lang]!;
-        final out = 'build/appstore/$lang';
         bool want(int n) => only == null || only == '$lang$n';
 
         // ── 1. 히어로 — 캐릭터 풀블리드 ─────────────────────
@@ -714,8 +796,8 @@ void main() {
               glow: 0.95,
               background: CustomPaint(
                 painter: const _HaloPainter(
-                  center: Offset(0.5, 0.56),
-                  radius: 0.3,
+                  center: Offset(0.5, 0.48),
+                  radius: 0.28,
                   color: Color(0xFFFFB558),
                   alpha: 0.34,
                 ),
@@ -726,27 +808,37 @@ void main() {
                   const Positioned.fill(
                     child: CustomPaint(
                       painter: _SparklePainter([
-                        (0.16, 0.22, 10.0, 0.9),
-                        (0.84, 0.16, 7.0, 0.75),
-                        (0.88, 0.5, 11.0, 0.9),
-                        (0.12, 0.62, 6.5, 0.6),
-                        (0.2, 0.86, 8.0, 0.75),
-                        (0.8, 0.82, 6.0, 0.6),
+                        (0.16, 0.16, 10.0, 0.9),
+                        (0.84, 0.1, 7.0, 0.75),
+                        (0.9, 0.38, 11.0, 0.9),
+                        (0.1, 0.46, 6.5, 0.6),
+                        (0.14, 0.7, 8.0, 0.7),
+                        (0.88, 0.66, 6.0, 0.55),
                       ]),
                     ),
                   ),
+                  // 주인공 — 위쪽, 살짝 작게 (2차 발주자 피드백 2026-08-28)
                   const Align(
-                    alignment: Alignment(0, -0.22),
+                    alignment: Alignment(0, -0.66),
                     child: _HeroTodd(
                       mode: ToddMode.day,
                       event: GhostEvent.poke,
-                      size: 430,
+                      size: 392,
+                    ),
+                  ),
+                  // 보조 — 비스듬히 흩어진 투두 타일: "투두 앱"이라는 정체
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 42),
+                      child: _TiltedTodos(lang: lang),
                     ),
                   ),
                 ],
               ),
             ),
-            '$out/01_meet_todd.png',
+            lang,
+            '01_meet_todd.png',
             settle: const Duration(milliseconds: 200),
             pose: const Duration(milliseconds: 620),
           );
@@ -798,7 +890,8 @@ void main() {
                 ),
               ),
             ),
-            '$out/02_lights_out.png',
+            lang,
+            '02_lights_out.png',
           );
           home.dispose();
         }
@@ -850,7 +943,8 @@ void main() {
                 ),
               ),
             ),
-            '$out/03_quick_add.png',
+            lang,
+            '03_quick_add.png',
           );
           compose.dispose();
         }
@@ -893,7 +987,8 @@ void main() {
                 ],
               ),
             ),
-            '$out/04_good_night.png',
+            lang,
+            '04_good_night.png',
             settle: const Duration(milliseconds: 2200),
           );
         }

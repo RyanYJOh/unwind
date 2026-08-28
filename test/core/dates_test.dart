@@ -36,9 +36,7 @@ void main() {
     expect(dayKey(parseDayKey('2026-01-05')), '2026-01-05');
   });
 
-  test('월요일 판정 · 지난주 월요일', () {
-    expect(isMondayKey('2026-08-03'), true); // 월
-    expect(isMondayKey('2026-08-06'), false); // 목
+  test('주의 월요일 · 지난주 월요일', () {
     expect(mondayKeyOf('2026-08-06'), '2026-08-03');
     expect(lastMondayKeyOf('2026-08-10'), '2026-08-03'); // 월 → 지난주 월
     expect(lastMondayKeyOf('2026-08-06'), '2026-07-27');

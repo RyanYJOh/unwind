@@ -45,6 +45,3 @@ String mondayKeyOf(String key) {
 /// [todayKey] 기준 지난주 월요일
 String lastMondayKeyOf(String todayKey) =>
     dayKey(addDays(parseDayKey(mondayKeyOf(todayKey)), -7));
-
-/// 청구서는 논리적 월요일에만 연다 (§6.5)
-bool isMondayKey(String key) => parseDayKey(key).weekday == DateTime.monday;

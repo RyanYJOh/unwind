@@ -252,16 +252,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     });
   }
 
-  /// 월요일에만 지난주 청구서를 연다. 다른 요일이면 안내 영수증.
+  /// 지난주 청구서를 연다 — 요일 무관 (정책 개정 2026-08-28, 월요일
+  /// 게이트 폐지. 발송 알림은 여전히 월요일 09:00 하나다).
   Future<void> _openBill() async {
     final todayKey = ref.read(todayKeyProvider);
-    final accessible = isMondayKey(todayKey);
-    ToddAnalytics.track('Click weekly-bill', {'is_accessible': accessible});
-    if (!accessible) {
-      if (!mounted) return;
-      await showBillMondayOnly(context);
-      return;
-    }
+    ToddAnalytics.track('Click weekly-bill');
     final bill = await ref
         .read(billRepositoryProvider)
         .ensureLastWeekBill(
@@ -709,8 +704,8 @@ class _TopBar extends ConsumerWidget {
     final isPast = viewedKey != todayKey;
     final unread = ref.watch(unreadBillsProvider).value ?? const <WeeklyBill>[];
     final lastMonday = lastMondayKeyOf(todayKey);
-    final hasUnread =
-        isMondayKey(todayKey) && unread.any((b) => b.weekStart == lastMonday);
+    // 청구서는 매일 열람 가능 (정책 개정 2026-08-28) — 미확인 점도 요일 무관
+    final hasUnread = unread.any((b) => b.weekStart == lastMonday);
 
     final String title;
     if (isPast) {

@@ -96,8 +96,6 @@
       "kwh": {"type": "String"}
     }
   },
-  "billMondayOnly": "The bill opens on Mondays",
-  "billMondayOnlyBody": "Meanwhile, let's smash\nthis week's to-dos!",
   "wonAmount": "₩{amount}",
   "@wonAmount": {
     "placeholders": {

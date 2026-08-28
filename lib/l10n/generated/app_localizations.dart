@@ -458,18 +458,6 @@ abstract class AppLocalizations {
   /// **'{kwh} kWh left burning overnight'**
   String billTotalCaption(String kwh);
 
-  /// No description provided for @billMondayOnly.
-  ///
-  /// In en, this message translates to:
-  /// **'The bill opens on Mondays'**
-  String get billMondayOnly;
-
-  /// No description provided for @billMondayOnlyBody.
-  ///
-  /// In en, this message translates to:
-  /// **'Meanwhile, let\'s smash\nthis week\'s to-dos!'**
-  String get billMondayOnlyBody;
-
   /// No description provided for @wonAmount.
   ///
   /// In en, this message translates to:

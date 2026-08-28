@@ -69,29 +69,4 @@ void main() {
     await db.close();
   });
 
-  testWidgets('월요일이 아니면 같은 영수증에 안내', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showBillMondayOnly(context),
-            child: const Text('open'),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('open'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
-
-    expect(find.text('Weekly Electric Bill'), findsOneWidget);
-    expect(find.text('The bill opens on Mondays'), findsOneWidget);
-    expect(
-      find.text("Meanwhile, let's smash\nthis week's to-dos!"),
-      findsOneWidget,
-    );
-    expect(find.text('Share'), findsNothing);
-  });
 }

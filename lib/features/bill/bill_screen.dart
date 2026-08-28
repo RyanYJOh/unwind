@@ -38,12 +38,8 @@ abstract final class _Paper {
   static const leftover = Color(0xFFE24B3A); // 불을 남긴 밤
 }
 
-/// 월요일 외 요일 — 같은 영수증 화면에 안내만 넣는다.
-Future<void> showBillMondayOnly(BuildContext context) {
-  return Navigator.of(context, rootNavigator: true).push(_BillRoute());
-}
-
 /// §6.5 주간 청구서 — 영수증 형태. §9.4: 위에서 내려옴 600ms settle.
+/// 요일 무관 열람 (정책 개정 2026-08-28 — 월요일 잠금 영수증 폐지).
 Future<void> showBillScreen(BuildContext context, WeeklyBill bill) {
   return Navigator.of(
     context,
@@ -52,8 +48,8 @@ Future<void> showBillScreen(BuildContext context, WeeklyBill bill) {
 }
 
 class _BillRoute extends PopupRoute<void> {
-  final WeeklyBill? bill;
-  _BillRoute({this.bill});
+  final WeeklyBill bill;
+  _BillRoute({required this.bill});
 
   @override
   Color? get barrierColor => UnwindColors.scrim;
@@ -79,7 +75,7 @@ class _BillRoute extends PopupRoute<void> {
         begin: const Offset(0, -1),
         end: Offset.zero,
       ).animate(CurvedAnimation(parent: animation, curve: UnwindMotion.settle)),
-      child: bill == null ? const _LockedBillScreen() : BillScreen(bill: bill!),
+      child: BillScreen(bill: bill),
     );
   }
 }
@@ -195,69 +191,7 @@ class _BillScreenState extends ConsumerState<BillScreen> {
   }
 }
 
-/// 월요일 외 — 같은 영수증 껍데기에 안내만.
-class _LockedBillScreen extends StatelessWidget {
-  const _LockedBillScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return UnwindScreen(
-      child: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(UnwindSpacing.s24),
-              child: _ReceiptPaper(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      l10n.billTitle,
-                      textAlign: TextAlign.center,
-                      style: UnwindType.label.copyWith(color: _Paper.inkSoft),
-                    ),
-                    const SizedBox(height: UnwindSpacing.s16),
-                    const _DashedDivider(),
-                    const SizedBox(height: UnwindSpacing.s32),
-                    Text(
-                      l10n.billMondayOnly,
-                      textAlign: TextAlign.center,
-                      style: UnwindType.headline.copyWith(color: _Paper.ink),
-                    ),
-                    const SizedBox(height: UnwindSpacing.s8),
-                    Text(
-                      l10n.billMondayOnlyBody,
-                      textAlign: TextAlign.center,
-                      style: UnwindType.body.copyWith(color: _Paper.inkSoft),
-                    ),
-                    const SizedBox(height: UnwindSpacing.s32),
-                    const _DashedDivider(),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              UnwindSpacing.s20,
-              0,
-              UnwindSpacing.s20,
-              UnwindSpacing.s16,
-            ),
-            child: UnwindButton.ghost(
-              label: l10n.close,
-              expand: true,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 밝은 종이 영수증 껍데기 — 실청구서와 월요일 안내가 공유한다.
+/// 밝은 종이 영수증 껍데기
 class _ReceiptPaper extends StatelessWidget {
   final Widget child;
   const _ReceiptPaper({required this.child});

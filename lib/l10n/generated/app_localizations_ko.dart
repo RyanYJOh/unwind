@@ -207,12 +207,6 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get billMondayOnly => '청구서는 매주 월요일에만 열 수 있어';
-
-  @override
-  String get billMondayOnlyBody => '그때까지 이번 주 할 일들을 잘 해나가 보자!';
-
-  @override
   String wonAmount(String amount) {
     return '$amount원';
   }
