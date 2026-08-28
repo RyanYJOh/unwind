@@ -207,6 +207,16 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String billLeftoverLights(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '등 $count개',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String wonAmount(String amount) {
     return '$amount원';
   }

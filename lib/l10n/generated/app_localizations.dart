@@ -458,6 +458,12 @@ abstract class AppLocalizations {
   /// **'{kwh} kWh left burning overnight'**
   String billTotalCaption(String kwh);
 
+  /// No description provided for @billLeftoverLights.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 light} other{{count} lights}}'**
+  String billLeftoverLights(int count);
+
   /// No description provided for @wonAmount.
   ///
   /// In en, this message translates to:

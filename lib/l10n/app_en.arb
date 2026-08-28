@@ -91,6 +91,8 @@
   },
   "billTasksCaption": "tasks closed last week",
   "billTotalCaption": "{kwh} kWh left burning overnight",
+  "billLeftoverLights": "{count, plural, =1{1 light} other{{count} lights}}",
+  "@billLeftoverLights": {"placeholders": {"count": {"type": "int"}}},
   "@billTotalCaption": {
     "placeholders": {
       "kwh": {"type": "String"}

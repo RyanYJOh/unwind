@@ -59,9 +59,9 @@ void main() {
 
     expect(find.text('12 / 18'), findsOneWidget);
     expect(find.text(r'$3.36'), findsWidgets);
-    // 남긴 등 개수 — 불을 남긴 수요일만 ×1, 닫은 날은 표기 없음
-    expect(find.text('×1'), findsOneWidget);
-    expect(find.text('×0'), findsNothing);
+    // 남긴 등 개수 — 불을 남긴 수요일만 금액 앞 "1 light", 닫은 날은 없음
+    expect(find.text('1 light'), findsOneWidget);
+    expect(find.textContaining('lights'), findsNothing);
     expect(find.text('Todd tossed and turned a little'), findsOneWidget);
     expect(find.textContaining('%'), findsNothing);
 

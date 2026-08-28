@@ -396,19 +396,19 @@ class _Receipt extends StatelessWidget {
                             : _Paper.leftover,
                     ),
                   ),
-                  // 그날 밤 남긴 등 개수 (개정 2026-08-28) — 점 옆에 ×N.
-                  // 언어 중립 영수증 표기. 닫은 날(0)은 점만으로 충분하다.
+                  const Spacer(),
+                  // 그날 밤 남긴 등 개수 (2차 개정 2026-08-28: ×N은 전달이
+                  // 약했다) — 고지서의 "사용량 · 금액" 문법대로 금액 앞에
+                  // "등 2개"를 옅게 놓는다. 닫은 날(0)은 점만으로 충분하다.
                   if (days[i].leftover > 0) ...[
-                    const SizedBox(width: UnwindSpacing.s4),
                     Text(
-                      '×${days[i].leftover}',
-                      style: _mono.copyWith(
-                        fontSize: 11,
+                      l10n.billLeftoverLights(days[i].leftover),
+                      style: UnwindType.caption.copyWith(
                         color: _Paper.inkFaint,
                       ),
                     ),
+                    const SizedBox(width: UnwindSpacing.s8),
                   ],
-                  const Spacer(),
                   Text(
                     money.format(
                       money.charge(days[i].kwh),

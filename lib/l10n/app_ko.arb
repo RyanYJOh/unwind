@@ -68,6 +68,8 @@
   "billTasksClosed": "{done} / {total}",
   "billTasksCaption": "지난주에 끝낸 일",
   "billTotalCaption": "밤새 켜 둔 불 {kwh} kWh",
+  "billLeftoverLights": "{count, plural, other{등 {count}개}}",
+  "@billLeftoverLights": {"placeholders": {"count": {"type": "int"}}},
   "wonAmount": "{amount}원",
   "sleepDeep": "토드가 완벽하게 잤어요",
   "sleepWell": "토드가 꽤 잘 잤어요",
