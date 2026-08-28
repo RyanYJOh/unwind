@@ -396,6 +396,18 @@ class _Receipt extends StatelessWidget {
                             : _Paper.leftover,
                     ),
                   ),
+                  // 그날 밤 남긴 등 개수 (개정 2026-08-28) — 점 옆에 ×N.
+                  // 언어 중립 영수증 표기. 닫은 날(0)은 점만으로 충분하다.
+                  if (days[i].leftover > 0) ...[
+                    const SizedBox(width: UnwindSpacing.s4),
+                    Text(
+                      '×${days[i].leftover}',
+                      style: _mono.copyWith(
+                        fontSize: 11,
+                        color: _Paper.inkFaint,
+                      ),
+                    ),
+                  ],
                   const Spacer(),
                   Text(
                     money.format(
