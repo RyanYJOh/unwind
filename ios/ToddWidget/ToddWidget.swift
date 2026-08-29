@@ -391,7 +391,13 @@ private struct ToddProvider: TimelineProvider {
                     at: date, snapshot: snapshot, fixedBackground: fixedBackground)))
             }
         }
-        completion(Timeline(entries: entries, policy: .atEnd))
+        // ".atEnd"는 자가 회복 창구가 없다 (2026-08-29): 마지막 엔트리가
+        // ≈24시간 뒤라, 앱이 쏜 리로드가 WidgetKit에 흘려지면(coalescing·
+        // 버짓) 낡은 dayKey의 타임라인이 하루 종일 남는다 — 앱을 열어도
+        // "Good morning"에 고착되던 증상의 마지막 구멍. 한 시간마다 다시
+        // 생성해 스냅샷 파일을 새로 읽는다 (일 ≈24회, 버짓 40~70회 안).
+        // 시각 엔트리 24개는 그대로 — 재생성이 밀려도 표정은 흘러간다.
+        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(60 * 60))))
     }
 }
 
@@ -970,11 +976,14 @@ struct ToddWidget: Widget {
     let kind: String = "ToddWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: ToddProvider()) { entry in
+        let ko = Locale.current.identifier.hasPrefix("ko")
+        return StaticConfiguration(kind: kind, provider: ToddProvider()) { entry in
             ToddWidgetView(entry: entry)
         }
         .configurationDisplayName("Todd")
-        .description("오늘 남은 불빛과 Todd의 하루 · Todd's day and the lights still on")
+        .description(ko
+            ? "토드가 배경화면에서 실시간으로 알려줘요"
+            : "Todd keeps you posted in real time, right on your Home Screen")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }
