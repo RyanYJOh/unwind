@@ -234,6 +234,10 @@ class WidgetSnapshotService {
       // 네이티브 브리지가 UserDefaults를 플러시하고 JSON 파일을 원자적으로
       // 쓴 뒤에 타임라인을 리로드한다 — home_widget saveWidgetData는
       // 디스크 반영 전에 reload해서 첫 설치 위젯이 빈 폴백에 고정됐다.
+      // 모든 write는 _chain으로 직렬화된다 — 이 호출 하나가 영영 안
+      // 돌아오면 이후의 모든 스냅샷이 그 뒤에 줄을 서 프로세스가 살아
+      // 있는 동안 위젯이 다시는 갱신되지 않는다. 타임아웃으로 끊어
+      // 다음 write가 지나가게 한다 (2026-08-29).
       await _channel.invokeMethod<bool>('persist', {
         'appGroupId': appGroupId,
         'kind': iOSWidgetName,
@@ -256,7 +260,7 @@ class WidgetSnapshotService {
         'accent': UnwindColors.accent.toARGB32(),
         'accentDeep': UnwindColors.accentDeep.toARGB32(),
         'onAccent': UnwindColors.onAccent.toARGB32(),
-      });
+      }).timeout(const Duration(seconds: 8));
       lastResult = 'ok ${s.dayKey} ${s.remaining}/${s.total}';
       _confirmReload?.cancel();
       _confirmReload = Timer(
