@@ -33,16 +33,25 @@ import 'package:unwind/widgets/todd/ghost_painter_view.dart';
 const _canvasW = 440.0; // 디자인 기준 캔버스 (6.9" 논리 크기)
 const _canvasH = 956.0;
 
+// iPad 13" 캔버스 (2026-08-28) — 비율이 0.75라 폰 디자인을 크롭할 수 없다.
+// 배경은 캔버스 전체에 다시 그리고, 폰용 본문(440×956)을 중앙에 세로
+// 꽉 차게(×1376/956) 확대해 앉힌다 — 좌우는 배경이 자연스럽게 채운다.
+const _padW = 1032.0;
+const _padH = 1376.0;
+
 class _Preset {
   final String dir; // 출력 폴더명 = 픽셀 규격
   final double pw, ph; // 물리 px
-  const _Preset(this.dir, this.pw, this.ph);
+  final double dpr;
+  final bool pad;
+  const _Preset(this.dir, this.pw, this.ph, this.dpr, {this.pad = false});
 }
 
-/// App Store Connect 필수 규격 (아이패드 미지원 앱 기준)
+/// App Store Connect 필수 규격
 const _presets = [
-  _Preset('1320x2868', 1320, 2868), // 6.9" (iPhone 17 Pro Max급)
-  _Preset('1242x2688', 1242, 2688), // 6.5" (iPhone 11 Pro Max급)
+  _Preset('1320x2868', 1320, 2868, 3), // 6.9" (iPhone 17 Pro Max급)
+  _Preset('1242x2688', 1242, 2688, 3), // 6.5" (iPhone 11 Pro Max급)
+  _Preset('2064x2752', 2064, 2752, 2, pad: true), // iPad 13"
 ];
 const _screenW = 402.0; // 폰 목업 내부 논리 크기 (iPhone 17)
 const _screenH = 874.0;
@@ -186,7 +195,7 @@ Future<ui.Image> _captureApp(
 // ── 최종 프레임 렌더 → PNG (필수 규격 전부) ─────────────────
 Future<void> _renderPng(
   WidgetTester tester,
-  Widget frame,
+  Widget Function(bool pad) buildFrame,
   String lang,
   String fileName, {
   Duration settle = const Duration(milliseconds: 900),
@@ -195,10 +204,12 @@ Future<void> _renderPng(
   Duration pose = Duration.zero,
 }) async {
   for (final preset in _presets) {
-    final lw = preset.pw / 3;
-    final lh = preset.ph / 3;
+    final lw = preset.pw / preset.dpr;
+    final lh = preset.ph / preset.dpr;
+    final designW = preset.pad ? _padW : _canvasW;
+    final designH = preset.pad ? _padH : _canvasH;
     tester.view.physicalSize = Size(preset.pw, preset.ph);
-    tester.view.devicePixelRatio = 3;
+    tester.view.devicePixelRatio = preset.dpr;
     tester.view.padding = FakeViewPadding.zero;
     tester.view.viewInsets = FakeViewPadding.zero;
 
@@ -217,9 +228,9 @@ Future<void> _renderPng(
                 fit: BoxFit.cover,
                 clipBehavior: Clip.hardEdge,
                 child: SizedBox(
-                  width: _canvasW,
-                  height: _canvasH,
-                  child: frame,
+                  width: designW,
+                  height: designH,
+                  child: buildFrame(preset.pad),
                 ),
               ),
             ),
@@ -239,7 +250,7 @@ Future<void> _renderPng(
     final boundary =
         key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     final bytes = await tester.runAsync(() async {
-      final image = await boundary.toImage(pixelRatio: 3.0);
+      final image = await boundary.toImage(pixelRatio: preset.dpr);
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
       return data!.buffer.asUint8List();
@@ -261,53 +272,73 @@ class _Frame extends StatelessWidget {
   final Widget child;
   final Widget? background;
 
+  /// iPad 13" 캔버스 (2064×2752). 배경은 캔버스 전체, 본문은 중앙 확대.
+  final bool pad;
+
   const _Frame({
     required this.copy,
     required this.glow,
     required this.child,
     this.background,
+    this.pad = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final body = Column(
+      children: [
+        const SizedBox(height: 74),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Text(copy.title, textAlign: TextAlign.center, style: _title()),
+        ),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(copy.sub, textAlign: TextAlign.center, style: _sub()),
+        ),
+        Expanded(child: child),
+      ],
+    );
+
+    final layers = <Widget>[
+      const ColoredBox(color: UnwindColors.ink),
+      ?background,
+      // 우상단 앰버 글로우 — 앱과 같은 문법 (§11 블러 금지: gradient)
+      if (glow > 0)
+        IgnorePointer(child: CustomPaint(painter: _GlowPainter(light: glow))),
+    ];
+
+    if (!pad) {
+      return SizedBox(
+        width: _canvasW,
+        height: _canvasH,
+        child: Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.hardEdge,
+          children: [...layers, body],
+        ),
+      );
+    }
+
+    // iPad: 배경 레이어는 전체 캔버스에 다시 그리고(비율 기반 페인터라
+    // 그대로 성립), 폰용 본문을 세로 꽉 차게 확대해 중앙에 앉힌다.
     return SizedBox(
-      width: _canvasW,
-      height: _canvasH,
-      child: Stack(
-        fit: StackFit.expand,
-        clipBehavior: Clip.hardEdge,
-        children: [
-          const ColoredBox(color: UnwindColors.ink),
-          ?background,
-          // 우상단 앰버 글로우 — 앱과 같은 문법 (§11 블러 금지: gradient)
-          if (glow > 0)
-            IgnorePointer(
-              child: CustomPaint(painter: _GlowPainter(light: glow)),
+      width: _padW,
+      height: _padH,
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ...layers,
+            Center(
+              child: Transform.scale(
+                scale: _padH / _canvasH,
+                child: SizedBox(width: _canvasW, height: _canvasH, child: body),
+              ),
             ),
-          Column(
-            children: [
-              const SizedBox(height: 74),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Text(
-                  copy.title,
-                  textAlign: TextAlign.center,
-                  style: _title(),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  copy.sub,
-                  textAlign: TextAlign.center,
-                  style: _sub(),
-                ),
-              ),
-              Expanded(child: child),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -791,9 +822,10 @@ void main() {
         if (want(1)) {
           await _renderPng(
             tester,
-            _Frame(
+            (pad) => _Frame(
               copy: copy[0],
               glow: 0.95,
+              pad: pad,
               background: CustomPaint(
                 painter: const _HaloPainter(
                   center: Offset(0.5, 0.48),
@@ -875,9 +907,10 @@ void main() {
           );
           await _renderPng(
             tester,
-            _Frame(
+            (pad) => _Frame(
               copy: copy[1],
               glow: 0.4,
+              pad: pad,
               child: Padding(
                 padding: const EdgeInsets.only(top: 34),
                 child: Align(
@@ -923,9 +956,10 @@ void main() {
           );
           await _renderPng(
             tester,
-            _Frame(
+            (pad) => _Frame(
               copy: copy[2],
               glow: 0.28,
+              pad: pad,
               child: Padding(
                 padding: const EdgeInsets.only(top: 34),
                 child: Align(
@@ -953,9 +987,10 @@ void main() {
         if (want(4)) {
           await _renderPng(
             tester,
-            _Frame(
+            (pad) => _Frame(
               copy: copy[3],
               glow: 0,
+              pad: pad,
               background: Stack(
                 fit: StackFit.expand,
                 children: [
