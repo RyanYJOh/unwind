@@ -332,6 +332,8 @@ final widgetSyncProvider = Provider<void>((ref) {
             false,
         stored: ref.watch(settingsControllerProvider).value?.widgetBackground,
       ).name,
+      premium:
+          ref.watch(settingsControllerProvider).value?.premiumEnabled ?? false,
     ),
   );
 });
@@ -368,6 +370,9 @@ Future<void> flushWidgetSnapshot(WidgetRef ref) async {
                 .value
                 ?.widgetBackground,
           ).name,
+          premium:
+              ref.read(settingsControllerProvider).value?.premiumEnabled ??
+              false,
         ),
       );
 }

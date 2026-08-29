@@ -58,6 +58,8 @@ private struct Snapshot {
     var languageCode: String
     /// 위젯 배경 (선택형 2026-08-28) — WidgetBackground.name. 모르는 값은 deepNight
     var background: String
+    /// Todd Plus (2026-08-29) — 배경 고정형 kind의 잠금 판정
+    var premium: Bool
     /// 조명 색 (선택형 2026-08-22) — ARGB. 앱 팔레트를 따라온다
     var accent: Int
     var accentDeep: Int
@@ -94,6 +96,7 @@ private struct Snapshot {
             bedtimeHour: jsonInt(obj, "bedtimeHour", fallback: 22),
             languageCode: obj["languageCode"] as? String ?? "en",
             background: obj["background"] as? String ?? "deepNight",
+            premium: jsonBool(obj, "premium"),
             accent: jsonInt(obj, "accent", fallback: Palette.amberARGB),
             accentDeep: jsonInt(obj, "accentDeep", fallback: Palette.amberDeepARGB),
             onAccent: jsonInt(obj, "onAccent", fallback: Palette.onAmberARGB)
@@ -117,6 +120,7 @@ private struct Snapshot {
             bedtimeHour: d.intValue("bedtimeHour", fallback: 22),
             languageCode: d.string(forKey: "languageCode") ?? "en",
             background: d.string(forKey: "background") ?? "deepNight",
+            premium: d.bool(forKey: "premium"),
             accent: d.intValue("accent", fallback: Palette.amberARGB),
             accentDeep: d.intValue("accentDeep", fallback: Palette.amberDeepARGB),
             onAccent: d.intValue("onAccent", fallback: Palette.onAmberARGB)
@@ -164,6 +168,9 @@ private struct DisplayState {
     var lang: String
     /// 위젯 배경 (선택형 2026-08-28) — SceneBackground의 장면 id
     var background: String = "deepNight"
+    /// 잠금 (2026-08-29) — Plus 배경 고정형 위젯인데 구독이 없다.
+    /// 장면은 보여주되(티저) Todd·개수 대신 자물쇠를 그린다.
+    var locked: Bool = false
     /// 조명 색 (선택형 2026-08-22) — 알약·글로우가 따라간다
     var accent: Color = Color(argb: Palette.amberARGB)
     var accentDeep: Color = Color(argb: Palette.amberDeepARGB)
@@ -197,13 +204,21 @@ private extension UserDefaults {
     }
 }
 
-private func computeState(at date: Date, snapshot: Snapshot?) -> DisplayState {
+private func computeState(
+    at date: Date, snapshot: Snapshot?, fixedBackground: String? = nil
+) -> DisplayState {
     var state = computeScene(at: date, snapshot: snapshot)
     if let s = snapshot {
         state.background = s.background
         state.accent = Color(argb: s.accent)
         state.accentDeep = Color(argb: s.accentDeep)
         state.onAccent = Color(argb: s.onAccent)
+    }
+    // 배경 고정형 kind (2026-08-29): 이 위젯은 항상 자기 장면을 그린다.
+    // 깊은 밤 외는 Plus — 구독이 없으면(스냅샷 없음 포함) 잠금으로 그린다.
+    if let fixed = fixedBackground {
+        state.background = fixed
+        state.locked = fixed != "deepNight" && !(snapshot?.premium ?? false)
     }
     return state
 }
@@ -318,22 +333,29 @@ private struct ToddEntry: TimelineEntry {
 }
 
 private struct ToddProvider: TimelineProvider {
+    /// nil = 기본 위젯 (앱 설정의 배경을 따라간다).
+    /// 값이 있으면 배경 고정형 kind (2026-08-29) — 항상 그 장면.
+    var fixedBackground: String? = nil
+
     func placeholder(in context: Context) -> ToddEntry {
-        ToddEntry(
-            date: .now,
-            state: DisplayState(
-                scene: .day(slot: 1), darkCircles: false, remaining: 3,
-                glow: 0.65, lang: Locale.current.identifier.hasPrefix("ko") ? "ko" : "en"
-            )
+        var state = DisplayState(
+            scene: .day(slot: 1), darkCircles: false, remaining: 3,
+            glow: 0.65, lang: Locale.current.identifier.hasPrefix("ko") ? "ko" : "en"
         )
+        if let fixed = fixedBackground { state.background = fixed }
+        return ToddEntry(date: .now, state: state)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ToddEntry) -> Void) {
-        if context.isPreview {
-            completion(placeholder(in: context))
-        } else {
-            completion(ToddEntry(date: .now, state: computeState(at: .now, snapshot: Snapshot.load())))
-        }
+        // 위젯 갤러리 미리보기(isPreview)에서도 실제 스냅샷으로 판정한다 —
+        // Plus가 아니면 갤러리에서부터 잠금이 보여야 한다 (발주자 지시).
+        completion(ToddEntry(
+            date: .now,
+            state: computeState(
+                at: .now, snapshot: Snapshot.load(),
+                fixedBackground: fixedBackground
+            )
+        ))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ToddEntry>) -> Void) {
@@ -349,21 +371,24 @@ private struct ToddProvider: TimelineProvider {
         guard let snapshot else {
             completion(
                 Timeline(
-                    entries: [ToddEntry(date: now, state: computeState(at: now, snapshot: nil))],
+                    entries: [ToddEntry(date: now, state: computeState(
+                        at: now, snapshot: nil, fixedBackground: fixedBackground))],
                     policy: .after(now.addingTimeInterval(15 * 60))
                 )
             )
             return
         }
 
-        var entries = [ToddEntry(date: now, state: computeState(at: now, snapshot: snapshot))]
+        var entries = [ToddEntry(date: now, state: computeState(
+            at: now, snapshot: snapshot, fixedBackground: fixedBackground))]
         let cal = Calendar.current
         if let nextHour = cal.nextDate(
             after: now, matching: DateComponents(minute: 0), matchingPolicy: .nextTime
         ) {
             for i in 0..<24 {
                 let date = nextHour.addingTimeInterval(Double(i) * 3600)
-                entries.append(ToddEntry(date: date, state: computeState(at: date, snapshot: snapshot)))
+                entries.append(ToddEntry(date: date, state: computeState(
+                    at: date, snapshot: snapshot, fixedBackground: fixedBackground)))
             }
         }
         completion(Timeline(entries: entries, policy: .atEnd))
@@ -385,10 +410,22 @@ private struct ToddWidgetView: View {
     var body: some View {
         VStack(spacing: 2) {
             Spacer(minLength: 0)
-            Image(entry.state.spriteName)
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: .infinity)
+            if entry.state.locked {
+                // 잠금 (2026-08-29): 장면은 티저로 보여주되 Todd·개수 대신
+                // 자물쇠 + Todd Plus 알약 — 갤러리·홈 어디서든 잠금이 읽힌다
+                ZStack {
+                    Circle().fill(Color(argb: 0xFF27394A))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            } else {
+                Image(entry.state.spriteName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+            }
             Spacer(minLength: 0)
             pill
         }
@@ -423,13 +460,16 @@ private struct ToddWidgetView: View {
 
     /// 듀오링고 문법의 3D 알약 — blur 0 오프셋 압출 (§5.2)
     private var pill: some View {
-        let hasCount = entry.state.pillNumber != nil
+        let hasCount = !entry.state.locked && entry.state.pillNumber != nil
         let top: Color = hasCount ? entry.state.accent : Palette.surfaceHigh
         let deep: Color = hasCount ? entry.state.accentDeep : Palette.pillDeep
         let fg: Color = hasCount ? entry.state.onAccent : Palette.textPrimary
 
         return HStack(spacing: 4) {
-            if let n = entry.state.pillNumber {
+            if entry.state.locked {
+                Text("Todd Plus")
+                    .font(.system(size: 13.5, weight: .heavy, design: .rounded))
+            } else if let n = entry.state.pillNumber {
                 Text(n)
                     .font(.system(size: 19, weight: .heavy, design: .rounded))
                 Text(entry.state.pillLabel)
@@ -891,6 +931,39 @@ private struct SceneBackground: View {
 }
 
 // MARK: - 위젯 정의
+//
+// 배경마다 별도 kind (2026-08-29, 발주자 지시): '위젯 추가' 갤러리에
+// 9종이 각각 뜬다. 기본 "ToddWidget"은 앱 설정의 배경을 따라가고(기존
+// 설치 호환), 나머지 8종은 배경 고정 + Plus 없으면 잠금 렌더.
+// kind는 전부 "ToddWidget" 접두 — 브리지 hasWidget이 접두로 판정한다.
+
+private func sceneDisplayName(_ id: String) -> String {
+    let ko = Locale.current.identifier.hasPrefix("ko")
+    switch id {
+    case "fireflies": return ko ? "반딧불이" : "Fireflies"
+    case "rainWindow": return ko ? "창가의 비" : "Rainy Window"
+    case "bigMoon": return ko ? "큰 달" : "Big Moon"
+    case "starrySea": return ko ? "밤바다" : "Starry Sea"
+    case "firstSnow": return ko ? "첫눈" : "First Snow"
+    case "aurora": return ko ? "오로라" : "Aurora"
+    case "pastelDream": return ko ? "몽글몽글" : "Pastel Dream"
+    case "blanketFort": return ko ? "이불 속" : "Blanket Fort"
+    default: return "Todd"
+    }
+}
+
+private func toddSceneConfig(kind: String, bg: String) -> some WidgetConfiguration {
+    let ko = Locale.current.identifier.hasPrefix("ko")
+    return StaticConfiguration(
+        kind: kind, provider: ToddProvider(fixedBackground: bg)
+    ) { entry in
+        ToddWidgetView(entry: entry)
+    }
+    .configurationDisplayName(sceneDisplayName(bg))
+    .description(ko ? "Todd Plus 배경" : "A Todd Plus background")
+    .supportedFamilies([.systemSmall])
+    .contentMarginsDisabled()
+}
 
 struct ToddWidget: Widget {
     // Flutter 쪽 WidgetSnapshotService.iOSWidgetName과 일치해야 한다
@@ -907,10 +980,66 @@ struct ToddWidget: Widget {
     }
 }
 
+struct ToddFirefliesWidget: Widget {
+    var body: some WidgetConfiguration {
+        toddSceneConfig(kind: "ToddWidgetFireflies", bg: "fireflies")
+    }
+}
+
+struct ToddRainWindowWidget: Widget {
+    var body: some WidgetConfiguration {
+        toddSceneConfig(kind: "ToddWidgetRainWindow", bg: "rainWindow")
+    }
+}
+
+struct ToddBigMoonWidget: Widget {
+    var body: some WidgetConfiguration {
+        toddSceneConfig(kind: "ToddWidgetBigMoon", bg: "bigMoon")
+    }
+}
+
+struct ToddStarrySeaWidget: Widget {
+    var body: some WidgetConfiguration {
+        toddSceneConfig(kind: "ToddWidgetStarrySea", bg: "starrySea")
+    }
+}
+
+struct ToddFirstSnowWidget: Widget {
+    var body: some WidgetConfiguration {
+        toddSceneConfig(kind: "ToddWidgetFirstSnow", bg: "firstSnow")
+    }
+}
+
+struct ToddAuroraWidget: Widget {
+    var body: some WidgetConfiguration {
+        toddSceneConfig(kind: "ToddWidgetAurora", bg: "aurora")
+    }
+}
+
+struct ToddPastelDreamWidget: Widget {
+    var body: some WidgetConfiguration {
+        toddSceneConfig(kind: "ToddWidgetPastelDream", bg: "pastelDream")
+    }
+}
+
+struct ToddBlanketFortWidget: Widget {
+    var body: some WidgetConfiguration {
+        toddSceneConfig(kind: "ToddWidgetBlanketFort", bg: "blanketFort")
+    }
+}
+
 @main
 struct ToddWidgetBundle: WidgetBundle {
     var body: some Widget {
         ToddWidget()
+        ToddFirefliesWidget()
+        ToddRainWindowWidget()
+        ToddBigMoonWidget()
+        ToddStarrySeaWidget()
+        ToddFirstSnowWidget()
+        ToddAuroraWidget()
+        ToddPastelDreamWidget()
+        ToddBlanketFortWidget()
     }
 }
 

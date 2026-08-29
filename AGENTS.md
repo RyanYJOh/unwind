@@ -674,6 +674,15 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   (iOS 18 Tinted 모드가 색을 luminanceToAlpha로 뭉갠다), 채도는 낮게.
   깊은 밤 외 전부 Plus (§8.7 게이트 ③) — 스냅샷에는 항상 **게이트를
   통과한 유효값**이 실린다 (`WidgetBackground.effective`).
+  **배경마다 별도 위젯 kind** (2026-08-29, 발주자 지시): '위젯 추가'
+  갤러리에 9종이 각각 뜬다. 기본 "ToddWidget"은 앱 설정의 배경을
+  따라가고(기존 설치 호환), 나머지 8종은 `ToddProvider(fixedBackground:)`
+  로 배경 고정 — kind는 전부 "ToddWidget" 접두(브리지 hasWidget이 접두
+  일치로 판정, 리로드는 reloadAllTimelines). 스냅샷의 `premium` 플래그로
+  **Plus 없으면 잠금 렌더** (장면은 티저로 보여주되 Todd·개수 대신
+  자물쇠 + "Todd Plus" 알약 — 갤러리 미리보기 isPreview에서도 실제
+  스냅샷으로 판정해 추가 화면에서부터 잠금이 보인다). 이름은 기기
+  언어로 Swift가 직접 분기(sceneDisplayName — lproj 추가 없이).
   코너 글로우는 우상단 radial gradient
   (§11 블러 금지 준수), 개수는 듀오링고식 3D 압출 알약(blur 0 오프셋),
   숫자는 SF Rounded heavy (Pretendard는 위젯에 번들하지 않는다 — 큰 숫자

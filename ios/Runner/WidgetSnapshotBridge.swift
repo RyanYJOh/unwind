@@ -31,7 +31,8 @@ enum WidgetSnapshotBridge {
             DispatchQueue.main.async {
               switch res {
               case .success(let infos):
-                result(infos.contains { kind == nil || $0.kind == kind })
+                // 배경 고정형 kind(2026-08-29)도 우리 위젯이다 — 접두 일치
+                result(infos.contains { kind == nil || $0.kind.hasPrefix(kind!) })
               case .failure(let error):
                 result(
                   FlutterError(
@@ -53,12 +54,8 @@ enum WidgetSnapshotBridge {
       // 옛 파일을 읽은 결과로 굳는 경쟁을, 잠잠해진 뒤 한 번 더 리로드해 푼다.
       if call.method == "reload" {
         if #available(iOS 14.0, *) {
-          let kind = (call.arguments as? [String: Any])?["kind"] as? String
-          if let kind {
-            WidgetCenter.shared.reloadTimelines(ofKind: kind)
-          } else {
-            WidgetCenter.shared.reloadAllTimelines()
-          }
+          // 배경 고정형 kind 9종 (2026-08-29) — 전부 리로드
+          WidgetCenter.shared.reloadAllTimelines()
         }
         result(true)
         return
@@ -95,10 +92,10 @@ enum WidgetSnapshotBridge {
       }
 
       if #available(iOS 14.0, *) {
-        // ofKind 하나면 충분하다 — reloadAllTimelines까지 겹쳐 쏘면
-        // WidgetKit이 진행 중인 타임라인 생성에 뒤 리로드를 합쳐 버리는
-        // (coalescing) 경쟁 창만 넓어진다 (간헐 미반영, 2026-08-22).
-        WidgetCenter.shared.reloadTimelines(ofKind: kind)
+        // 배경 고정형 kind가 늘어(2026-08-29, 9종) 전부 리로드한다.
+        // 리로드는 여전히 호출 한 번 — coalescing 경쟁 창은 안 넓어진다.
+        _ = kind
+        WidgetCenter.shared.reloadAllTimelines()
       }
       result(true)
     }
@@ -117,6 +114,8 @@ enum WidgetSnapshotBridge {
       "languageCode": args["languageCode"] as? String ?? "en",
       // 위젯 배경 (선택형 2026-08-28) — SceneBackground가 그린다
       "background": args["background"] as? String ?? "deepNight",
+      // Todd Plus (2026-08-29) — 고정형 위젯 kind의 잠금 판정
+      "premium": NSNumber(value: boolVal(args["premium"])),
       // 조명 색 (선택형 2026-08-22) — ARGB. 기본값은 앰버
       "accent": NSNumber(value: intVal(args["accent"], fallback: 0xFFFF_B224)),
       "accentDeep": NSNumber(value: intVal(args["accentDeep"], fallback: 0xFFC5_7F12)),

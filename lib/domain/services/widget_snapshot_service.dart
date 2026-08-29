@@ -47,6 +47,11 @@ class WidgetSnapshot {
   /// 게이트(§8.7 ③)는 호출자가 적용해 **유효한 값**을 넣는다.
   final String background;
 
+  /// Todd Plus 여부 (2026-08-29) — 배경 고정형 위젯 kind들이 잠금
+  /// 상태를 스스로 그리는 근거. 기본 위젯의 background는 이미
+  /// effective()로 게이트되어 있으므로 이 플래그는 고정형 전용이다.
+  final bool premium;
+
   const WidgetSnapshot({
     required this.dayKey,
     required this.remaining,
@@ -58,6 +63,7 @@ class WidgetSnapshot {
     required this.bedtimeHour,
     required this.languageCode,
     this.background = 'deepNight',
+    this.premium = false,
   });
 
   /// 오늘 방의 할 일 상태에서 위젯 스냅샷을 만든다.
@@ -71,6 +77,7 @@ class WidgetSnapshot {
     required int bedtimeHour,
     required String languageCode,
     String background = 'deepNight',
+    bool premium = false,
   }) {
     final counted = statuses.where((s) => s != TodoStatus.deferred);
     final pending = counted.where((s) => s == TodoStatus.pending).length;
@@ -94,6 +101,7 @@ class WidgetSnapshot {
       bedtimeHour: bedtimeHour,
       languageCode: languageCode,
       background: background,
+      premium: premium,
     );
   }
 }
@@ -240,6 +248,8 @@ class WidgetSnapshotService {
         'languageCode': s.languageCode,
         // 위젯 배경 (선택형 2026-08-28) — Swift SceneBackground가 그린다
         'background': s.background,
+        // Todd Plus (2026-08-29) — 고정형 위젯 kind의 잠금 판정
+        'premium': s.premium,
         // 조명 색 (선택형 2026-08-22) — 위젯의 알약·글로우가 따라간다.
         // 항상 persist 시점의 현재 팔레트를 싣는다 (설정 변경도
         // widgetSyncProvider가 settings를 watch하므로 새로 write된다).
