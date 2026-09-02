@@ -38,11 +38,18 @@ flutter gen-l10n                                          # l10n (generated도 �
 flutter analyze && flutter test                           # 149개 통과가 기준선
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight용 (버전은 pubspec)
+flutter build ipa --dart-define=REVIEW_BUILD=true          # App Store 심사 제출용
 ```
 
 - 버전: `pubspec.yaml`의 `version: X.Y.Z+N` — TestFlight 업로드마다 `+N` 증가.
 - l10n: `lib/l10n/app_en.arb`(기본)·`app_ko.arb` 수정 → `flutter gen-l10n`.
   두 파일 모두에 키를 넣어야 한다. 문구는 은유를 따른다 (버튼은 동사).
+- **빌드 플래그** `lib/core/build_flags.dart` — `kReviewBuild`
+  (`--dart-define=REVIEW_BUILD=true`). 심사 제출 빌드에서만 온보딩 별점
+  팝업을 건너뛴다 (§8.5). 유저 스위치가 아니라 **어떤 바이너리인가**를
+  가르는 컴파일 타임 상수다. ⚠️ 심사에 통과한 바이너리가 곧 스토어에
+  나가는 바이너리이므로, 이 플래그로 구운 빌드를 그대로 출시하면 유저에게도
+  팝업이 안 뜬다.
 
 ## 3. 디렉토리 지도
 
@@ -51,6 +58,8 @@ lib/
   core/tokens/       palette(고정 다크 팔레트)·타이포·간격/깊이·모션 상수
                      → 값 하드코딩 금지. 모든 UI는 이 토큰만 사용
   core/analytics/    ToddAnalytics — Mixpanel 래퍼 (§8.8, 릴리즈 전용)
+                     + TrackingConsent — ATT 동의 (§8.9, 첫 실행 프롬프트)
+  core/build_flags   kReviewBuild — 심사 제출 빌드 여부 (§2)
   core/haptics/      UnwindHaptics(햅틱 어휘) + UnwindHapticsScope(트리 주입)
   core/utils/        dates.dart(dayKey 유틸)
   ui/                **재사용 컴포넌트 라이브러리 (ui.dart 하나만 import)**
@@ -579,6 +588,10 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
    기대를 고르면 Todd가 체크 축하(점프+별)로 화답하고 0.7초 뒤 — 기대가
    정점에 오른 순간 — **앱스토어 별점 팝업**(in_app_review)을 띄운 뒤
    이름으로. 나머지 답은 팝업 없이 조용히 다음으로. 답은 저장하지 않는다.
+   **심사 빌드에선 별점 팝업이 빠진다** (2026-09-02 — 온보딩 중 평점 요구로
+   App Store 리젝): `kReviewBuild`(§2)면 축하만 하고 바로 이름으로 간다.
+   dev 프리뷰(`preview: true`)도 같다 — 예전엔 프리뷰에서도 팝업이 떴다.
+   페이지 자체는 남는다 (기대감을 고조시키는 심리 설계가 목적).
 6. 10. **이름** — "What should Todd call you?" — **필수** (건너뛰기 없음,
    2차 개정), `userName` 설정으로 저장 → 답변 일괄 커밋(플래그 제외).
 7. 11. **인사** — "만나서 반가워요, {이름}!" + 까르르. 도착 0.5초 뒤
@@ -842,6 +855,33 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 3. 이름·키 규칙(위 표)을 따르고, 없는 프로퍼티는 보내지 않는다.
 4. 릴리즈 전 Mixpanel Live View에서 도착 확인 (디버그는 콘솔).
 
+## 8.9 ATT — 앱 추적 동의 (신설 2026-09-02, App Store 리젝 대응)
+
+앱이 Mixpanel(§8.8)로 사용 데이터를 모으므로 iOS는 추적 동의 프롬프트를
+요구한다. 없이 제출해 리젝됐다.
+
+- **첫 실행 때 바로 띄운다** — 온보딩 안이 아니라 프로세스가 켜지는 순간.
+  `main()`의 `addPostFrameCallback`에서 `TrackingConsent.requestOnLaunch()`.
+  **첫 프레임 뒤여야 한다**: 창이 안 올라온 상태에서 요청하면 iOS가
+  다이얼로그 없이 notDetermined를 돌려준다.
+- OS가 프롬프트를 생애 한 번만 보여 주므로 콜드 스타트마다 불러도 안전하고,
+  이미 답한 유저에겐 조용히 현재 상태만 돌아온다. Dart 쪽도 프로세스당
+  한 번으로 잠근다 (`_pending` — 프롬프트가 떠 있는 동안 재호출 방지).
+- **네이티브**: `ios/Runner/AppDelegate.swift`의 `unwind/tracking` 채널
+  (`request`/`status`). 새 Swift 파일은 pbxproj 등록이 필요해 시스템 설정
+  채널과 같이 AppDelegate에 인라인으로 뒀다 —
+  AppTrackingTransparency.framework는 Swift 모듈 자동 링크가 붙인다
+  (최소 배포 15.0이라 `@available` 분기 불필요). 앱이 **active가 될 때까지
+  요청을 미룬다** (`whenActive` — inactive면 다이얼로그가 안 뜬다).
+- 상태 문자열 `authorized`/`denied`/`restricted`/`notDetermined`가
+  Swift `trackingStatusName()` ↔ Dart `TrackingStatus`의 계약이다.
+  채널이 없는 환경(테스트·Android)은 `unsupported`로 떨어지며 던지지 않는다.
+- **문구**: `NSUserTrackingUsageDescription` — Info.plist(영문 기본) +
+  `Runner/{en,ko}.lproj/InfoPlist.strings`. 앱 안 언어 설정이 아니라
+  **기기 언어**를 따른다 (홈 화면 이름과 같은 규칙, §8.5).
+- 동의 여부는 아직 Mixpanel 전송을 가르지 않는다 — mixpanel_flutter는
+  IDFA를 쓰지 않는다. 광고 SDK를 붙이는 날 이 상태를 게이트로 쓸 것.
+
 ## 9. 개발용 기능 (배포 전 제거 대상)
 
 - 설정 > **Ghost demo (dev)** — 모든 모드/활동/이벤트 프리뷰 칩. 캐릭터 작업 시
@@ -863,7 +903,8 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **149개** 전부 통과가 기준선 (2026-08-28 위젯 배경
+2. `flutter test` — **153개** 전부 통과가 기준선 (2026-09-02 ATT +4.
+   2026-08-28 위젯 배경
    +4 · 청구서 월요일 잠금 테스트 -1. 2026-08-27 롤오버 checkNow +2. 2026-08-23 Mixpanel +2·아침 인사 개수 +1. 2026-08-22 Plus 게이트
    +3·조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
    +5. 이전 126: 주간 미완료 필터, 125: 위젯 스냅샷 +3, 122: 현지 통화).

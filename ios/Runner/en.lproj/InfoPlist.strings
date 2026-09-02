@@ -1,3 +1,6 @@
 /* Home-screen name. Fallback for every non-Korean locale. */
 "CFBundleDisplayName" = "Todd";
 "CFBundleName" = "Todd";
+
+/* ATT prompt body (2026-09-02). Shown on first launch. */
+"NSUserTrackingUsageDescription" = "This lets Todd learn which parts of the app help you close your day, so we can make them better.";

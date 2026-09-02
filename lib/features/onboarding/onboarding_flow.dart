@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 
 import '../../core/analytics/analytics.dart';
+import '../../core/build_flags.dart';
 import '../../core/tokens/motion.dart';
 import '../../core/tokens/palette.dart';
 import '../../core/tokens/spacing.dart';
@@ -1707,6 +1708,10 @@ class _ScheduleRingPainter extends CustomPainter {
 /// 축하(점프+별)로 화답하고, **기대가 정점에 오른 그 순간** 앱스토어 별점
 /// 팝업을 띄운 뒤 이름 페이지로 넘어간다. 나머지 답은 팝업 없이 조용히
 /// 다음으로.
+///
+/// **별점 팝업은 심사 제출 빌드에서 빠진다** (2026-09-02 — 온보딩 중 평점
+/// 요구로 App Store 리젝): `--dart-define=REVIEW_BUILD=true`(kReviewBuild)면
+/// 축하만 하고 바로 이름으로 간다. dev 프리뷰도 같다.
 class _ReadyPage extends ConsumerStatefulWidget {
   final VoidCallback onNext;
   final bool preview;
@@ -1729,6 +1734,9 @@ class _ReadyPageState extends ConsumerState<_ReadyPage> {
       if (mounted) _advancing = false;
     });
   }
+
+  /// 별점 팝업을 띄우지 않는 경우 — 심사 제출 빌드(§8.5)와 dev 프리뷰.
+  bool get _skipStoreReview => kReviewBuild || widget.preview;
 
   void _trackRating(int value) {
     if (widget.preview) return;
@@ -1765,13 +1773,17 @@ class _ReadyPageState extends ConsumerState<_ReadyPage> {
     });
     Timer(const Duration(milliseconds: 700), () async {
       if (!mounted) return;
-      try {
-        final review = InAppReview.instance;
-        if (await review.isAvailable()) await review.requestReview();
-      } catch (_) {
-        // 스토어 밖 설치·테스트 환경 — 조용히 계속 간다
+      // 심사 빌드·dev 프리뷰에선 별점 팝업을 건너뛴다 — 축하만 하고
+      // 이름으로 넘어간다 (온보딩 중 평점 요구로 리젝, 2026-09-02).
+      if (!_skipStoreReview) {
+        try {
+          final review = InAppReview.instance;
+          if (await review.isAvailable()) await review.requestReview();
+        } catch (_) {
+          // 스토어 밖 설치·테스트 환경 — 조용히 계속 간다
+        }
+        if (!mounted) return;
       }
-      if (!mounted) return;
       widget.onNext();
       _unlockLater();
     });

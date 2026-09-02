@@ -1,3 +1,6 @@
 /* 홈 화면 앱 이름 */
 "CFBundleDisplayName" = "토드";
 "CFBundleName" = "토드";
+
+/* ATT 동의 프롬프트 문구 (2026-09-02). 첫 실행 때 뜬다. */
+"NSUserTrackingUsageDescription" = "토드가 어떤 기능이 하루를 잘 닫는 데 도움이 되는지 배우고, 그만큼 더 나아지는 데 쓰여요.";

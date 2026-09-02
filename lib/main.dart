@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/analytics/analytics.dart';
+import 'core/analytics/tracking_consent.dart';
 import 'core/haptics/haptics.dart';
 import 'core/tokens/palette.dart';
 import 'core/tokens/typography.dart';
@@ -19,6 +20,13 @@ void main() {
   // 콜드 스타트만. main()은 프로세스가 죽은 뒤 켜질 때만 돈다 —
   // 백그라운드→포그라운드는 AppLifecycleState.resumed이지 main()이 아니다.
   ToddAnalytics.track('App Open');
+  // ATT — 앱을 처음 켠 순간 추적 동의를 묻는다 (2026-09-02, App Store
+  // 심사 요구). 첫 프레임 뒤에 부른다: 아직 창이 안 올라온 상태에서
+  // 요청하면 iOS가 다이얼로그 없이 notDetermined를 돌려준다.
+  // OS가 생애 한 번만 보여 주므로 콜드 스타트마다 불러도 안전하다.
+  WidgetsBinding.instance.addPostFrameCallback(
+    (_) => TrackingConsent.requestOnLaunch(),
+  );
   runApp(const ProviderScope(child: UnwindApp()));
 }
 
