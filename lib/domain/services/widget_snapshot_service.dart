@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kIsWeb, mapEquals, visibleForTesting;
 import 'package:flutter/services.dart';
 
 import '../../core/analytics/analytics.dart';
@@ -113,7 +114,15 @@ class WidgetSnapshotService {
   /// Swift 쪽 Widget kind 문자열과 일치해야 한다
   static const iOSWidgetName = 'ToddWidget';
 
-  static const _channel = MethodChannel('unwind/widget_snapshot');
+  @visibleForTesting
+  static const channel = MethodChannel('unwind/widget_snapshot');
+
+  /// 홈 위젯은 iOS만 (발주자 결정 2026-08-15). 테스트·macOS에선 no-op —
+  /// 단위 테스트는 [platformSupported]로 켜고 채널을 모킹한다.
+  WidgetSnapshotService({bool? platformSupported})
+    : _supported = platformSupported ?? (!kIsWeb && Platform.isIOS);
+
+  final bool _supported;
 
   int _epoch = 0;
   Future<void> _chain = Future<void>.value();
@@ -127,14 +136,16 @@ class WidgetSnapshotService {
   /// 버스트가 잦아들고 한 번만 쓴다.
   static const _debounceMs = 180;
 
-  /// 확인 리로드 지연 — 디바운스는 180ms 안의 버스트만 합친다. 몇 초
-  /// 간격의 연속 액션(밤에 할 일을 하나씩 체크)은 각각 write+reload를
-  /// 쏘는데, WidgetKit이 진행 중인 타임라인 생성에 뒤 리로드를 합쳐 버리면
-  /// (coalescing) **옛 파일을 읽은 생성 결과가 최종본으로 남는다**. 마지막
-  /// write 뒤 잠잠해지고 나서 한 번 더 리로드해 최종 스냅샷을 확정한다
-  /// (밤 체크가 위젯 개수에 안 실리던 간헐 이슈, 2026-08-27).
-  static const _confirmReloadMs = 2500;
-  Timer? _confirmReload;
+  /// 마지막으로 **성공적으로** 디스크에 쓴 페이로드 (2026-09-11).
+  ///
+  /// WidgetKit은 위젯마다 하루 40~70회의 리로드 버짓을 주고, 소진되면
+  /// 포그라운드 앱의 리로드까지 다음 날까지 무시한다 — "저녁이 되면 뭘 해도
+  /// 위젯이 안 바뀌는" 증상의 원인이었다. resume·inactive 플러시는 거의
+  /// 항상 직전과 같은 값을 다시 썼으므로, 내용이 같으면 write도 리로드도
+  /// 생략해 버짓을 실제 변경에만 쓴다. 실패했으면 null로 되돌려 다음
+  /// 시도가 반드시 다시 쓰게 한다. 프로세스가 새로 뜨면 비어 있으므로
+  /// 첫 write는 언제나 나간다.
+  Map<String, Object?>? _lastPersisted;
 
   /// 마지막 write 결과 — 릴리즈 빌드에선 debugPrint가 보이지 않아, 실기기에서
   /// 실패해도 아무 흔적이 없었다. 설정 > 위젯 진단(dev)이 이 값을 읽는다.
@@ -175,9 +186,9 @@ class WidgetSnapshotService {
 
   /// 홈 화면에 이 앱의 위젯이 설치돼 있는가. null = 모름 (iOS 아님·조회 실패).
   Future<bool?> hasWidget() async {
-    if (kIsWeb || !Platform.isIOS) return null;
+    if (!_supported) return null;
     try {
-      return await _channel.invokeMethod<bool>('hasWidget', {
+      return await channel.invokeMethod<bool>('hasWidget', {
         'kind': iOSWidgetName,
       });
     } catch (_) {
@@ -203,22 +214,11 @@ class WidgetSnapshotService {
     return present;
   }
 
-  /// 스냅샷을 다시 쓰지 않고 타임라인 리로드만 요청한다 (확인 리로드).
-  /// 파일은 이미 최종본이라, 설령 이 리로드가 또 합쳐져도 읽는 내용이 같다.
-  Future<void> _requestReload() async {
-    if (kIsWeb || !Platform.isIOS) return;
-    try {
-      await _channel.invokeMethod<bool>('reload', {'kind': iOSWidgetName});
-    } catch (_) {
-      // 위젯 미설치 등 — 확인 리로드 실패는 조용히 넘어간다
-    }
-  }
-
   /// App Group이 실제로 붙었는지 네이티브에 그대로 묻는다 (dev 진단용).
   Future<Map<String, Object?>> diagnose() async {
-    if (kIsWeb || !Platform.isIOS) return {'error': 'iOS only'};
+    if (!_supported) return {'error': 'iOS only'};
     try {
-      final r = await _channel.invokeMapMethod<String, Object?>('diagnose', {
+      final r = await channel.invokeMapMethod<String, Object?>('diagnose', {
         'appGroupId': appGroupId,
       });
       return r ?? {'error': 'null response'};
@@ -227,9 +227,40 @@ class WidgetSnapshotService {
     }
   }
 
+  /// persist 채널 페이로드 — 키·의미는 `ToddWidget.swift`와 계약이다.
+  Map<String, Object?> _payload(WidgetSnapshot s) => {
+    'appGroupId': appGroupId,
+    'kind': iOSWidgetName,
+    'dayKey': s.dayKey,
+    'remaining': s.remaining,
+    'total': s.total,
+    'lightsOut': s.lightsOut,
+    'brightness': s.brightness,
+    'darkCircles': s.darkCircles,
+    'wakeHour': s.wakeHour,
+    'bedtimeHour': s.bedtimeHour,
+    'languageCode': s.languageCode,
+    // 위젯 배경 (선택형 2026-08-28) — Swift SceneBackground가 그린다
+    'background': s.background,
+    // Todd Plus (2026-08-29) — 고정형 위젯 kind의 잠금 판정
+    'premium': s.premium,
+    // 조명 색 (선택형 2026-08-22) — 위젯의 알약·글로우가 따라간다.
+    // 항상 persist 시점의 현재 팔레트를 싣는다 (설정 변경도
+    // widgetSyncProvider가 settings를 watch하므로 새로 write된다).
+    'accent': UnwindColors.accent.toARGB32(),
+    'accentDeep': UnwindColors.accentDeep.toARGB32(),
+    'onAccent': UnwindColors.onAccent.toARGB32(),
+  };
+
   Future<void> _persist(WidgetSnapshot s) async {
-    // 홈 위젯은 iOS만 (발주자 결정 2026-08-15). 테스트·macOS에선 no-op.
-    if (kIsWeb || !Platform.isIOS) return;
+    if (!_supported) return;
+    final payload = _payload(s);
+    // 내용이 같으면 쓰지도 리로드하지도 않는다 (2026-09-11) — 리로드 한
+    // 번이 WidgetKit 일일 버짓 한 칸이다. 디스크의 파일은 이미 이 값이다.
+    if (mapEquals(payload, _lastPersisted)) {
+      lastResult = 'unchanged ${s.dayKey} ${s.remaining}/${s.total}';
+      return;
+    }
     try {
       // 네이티브 브리지가 UserDefaults를 플러시하고 JSON 파일을 원자적으로
       // 쓴 뒤에 타임라인을 리로드한다 — home_widget saveWidgetData는
@@ -238,38 +269,16 @@ class WidgetSnapshotService {
       // 돌아오면 이후의 모든 스냅샷이 그 뒤에 줄을 서 프로세스가 살아
       // 있는 동안 위젯이 다시는 갱신되지 않는다. 타임아웃으로 끊어
       // 다음 write가 지나가게 한다 (2026-08-29).
-      await _channel.invokeMethod<bool>('persist', {
-        'appGroupId': appGroupId,
-        'kind': iOSWidgetName,
-        'dayKey': s.dayKey,
-        'remaining': s.remaining,
-        'total': s.total,
-        'lightsOut': s.lightsOut,
-        'brightness': s.brightness,
-        'darkCircles': s.darkCircles,
-        'wakeHour': s.wakeHour,
-        'bedtimeHour': s.bedtimeHour,
-        'languageCode': s.languageCode,
-        // 위젯 배경 (선택형 2026-08-28) — Swift SceneBackground가 그린다
-        'background': s.background,
-        // Todd Plus (2026-08-29) — 고정형 위젯 kind의 잠금 판정
-        'premium': s.premium,
-        // 조명 색 (선택형 2026-08-22) — 위젯의 알약·글로우가 따라간다.
-        // 항상 persist 시점의 현재 팔레트를 싣는다 (설정 변경도
-        // widgetSyncProvider가 settings를 watch하므로 새로 write된다).
-        'accent': UnwindColors.accent.toARGB32(),
-        'accentDeep': UnwindColors.accentDeep.toARGB32(),
-        'onAccent': UnwindColors.onAccent.toARGB32(),
-      }).timeout(const Duration(seconds: 8));
+      await channel
+          .invokeMethod<bool>('persist', payload)
+          .timeout(const Duration(seconds: 8));
+      _lastPersisted = payload;
       lastResult = 'ok ${s.dayKey} ${s.remaining}/${s.total}';
-      _confirmReload?.cancel();
-      _confirmReload = Timer(
-        const Duration(milliseconds: _confirmReloadMs),
-        _requestReload,
-      );
     } catch (e, st) {
       // 위젯 미설치여도 앱은 계속 돌아야 한다. 삼키되 원인은 남긴다.
       // 릴리즈 빌드에선 debugPrint가 아무 데도 안 보이므로 결과도 붙잡아 둔다.
+      // 디스크 상태를 모르게 됐으니 다음 시도는 같은 값이라도 다시 쓴다.
+      _lastPersisted = null;
       lastResult = 'FAILED: $e';
       debugPrint('WidgetSnapshot persist failed: $e\n$st');
     }

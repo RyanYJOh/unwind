@@ -394,10 +394,15 @@ private struct ToddProvider: TimelineProvider {
         // ".atEnd"는 자가 회복 창구가 없다 (2026-08-29): 마지막 엔트리가
         // ≈24시간 뒤라, 앱이 쏜 리로드가 WidgetKit에 흘려지면(coalescing·
         // 버짓) 낡은 dayKey의 타임라인이 하루 종일 남는다 — 앱을 열어도
-        // "Good morning"에 고착되던 증상의 마지막 구멍. 한 시간마다 다시
-        // 생성해 스냅샷 파일을 새로 읽는다 (일 ≈24회, 버짓 40~70회 안).
+        // "Good morning"에 고착되던 증상의 마지막 구멍. 주기적으로 다시
+        // 생성해 스냅샷 파일을 새로 읽는다.
+        // 주기는 2시간 (2026-09-11): 1시간이면 자체 재생성만으로 일일 버짓
+        // (위젯당 40~70회)의 절반을 태워, 앱을 몇 번 드나들면 저녁에 버짓이
+        // 소진돼 포그라운드 리로드까지 무시됐다 — "저녁이면 뭘 해도 위젯이
+        // 안 바뀌는" 증상. 2시간이면 하루 12회. 개수 갱신은 원래 앱의
+        // 리로드 몫이고 이 재생성은 안전망이라, 회복 창이 2시간이어도 된다.
         // 시각 엔트리 24개는 그대로 — 재생성이 밀려도 표정은 흘러간다.
-        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(60 * 60))))
+        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(2 * 60 * 60))))
     }
 }
 

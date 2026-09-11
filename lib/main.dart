@@ -134,11 +134,11 @@ class _WidgetSyncState extends ConsumerState<_WidgetSync> {
     // 타이머는 suspend로 얼고 기기 잠들기로 모노토닉 결손이 쌓여, 밤을
     // 넘긴 뒤 앱을 다시 열어도 안 터질 수 있다. 그러면 todayKey가 어제에
     // 고착돼 위젯이 "Good morning"에서 영영 안 벗어난다.
-    // resume 때는 경계 재검사 후 **무조건** 스냅샷을 다시 쓰고 리로드한다
-    // (2026-08-29): 롤오버가 이미 끝난 날의 조용한 resume은 어떤 프로바이더도
-    // 안 바뀌어 write가 0번이었다 — 그 전에 나간 리로드가 WidgetKit에
-    // 흘려졌다면(coalescing) 앱을 아무리 열어도 위젯이 "Good morning"에
-    // 낡은 채 남았다. 앱 진입 = 위젯 최신화 보장이 이 플러시의 계약이다.
+    // resume 때는 경계 재검사 후 스냅샷을 다시 플러시한다 (2026-08-29):
+    // 롤오버가 이미 끝난 날의 조용한 resume은 어떤 프로바이더도 안 바뀌어
+    // write가 0번이었다 — 롤오버로 dayKey가 바뀌었다면 이 플러시가 위젯을
+    // "Good morning"에서 꺼낸다. 내용이 직전과 같으면 서비스가 write·리로드를
+    // 생략한다 (2026-09-11 — 리로드 한 번이 WidgetKit 일일 버짓 한 칸).
     _lifecycle = AppLifecycleListener(
       onResume: () async {
         try {

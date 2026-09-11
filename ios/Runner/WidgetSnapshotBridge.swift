@@ -49,17 +49,6 @@ enum WidgetSnapshotBridge {
         }
         return
       }
-      // 확인 리로드 (2026-08-27) — 스냅샷은 이미 최종본, 리로드만 다시 쏜다.
-      // persist 직후의 리로드가 진행 중인 타임라인 생성에 합쳐져(coalescing)
-      // 옛 파일을 읽은 결과로 굳는 경쟁을, 잠잠해진 뒤 한 번 더 리로드해 푼다.
-      if call.method == "reload" {
-        if #available(iOS 14.0, *) {
-          // 배경 고정형 kind 9종 (2026-08-29) — 전부 리로드
-          WidgetCenter.shared.reloadAllTimelines()
-        }
-        result(true)
-        return
-      }
       guard call.method == "persist" else {
         result(FlutterMethodNotImplemented)
         return
@@ -93,7 +82,9 @@ enum WidgetSnapshotBridge {
 
       if #available(iOS 14.0, *) {
         // 배경 고정형 kind가 늘어(2026-08-29, 9종) 전부 리로드한다.
-        // 리로드는 여전히 호출 한 번 — coalescing 경쟁 창은 안 넓어진다.
+        // 리로드는 호출 한 번뿐이다 (2026-09-11: 2.5초 뒤 확인 리로드 폐지 —
+        // 리로드 한 번이 WidgetKit 일일 버짓 한 칸이라 모든 write를 2배로
+        // 태우고 있었다. 동일 스냅샷 생략은 Dart 서비스가 맡는다).
         _ = kind
         WidgetCenter.shared.reloadAllTimelines()
       }

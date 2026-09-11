@@ -37,19 +37,12 @@ dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
 flutter analyze && flutter test                           # 149개 통과가 기준선
 flutter run                                               # 개발 실행
-flutter build ipa                                         # TestFlight용 (버전은 pubspec)
-flutter build ipa --dart-define=REVIEW_BUILD=true          # App Store 심사 제출용
+flutter build ipa                                         # TestFlight·심사 제출용 (버전은 pubspec)
 ```
 
 - 버전: `pubspec.yaml`의 `version: X.Y.Z+N` — TestFlight 업로드마다 `+N` 증가.
 - l10n: `lib/l10n/app_en.arb`(기본)·`app_ko.arb` 수정 → `flutter gen-l10n`.
   두 파일 모두에 키를 넣어야 한다. 문구는 은유를 따른다 (버튼은 동사).
-- **빌드 플래그** `lib/core/build_flags.dart` — `kReviewBuild`
-  (`--dart-define=REVIEW_BUILD=true`). 심사 제출 빌드에서만 온보딩 별점
-  팝업을 건너뛴다 (§8.5). 유저 스위치가 아니라 **어떤 바이너리인가**를
-  가르는 컴파일 타임 상수다. ⚠️ 심사에 통과한 바이너리가 곧 스토어에
-  나가는 바이너리이므로, 이 플래그로 구운 빌드를 그대로 출시하면 유저에게도
-  팝업이 안 뜬다.
 
 ## 3. 디렉토리 지도
 
@@ -59,7 +52,6 @@ lib/
                      → 값 하드코딩 금지. 모든 UI는 이 토큰만 사용
   core/analytics/    ToddAnalytics — Mixpanel 래퍼 (§8.8, 릴리즈 전용)
                      + TrackingConsent — ATT 동의 (§8.9, 첫 실행 프롬프트)
-  core/build_flags   kReviewBuild — 심사 제출 빌드 여부 (§2)
   core/haptics/      UnwindHaptics(햅틱 어휘) + UnwindHapticsScope(트리 주입)
   core/utils/        dates.dart(dayKey 유틸)
   ui/                **재사용 컴포넌트 라이브러리 (ui.dart 하나만 import)**
@@ -588,9 +580,9 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
    기대를 고르면 Todd가 체크 축하(점프+별)로 화답하고 0.7초 뒤 — 기대가
    정점에 오른 순간 — **앱스토어 별점 팝업**(in_app_review)을 띄운 뒤
    이름으로. 나머지 답은 팝업 없이 조용히 다음으로. 답은 저장하지 않는다.
-   **심사 빌드에선 별점 팝업이 빠진다** (2026-09-02 — 온보딩 중 평점 요구로
-   App Store 리젝): `kReviewBuild`(§2)면 축하만 하고 바로 이름으로 간다.
-   dev 프리뷰(`preview: true`)도 같다 — 예전엔 프리뷰에서도 팝업이 떴다.
+   dev 프리뷰(`preview: true`)에선 팝업 없이 축하만 하고 이름으로 간다.
+   (2026-09-02 심사 대응으로 넣었던 심사 빌드 스킵 플래그 `kReviewBuild`는
+   2026-09-11 제거 — 모든 빌드에서 팝업이 뜬다.)
    페이지 자체는 남는다 (기대감을 고조시키는 심리 설계가 목적).
 6. 10. **이름** — "What should Todd call you?" — **필수** (건너뛰기 없음,
    2차 개정), `userName` 설정으로 저장 → 답변 일괄 커밋(플래그 제외).
@@ -630,12 +622,9 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   타임라인 생성에 뒤 리로드를 합쳐 버려(coalescing) 옛 개수가 최종본으로
   남는 간헐 이슈가 있었다 — 버스트당 한 번만 쓰고 리로드도
   `reloadTimelines(ofKind:)` 하나만 쏜다.
-  **+ 확인 리로드** (2026-08-27): 디바운스는 180ms 안의 버스트만 합친다 —
-  몇 초 간격의 연속 체크는 여전히 coalescing 경쟁에 걸려 밤에 끈 등이
-  위젯 개수에 안 실리곤 했다. 마지막 write 2.5초 뒤 리로드만 한 번 더
-  쏴서(`reload` 채널 메서드) 최종 스냅샷을 확정한다. 브리지는 파일 write가
+  브리지는 파일 write가
   실패하면 옛 파일을 지운다 — 남겨 두면 방금 쓴 defaults 폴백을 파일이
-  가려 낡은 개수로 고정된다. 백그라운드 진입(onInactive) 땐
+  가려 낡은 개수로 고정된다 (2026-08-27). 백그라운드 진입(onInactive) 땐
   `flushWidgetSnapshot`이 DB를 직접 읽어 **즉시** 쓴다 (suspend되면
   디바운스 타이머가 언다). 위젯은 파일을 먼저 읽고 UserDefaults는
   폴백. 키·의미는 `widget_snapshot_service.dart` ↔ `ToddWidget.swift`가
@@ -647,11 +636,29 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   프로바이더도 안 바뀌어 write가 0번이었다 — 이전 리로드가 흘려졌으면
   앱을 아무리 열어도 위젯이 낡은 채 남았다. main.dart onResume이 checkNow
   후 **무조건 flushWidgetSnapshot** (앱 진입 = 위젯 최신화 보장).
-  ② 위젯 타임라인 정책 `.atEnd`(≈24h) → **`.after(+60분)`** — 리로드가
-  전부 유실돼도 한 시간 안에 스스로 파일을 다시 읽는다 (일 ≈24회, 버짓
-  40~70회 안. 시각 엔트리 24개는 유지). ③ persist 채널 호출에 **8초
+  ② 위젯 타임라인 정책 `.atEnd`(≈24h) → `.after(+60분)` (→ **+2시간**,
+  아래 2026-09-11) — 리로드가 전부 유실돼도 스스로 파일을 다시 읽는다
+  (시각 엔트리 24개는 유지). ③ persist 채널 호출에 **8초
   타임아웃** — 모든 write가 `_chain`으로 직렬화되므로 한 호출이 영영 안
   돌아오면 프로세스 수명 내내 위젯 갱신이 전면 중단됐다.
+  **+ 리로드 버짓 절약** (2026-09-11 — "저녁이 되면 뭘 해도 위젯이 안
+  바뀐다"의 원인): 앱·위젯 코드엔 시각 게이트가 없다. WidgetKit이
+  위젯마다 하루 **40~70회의 리로드 버짓**을 주고(창은 사용자 패턴에 맞춰
+  잡힘), 소진되면 **포그라운드 앱의 리로드까지 다음 날까지 무시**한다.
+  앱은 write마다 리로드 2회(persist + 2.5초 확인), inactive마다 플러시,
+  시간당 자체 재생성 24회를 쓰고 있어 저녁이면 소진됐다 — 미리 계산된
+  시각 엔트리 덕에 Todd 표정만 졸린 얼굴로 바뀌어 "졸릴 때 멈춘다"로
+  보였다. 이전 수정들(확인 리로드·resume 플러시·시간당 재생성)은 전부
+  리로드를 **늘리는** 쪽이라 소진을 앞당겼다. 대책 세 가지:
+  ⓐ `WidgetSnapshotService`가 **직전에 성공적으로 쓴 페이로드와 같으면
+  write·리로드를 생략**한다 (`_lastPersisted`, 실패 시 null로 되돌려 재시도.
+  resume·inactive 플러시는 거의 항상 같은 값이라 세션당 4회가 0회로).
+  ⓑ 2.5초 확인 리로드 폐지 (`reload` 채널 메서드 제거) — coalescing 경쟁은
+  ⓐ로 write 자체가 드물어져 해소. ⓒ 타임라인 `.after(+2시간)` — 하루 12회.
+  **리로드를 늘리는 수정은 다시 하지 말 것.** 기기 확인: 증상 시 설정 >
+  Widget diagnostics의 body.remaining이 앱과 같은데 위젯만 옛 값이면
+  버짓, iPhone 설정 > 개발자 > WidgetKit Developer Mode를 켜면 사라진다.
+  계약은 `test/domain/services/widget_snapshot_service_test.dart`가 지킨다.
 - **Todd 렌더**: 위젯 안에서는 Flutter가 안 돈다 — 앱 페인터로 **사전
   렌더한 스프라이트 PNG**(모드 13종 × 다크서클 유무 = 26장)를 번들한다.
   **캐릭터 외형을 바꾸면 반드시 재추출**:
@@ -903,7 +910,8 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **153개** 전부 통과가 기준선 (2026-09-02 ATT +4.
+2. `flutter test` — **159개** 전부 통과가 기준선 (2026-09-11 위젯 스냅샷
+   버짓 절약 +6. 2026-09-02 ATT +4.
    2026-08-28 위젯 배경
    +4 · 청구서 월요일 잠금 테스트 -1. 2026-08-27 롤오버 checkNow +2. 2026-08-23 Mixpanel +2·아침 인사 개수 +1. 2026-08-22 Plus 게이트
    +3·조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터
