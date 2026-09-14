@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart'
     show Icons, MaterialLocalizations, TimeOfDay;
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -361,11 +362,102 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     return deleteTodoWithUndo(context, ref, todo, confirmSingle: confirmSingle);
   }
 
+  // ── 편집 모드 (2026-09-14) ─────────────────────────────────
+  // 아이폰 홈 화면처럼: 롱프레스하면 모든 등이 달달 떨고, 좌상단 ✕와 우측
+  // 손잡이가 생긴다. 시간 없는 항목은 롱프레스한 채로 곧장 끌어 옮길 수 있다.
+  // 끝내는 법: 하단 "완료" / 빈 곳 탭 / 다른 날짜·화면으로 이동 / 마지막 삭제.
+  bool _editing = false;
+
+  /// 끌어 놓은 직후의 낙관적 순서 (시간 없는 항목 id). DB 스트림이 같은
+  /// 순서를 돌려주면 걷는다 — 없으면 놓는 순간 옛 자리로 튀었다가 돌아온다.
+  List<String>? _localOrder;
+
+  void _enterEdit() {
+    if (_editing || _dominoRunning) return;
+    setState(() => _editing = true);
+  }
+
+  void _exitEdit() {
+    if (!_editing) return;
+    setState(() => _editing = false);
+  }
+
+  /// [_localOrder]를 입힌다. 모르는 항목(방금 추가된 것)은 원래 순서대로 뒤에.
+  List<Todo> _applyLocalOrder(List<Todo> untimed) {
+    final order = _localOrder;
+    if (order == null) return untimed;
+    final byId = {for (final t in untimed) t.id: t};
+    final placed = [for (final id in order) ?byId[id]];
+    final placedIds = {for (final t in placed) t.id};
+    return [
+      ...placed,
+      for (final t in untimed)
+        if (!placedIds.contains(t.id)) t,
+    ];
+  }
+
+  /// [newIndex]는 옮긴 뒤의 자리 (onReorderItem 규약 — 뺀 자리를 이미 반영).
+  Future<void> _reorder(List<Todo> untimed, int oldIndex, int newIndex) async {
+    if (oldIndex == newIndex) return;
+    final next = [...untimed];
+    next.insert(newIndex, next.removeAt(oldIndex));
+    setState(() => _localOrder = [for (final t in next) t.id]);
+    await ref.read(todoRepositoryProvider).reorder(next);
+  }
+
+  /// 손에 들린 타일 — 살짝 커지고 떨림을 멈춘다 (블러 그림자 없이, §11).
+  Widget _dragProxy(Widget child, int index, Animation<double> animation) {
+    return AnimatedBuilder(
+      animation: animation,
+      child: UnwindJiggle.still(child: child),
+      builder: (context, child) => Transform.scale(
+        scale: 1 + 0.03 * Curves.easeOut.transform(animation.value),
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     // 열람 날짜의 방 (개편 2026-08-09) — 기본은 오늘
     final todos = ref.watch(viewedTodosProvider).value ?? const <Todo>[];
+    // 순서 변경 (2026-09-14) — 시간 지정 항목은 시간순으로 앞에 고정되고,
+    // 시간 없는 항목만 옮길 수 있다 (DAO 정렬과 같은 규칙).
+    final timed = [
+      for (final t in todos)
+        if (t.scheduledTimeMinutes != null) t,
+    ];
+    final untimed = _applyLocalOrder([
+      for (final t in todos)
+        if (t.scheduledTimeMinutes == null) t,
+    ]);
+
+    // 다른 날짜로 가면 편집을 끝낸다 — 그 방의 목록은 다른 목록이다
+    ref.listen<String>(viewedDayKeyProvider, (prev, next) {
+      if (prev == next) return;
+      _localOrder = null;
+      _exitEdit();
+    });
+    // DB가 끌어 놓은 순서를 따라잡으면 낙관적 순서를 걷는다.
+    // 마지막 항목을 지우면 편집할 것이 없으니 편집도 끝낸다.
+    ref.listen<AsyncValue<List<Todo>>>(viewedTodosProvider, (prev, next) {
+      final list = next.value;
+      if (list == null) return;
+      final order = _localOrder;
+      if (order != null) {
+        final ids = [
+          for (final t in list)
+            if (t.scheduledTimeMinutes == null) t.id,
+        ];
+        var caughtUp = ids.length == order.length;
+        for (var i = 0; caughtUp && i < ids.length; i++) {
+          caughtUp = ids[i] == order[i];
+        }
+        if (caughtUp) setState(() => _localOrder = null);
+      }
+      if (list.isEmpty) _exitEdit();
+    });
     final asleep = ref.watch(isAsleepProvider);
     // Todd 생활 모드 (개편 2026-08-08): 시각·체크 상태가 결정
     final toddMode = ref.watch(toddModeProvider);
@@ -466,49 +558,93 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                       // 하단 주 칩·스트립, 그리고 우상단 전등 줄(아래 Stack의
                       // 형제라 스크롤 밖에 있다)뿐이다.
                       Expanded(
-                        child: CustomScrollView(
-                          slivers: [
-                            SliverToBoxAdapter(
-                              child: _TopBar(
-                                onSettings: () => showSettingsScreen(context),
-                                onBill: _openBill,
-                              ),
-                            ),
-                            // 유령 영역 — 고정 높이로 체크리스트와의 간격 축소.
-                            // 오늘: Todd (탭하면 반응, 잠들었을 땐 무반응).
-                            // 과거·미래: Todd는 오늘의 방에 있다 — 빈 자리만.
-                            SliverToBoxAdapter(
-                              child: SizedBox(
-                                height: 136,
-                                child: !isViewingToday
-                                    ? _ToddAway(label: l10n.toddAway)
-                                    : _buildTodd(l10n, toddMode, reduce),
-                              ),
-                            ),
-                            if (todos.isEmpty)
-                              // 빈 방 문구는 Todd 아래 남은 화면의 가운데 —
-                              // 스크롤 전과 같은 자리
-                              const SliverFillRemaining(
-                                hasScrollBody: false,
-                                child: _EmptyRoom(),
-                              )
-                            else
-                              SliverPadding(
-                                padding: const EdgeInsets.only(
-                                  top: UnwindSpacing.s4,
-                                  bottom: UnwindSpacing.s16,
+                        // 편집 모드에서 빈 곳을 탭하면 편집이 끝난다 (아이폰
+                        // 홈 화면). 타일·버튼의 탭은 더 안쪽이 먼저 가져간다.
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          excludeFromSemantics: true,
+                          onTap: _editing ? _exitEdit : null,
+                          child: CustomScrollView(
+                            slivers: [
+                              SliverToBoxAdapter(
+                                child: _TopBar(
+                                  // 다른 화면으로 가면 편집 모드를 끝낸다
+                                  onSettings: () {
+                                    _exitEdit();
+                                    showSettingsScreen(context);
+                                  },
+                                  onBill: () {
+                                    _exitEdit();
+                                    _openBill();
+                                  },
                                 ),
-                                sliver: SliverList.builder(
-                                  itemCount: todos.length,
-                                  itemBuilder: (context, i) => _buildRow(
-                                    context,
-                                    l10n,
-                                    todos[i],
-                                    asleep,
+                              ),
+                              // 유령 영역 — 고정 높이로 체크리스트와의 간격 축소.
+                              // 오늘: Todd (탭하면 반응, 잠들었을 땐 무반응).
+                              // 과거·미래: Todd는 오늘의 방에 있다 — 빈 자리만.
+                              SliverToBoxAdapter(
+                                child: SizedBox(
+                                  height: 136,
+                                  child: !isViewingToday
+                                      ? _ToddAway(label: l10n.toddAway)
+                                      : _buildTodd(l10n, toddMode, reduce),
+                                ),
+                              ),
+                              if (todos.isEmpty)
+                                // 빈 방 문구는 Todd 아래 남은 화면의 가운데 —
+                                // 스크롤 전과 같은 자리
+                                const SliverFillRemaining(
+                                  hasScrollBody: false,
+                                  child: _EmptyRoom(),
+                                )
+                              else ...[
+                                // 시간 지정 항목 — 시간순으로 놓이므로 옮길 수 없다
+                                SliverPadding(
+                                  padding: const EdgeInsets.only(
+                                    top: UnwindSpacing.s4,
+                                  ),
+                                  sliver: SliverList.builder(
+                                    itemCount: timed.length,
+                                    itemBuilder: (context, i) => _buildRow(
+                                      context,
+                                      l10n,
+                                      timed[i],
+                                      asleep,
+                                      seed: i,
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
+                                // 시간 없는 항목 — 롱프레스한 채로, 또는 편집 모드
+                                // 손잡이로 순서를 바꾼다. 따로 두어야 끌던 항목이
+                                // 시간 지정 항목 사이로 들어갔다 튕겨 나오지 않는다.
+                                SliverPadding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: UnwindSpacing.s16,
+                                  ),
+                                  sliver: SliverReorderableList(
+                                    itemCount: untimed.length,
+                                    proxyDecorator: _dragProxy,
+                                    onReorderStart: (_) {
+                                      haptics.medium(); // 들어 올림
+                                      _enterEdit();
+                                    },
+                                    onReorderEnd: (_) => haptics.light(),
+                                    onReorderItem: (from, to) =>
+                                        _reorder(untimed, from, to),
+                                    itemBuilder: (context, i) => _buildRow(
+                                      context,
+                                      l10n,
+                                      untimed[i],
+                                      asleep,
+                                      seed: timed.length + i,
+                                      untimed: untimed,
+                                      reorderIndex: i,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                       // 하단 — 주 칩 + 이번 주 스트립 (개편 2026-08-13).
@@ -529,30 +665,46 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const _WeekPill(),
+                                _WeekPill(onOpen: _exitEdit),
                                 const Spacer(),
-                                Opacity(
-                                  opacity: asleep ? 0.55 : 1.0,
-                                  child: UnwindIconButton(
-                                    icon: Icons.add_rounded,
-                                    iconSize: 32,
-                                    size: 64,
-                                    style: UnwindIconButtonStyle.accent,
-                                    semanticLabel: l10n.addTaskLabel,
-                                    onPressed: () {
-                                      // 과거 날짜 열람 중엔 그 날짜로 추가
-                                      final viewed = ref.read(
-                                        viewedDayKeyProvider,
-                                      );
-                                      final today = ref.read(todayKeyProvider);
-                                      showComposeSheet(
-                                        context,
-                                        initialDate: viewed != today
-                                            ? viewed
-                                            : null,
-                                      );
-                                    },
+                                // 편집 모드면 FAB 자리가 "완료" — 엄지가 닿는
+                                // 자리에서 끝낸다 (2026-09-14)
+                                AnimatedSwitcher(
+                                  duration: Duration(
+                                    milliseconds: reduce ? 0 : 200,
                                   ),
+                                  child: _editing
+                                      ? UnwindButton(
+                                          key: const ValueKey('edit-done'),
+                                          label: l10n.editDone,
+                                          icon: Icons.check_rounded,
+                                          expand: false,
+                                          onPressed: _exitEdit,
+                                        )
+                                      : Opacity(
+                                        key: const ValueKey('fab'),
+                                        opacity: asleep ? 0.55 : 1.0,
+                                        child: UnwindIconButton(
+                                          icon: Icons.add_rounded,
+                                          iconSize: 32,
+                                          size: 64,
+                                          style: UnwindIconButtonStyle.accent,
+                                          semanticLabel: l10n.addTaskLabel,
+                                          onPressed: () {
+                                            // 과거 날짜 열람 중엔 그 날짜로 추가
+                                            final viewed = ref.read(
+                                              viewedDayKeyProvider,
+                                            );
+                                            final today = ref.read(todayKeyProvider);
+                                            showComposeSheet(
+                                              context,
+                                              initialDate: viewed != today
+                                                  ? viewed
+                                                  : null,
+                                            );
+                                          },
+                                        ),
+                                      ),
                                 ),
                               ],
                             ),
@@ -576,7 +728,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                   child: SafeArea(
                     child: PullCord(
                       key: _cordKey,
-                      enabled: cordEnabled && !_dominoRunning,
+                      // 편집 중엔 전등 줄도 쉰다 — 떨리는 방을 소등하면 헷갈린다
+                      enabled: cordEnabled && !_dominoRunning && !_editing,
                       haptics: haptics,
                       onPull: _runLightsOut,
                     ),
@@ -642,19 +795,44 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     );
   }
 
+  /// 할 일 한 줄. [untimed]·[reorderIndex]를 주면 순서를 옮길 수 있는 항목
+  /// (시간 없는 항목 — SliverReorderableList 안)이다. [seed]는 떨림 박자.
   Widget _buildRow(
     BuildContext context,
     AppLocalizations l10n,
     Todo todo,
-    bool asleep,
-  ) {
+    bool asleep, {
+    required int seed,
+    List<Todo>? untimed,
+    int? reorderIndex,
+  }) {
     final isOn =
         todo.status == TodoStatus.pending &&
         !_visualOffOverride.contains(todo.id);
+    final reorderable = untimed != null && reorderIndex != null;
 
-    return Dismissible(
+    // 편집 모드의 손잡이 — 누르는 즉시 끌린다. 스크린 리더는 위·아래 동작으로.
+    Widget? handle;
+    if (reorderable && _editing) {
+      final i = reorderIndex;
+      handle = ReorderableDragStartListener(
+        index: i,
+        child: UnwindDragHandle(
+          semanticLabel: l10n.reorderTaskLabel(todo.title),
+          moveUpLabel: l10n.moveUp,
+          moveDownLabel: l10n.moveDown,
+          onMoveUp: i > 0 ? () => _reorder(untimed, i, i - 1) : null,
+          onMoveDown: i < untimed.length - 1
+              ? () => _reorder(untimed, i, i + 1)
+              : null,
+        ),
+      );
+    }
+
+    Widget row = Dismissible(
       key: ValueKey(todo.id),
-      direction: _dominoRunning
+      // 편집 중엔 스와이프를 멈춘다 — 삭제는 ✕가 맡는다
+      direction: _dominoRunning || _editing
           ? DismissDirection.none
           : DismissDirection.endToStart,
       // 스와이프도 롱프레스와 같은 경로 — 반복 항목이면 범위를 묻는다.
@@ -686,33 +864,62 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
           ),
         ),
       ),
-      child: UnwindTodoTile(
-        title: todo.title,
-        hasMemo: (todo.memo ?? '').trim().isNotEmpty,
-        hasRepeat: todo.recurrenceId != null,
-        timeLabel: todo.scheduledTimeMinutes == null
-            ? null
-            : MaterialLocalizations.of(context).formatTimeOfDay(
-                TimeOfDay(
-                  hour: todo.scheduledTimeMinutes! ~/ 60,
-                  minute: todo.scheduledTimeMinutes! % 60,
+      child: UnwindJiggle(
+        active: _editing,
+        seed: seed,
+        child: UnwindTodoTile(
+          title: todo.title,
+          hasMemo: (todo.memo ?? '').trim().isNotEmpty,
+          hasRepeat: todo.recurrenceId != null,
+          timeLabel: todo.scheduledTimeMinutes == null
+              ? null
+              : MaterialLocalizations.of(context).formatTimeOfDay(
+                  TimeOfDay(
+                    hour: todo.scheduledTimeMinutes! ~/ 60,
+                    minute: todo.scheduledTimeMinutes! % 60,
+                  ),
+                  alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(
+                    context,
+                  ),
                 ),
-                alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(
-                  context,
-                ),
-              ),
-        isOn: isOn,
-        isDone: todo.status == TodoStatus.done,
-        switchSemanticsOn: l10n.lampOn,
-        switchSemanticsOff: l10n.lampOff,
-        onToggle: _dominoRunning ? null : () => _toggle(todo),
-        onTap: asleep || _dominoRunning
-            ? null
-            : () => showComposeSheet(context, existing: todo),
-        onLongPress: _dominoRunning
-            ? null
-            : () => _delete(todo, confirmSingle: true),
+          isOn: isOn,
+          isDone: todo.status == TodoStatus.done,
+          switchSemanticsOn: l10n.lampOn,
+          switchSemanticsOff: l10n.lampOff,
+          onToggle: _dominoRunning ? null : () => _toggle(todo),
+          onTap: asleep || _dominoRunning
+              ? null
+              : () => showComposeSheet(context, existing: todo),
+          // 롱프레스 = 편집 모드 (2026-09-14). 옮길 수 있는 항목은 바깥의
+          // 끌기 리스너가 롱프레스를 받아 들어 올리면서 편집 모드를 켠다.
+          onLongPress: _dominoRunning || reorderable ? null : _enterEdit,
+          longPressHaptic: UnwindHapticKind.lift,
+          editing: _editing,
+          onRemove: () => _delete(todo, confirmSingle: true),
+          removeSemanticsLabel: l10n.removeTaskLabel(todo.title),
+          reorderHandle: handle,
+          fixedOrderSemanticsLabel: l10n.orderFixedByTime,
+        ),
       ),
+    );
+
+    // 스크린 리더는 롱프레스로 끌 수 없다 — 편집 모드로 가는 동작을 준다 (§12)
+    row = Semantics(
+      customSemanticsActions: {
+        if (!_editing && !_dominoRunning)
+          CustomSemanticsAction(label: l10n.editListAction): _enterEdit,
+      },
+      child: row,
+    );
+
+    if (!reorderable) return row;
+    // 롱프레스한 채 곧장 끌기 — 아이폰 홈 화면처럼 편집 모드가 아니어도 된다
+    // (들어 올리는 순간 onReorderStart가 편집 모드를 켠다)
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey('reorder-${todo.id}'),
+      index: reorderIndex,
+      enabled: !_dominoRunning,
+      child: row,
     );
   }
 }
@@ -783,7 +990,10 @@ class _TopBar extends ConsumerWidget {
 /// 스트립이 보고 있는 주로 들어가는 알약 (개편 2026-08-13).
 /// 스트립을 넘기면 라벨이 따라 바뀌고, 누르면 **그 주의** 주간 뷰가 열린다.
 class _WeekPill extends ConsumerWidget {
-  const _WeekPill();
+  /// 주간 뷰를 열기 직전 — 홈 편집 모드를 끝낸다 (2026-09-14)
+  final VoidCallback onOpen;
+
+  const _WeekPill({required this.onOpen});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -795,7 +1005,10 @@ class _WeekPill extends ConsumerWidget {
     return UnwindPill(
       label: weekLabel(context, mondayKey: mondayKey, todayKey: todayKey),
       chevron: true, // 이동임을 알리는 작은 › (재도입 2026-08-15)
-      onTap: () => showWeekScreen(context, mondayKey: mondayKey),
+      onTap: () {
+        onOpen();
+        showWeekScreen(context, mondayKey: mondayKey);
+      },
     );
   }
 }

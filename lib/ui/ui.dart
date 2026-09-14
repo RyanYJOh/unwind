@@ -22,6 +22,7 @@ export 'unwind_coach_mark.dart';
 export 'unwind_dialog.dart';
 export 'unwind_field.dart';
 export 'unwind_icon_button.dart';
+export 'unwind_jiggle.dart';
 export 'unwind_list_row.dart';
 export 'unwind_pill.dart';
 export 'unwind_pressable.dart';

@@ -47,6 +47,11 @@ class TodoRepository {
     );
   }
 
+  /// 순서 변경 (홈 편집 모드, 2026-09-14) — [ordered]는 시간 없는 항목들의
+  /// 새 순서. 등의 개수·상태가 그대로라 조도·peak와 무관하다.
+  Future<void> reorder(List<Todo> ordered) =>
+      db.todoDao.reorder([for (final t in ordered) t.id]);
+
   /// 완료 토글 (§5.2)
   /// - 완료: peak = max(peak, raw)
   /// - 취소: peak = raw (명시적 되돌리기이므로 하강 허용)

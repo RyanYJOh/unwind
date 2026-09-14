@@ -197,8 +197,12 @@ void main() {
     );
     await pumpApp(tester);
 
-    // v2: 롱프레스 → 곧바로 삭제 범위를 묻는 액션 시트 (중간 단계 제거)
+    // 2026-09-14: 롱프레스 → 편집 모드(떨림 + ✕ + 손잡이), ✕ → 기존 삭제 흐름
     await tester.longPress(find.byType(UnwindTodoTile));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Done'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Delete 반복 항목'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Edit'), findsNothing);

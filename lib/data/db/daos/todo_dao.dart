@@ -81,6 +81,33 @@ class TodoDao extends DatabaseAccessor<UnwindDatabase> with _$TodoDaoMixin {
     )..where((t) => t.id.equals(entry.id.value))).getSingle();
   }
 
+  /// 순서 변경 (홈 편집 모드, 2026-09-14) — [orderedIds] 순서대로 sortIndex를
+  /// 다시 매긴다. 새 값은 그 항목들이 이미 쓰던 sortIndex 묶음을 오름차순으로
+  /// 재배분한 것이라, 묶음 밖 항목(시간 지정 항목·tombstone)과의 상대 순서는
+  /// 건드리지 않는다.
+  Future<void> reorder(List<String> orderedIds) {
+    return transaction(() async {
+      final rows = await (select(
+        todos,
+      )..where((t) => t.id.isIn(orderedIds))).get();
+      final known = {for (final r in rows) r.id};
+      final ids = [
+        for (final id in orderedIds)
+          if (known.contains(id)) id,
+      ];
+      final slots = [for (final r in rows) r.sortIndex]..sort();
+      // 같은 값이 겹치면 순서가 모호해진다 — 엄격히 증가하게 편다
+      for (var i = 1; i < slots.length; i++) {
+        if (slots[i] <= slots[i - 1]) slots[i] = slots[i - 1] + 1;
+      }
+      for (var i = 0; i < ids.length; i++) {
+        await (update(todos)..where((t) => t.id.equals(ids[i]))).write(
+          TodosCompanion(sortIndex: Value(slots[i])),
+        );
+      }
+    });
+  }
+
   /// 일괄 완료 (전등 줄, 개정 2026-08-15) — 그날의 pending 등을 전부 끈다.
   /// completedAt은 줄을 당긴 시각 — 청구서의 등 사용 시간 계산과 일치한다.
   Future<void> completeAllPending(String date, DateTime completedAt) {

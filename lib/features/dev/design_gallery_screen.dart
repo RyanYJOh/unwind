@@ -29,6 +29,7 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
   final _field = TextEditingController();
   bool _toggle = true;
   bool _lamp = true;
+  bool _editTiles = false;
   int _chip = 0;
 
   @override
@@ -211,6 +212,54 @@ class _DesignGalleryScreenState extends State<DesignGalleryScreen> {
                 switchSemanticsOn: 'On',
                 switchSemanticsOff: 'Off',
                 onTap: () {},
+              ),
+              // 편집 모드 (2026-09-14) — 떨림 + 좌상단 ✕ + 우측 손잡이.
+              // 홈에선 롱프레스로 들어간다. 여기선 버튼으로 켜고 끈다.
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: UnwindSpacing.s20,
+                  vertical: UnwindSpacing.s8,
+                ),
+                child: UnwindButton.secondary(
+                  label: _editTiles ? '편집 모드 끄기' : '편집 모드 켜기',
+                  small: true,
+                  onPressed: () => setState(() => _editTiles = !_editTiles),
+                ),
+              ),
+              UnwindJiggle(
+                active: _editTiles,
+                child: UnwindTodoTile(
+                  title: '편집 모드: 손잡이로 순서 변경',
+                  isOn: true,
+                  editing: _editTiles,
+                  onRemove: () {},
+                  removeSemanticsLabel: 'Delete',
+                  reorderHandle: const UnwindDragHandle(
+                    semanticLabel: 'Reorder',
+                    moveUpLabel: 'Move up',
+                    moveDownLabel: 'Move down',
+                  ),
+                  switchSemanticsOn: 'On',
+                  switchSemanticsOff: 'Off',
+                  onToggle: () {},
+                ),
+              ),
+              UnwindJiggle(
+                active: _editTiles,
+                seed: 1,
+                child: UnwindTodoTile(
+                  title: '편집 모드: 시간 지정은 시간순 고정',
+                  timeLabel: '오후 3:00',
+                  isOn: false,
+                  isDone: true,
+                  editing: _editTiles,
+                  onRemove: () {},
+                  removeSemanticsLabel: 'Delete',
+                  fixedOrderSemanticsLabel: 'Sorted by time',
+                  switchSemanticsOn: 'On',
+                  switchSemanticsOff: 'Off',
+                  onToggle: () {},
+                ),
               ),
             ],
           ),

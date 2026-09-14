@@ -134,6 +134,31 @@ class AppLocalizationsKo extends AppLocalizations {
   String get undo => '되돌리기';
 
   @override
+  String get editDone => '완료';
+
+  @override
+  String get editListAction => '목록 편집';
+
+  @override
+  String removeTaskLabel(String title) {
+    return '$title 삭제';
+  }
+
+  @override
+  String reorderTaskLabel(String title) {
+    return '$title 순서 바꾸기';
+  }
+
+  @override
+  String get moveUp => '위로 옮기기';
+
+  @override
+  String get moveDown => '아래로 옮기기';
+
+  @override
+  String get orderFixedByTime => '시간 순서대로 놓여 있어';
+
+  @override
   String get toastTaskAdded => '새 불이 켜졌어';
 
   @override

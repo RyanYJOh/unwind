@@ -134,6 +134,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get undo => 'Undo';
 
   @override
+  String get editDone => 'Done';
+
+  @override
+  String get editListAction => 'Edit list';
+
+  @override
+  String removeTaskLabel(String title) {
+    return 'Delete $title';
+  }
+
+  @override
+  String reorderTaskLabel(String title) {
+    return 'Reorder $title';
+  }
+
+  @override
+  String get moveUp => 'Move up';
+
+  @override
+  String get moveDown => 'Move down';
+
+  @override
+  String get orderFixedByTime => 'Sorted by time';
+
+  @override
   String get toastTaskAdded => 'A new light is on';
 
   @override

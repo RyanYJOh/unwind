@@ -332,6 +332,48 @@ abstract class AppLocalizations {
   /// **'Undo'**
   String get undo;
 
+  /// No description provided for @editDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get editDone;
+
+  /// No description provided for @editListAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit list'**
+  String get editListAction;
+
+  /// No description provided for @removeTaskLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {title}'**
+  String removeTaskLabel(String title);
+
+  /// No description provided for @reorderTaskLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reorder {title}'**
+  String reorderTaskLabel(String title);
+
+  /// No description provided for @moveUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get moveUp;
+
+  /// No description provided for @moveDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get moveDown;
+
+  /// No description provided for @orderFixedByTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Sorted by time'**
+  String get orderFixedByTime;
+
   /// No description provided for @toastTaskAdded.
   ///
   /// In en, this message translates to:

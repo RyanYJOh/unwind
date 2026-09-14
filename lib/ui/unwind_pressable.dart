@@ -14,11 +14,16 @@ enum UnwindHapticKind {
   success,
   warning,
   error,
+
+  /// 들어 올림 — 롱프레스로 편집 모드에 들어가거나 항목을 집을 때
+  /// (아이폰 홈 화면의 그 "툭", 2026-09-14)
+  lift,
 }
 
 extension UnwindHapticFire on UnwindHaptics {
   Future<void> fire(UnwindHapticKind kind) => switch (kind) {
     UnwindHapticKind.none => Future<void>.value(),
+    UnwindHapticKind.lift => medium(),
     UnwindHapticKind.tap => tap(),
     UnwindHapticKind.selection => selection(),
     UnwindHapticKind.toggleOn => toggle(on: true),
@@ -49,6 +54,9 @@ class UnwindPressable extends StatefulWidget {
   final Color shadowColor;
   final BorderRadius? borderRadius;
   final UnwindHapticKind haptic;
+
+  /// 롱프레스 햅틱 — 기본은 경고(삭제 확인 등). 들어 올리는 동작이면 lift.
+  final UnwindHapticKind longPressHaptic;
   final String? semanticLabel;
 
   /// 스크린리더가 읽는 현재 값 (예: 스위치의 켜짐/꺼짐)
@@ -68,6 +76,7 @@ class UnwindPressable extends StatefulWidget {
     this.shadowColor = UnwindColors.solid,
     this.borderRadius,
     this.haptic = UnwindHapticKind.tap,
+    this.longPressHaptic = UnwindHapticKind.warning,
     this.semanticLabel,
     this.semanticValue,
     this.isButton = true,
@@ -97,7 +106,7 @@ class _UnwindPressableState extends State<UnwindPressable> {
 
   void _handleLongPress() {
     if (widget.onLongPress == null) return;
-    UnwindHapticsScope.of(context).fire(UnwindHapticKind.warning);
+    UnwindHapticsScope.of(context).fire(widget.longPressHaptic);
     widget.onLongPress!();
   }
 

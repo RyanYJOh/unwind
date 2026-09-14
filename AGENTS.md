@@ -35,7 +35,7 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 149개 통과가 기준선
+flutter analyze && flutter test                           # 165개 통과가 기준선 (§10)
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight·심사 제출용 (버전은 pubspec)
 ```
@@ -190,6 +190,8 @@ lib/
 - `core/haptics/haptics.dart`가 의미 단위 어휘를 정의한다:
   `tap` / `selection` / `toggle(on:)` / `success` / `warning` / `error` /
   `sheetOpen·Close` + 연출용(`light/medium/heavy/tensionTick`).
+  컴포넌트용 `UnwindHapticKind.lift`(= medium) — 들어 올림: 편집 모드 진입·
+  항목 집기 (2026-09-14). `UnwindPressable.longPressHaptic`의 기본은 warning.
 - **등을 끄는 촉감이 이 앱에서 가장 세다**: `switchOff()` = medium → 55ms →
   heavy (개정 2026-08-12). 진짜 벽 스위치를 내리는 무게감이어야 한다.
   다시 켜는 쪽은 `tadak()` = light → 45ms → medium으로 가볍다.
@@ -210,7 +212,9 @@ lib/
 | `UnwindButton` | primary/secondary/danger/ghost · CTA 56pt, small 44pt |
 | `UnwindIconButton` | plain/filled/accent — 항상 44pt 이상 |
 | `UnwindCard` · `UnwindSectionLabel` · `UnwindDivider` | 면과 구분 |
-| `UnwindTodoTile` | 할 일 하나 = 등 하나 (타일 + 벽 스위치). `readOnlySwitch`면 우측이 비고 테두리로만 구분. `hasMemo`면 제목 끝에 작은 노트 아이콘, `hasRepeat`면 반복 아이콘 (같은 문법, 2026-08-27) |
+| `UnwindTodoTile` | 할 일 하나 = 등 하나 (타일 + 벽 스위치). `readOnlySwitch`면 우측이 비고 테두리로만 구분. `hasMemo`면 제목 끝에 작은 노트 아이콘, `hasRepeat`면 반복 아이콘 (같은 문법, 2026-08-27). `editing`이면 편집 모드 (2026-09-14): 좌상단 ✕ 배지(`onRemove` — 중립색, 파괴적 색은 확인 시트의 몫)가 튀어나오고 스위치 자리에 `reorderHandle`(없으면 작은 시계 = 시간순 고정)이 오며, 타일 탭은 삼킨다. `longPressHaptic`으로 롱프레스 촉감을 고른다 (홈은 `lift`) |
+| `UnwindJiggle` | 편집 모드의 달달 떨림 (2026-09-14). 0.6°·세로 0.5pt, `seed`로 타일마다 박자·방향이 다르다. Reduce Motion이면 정지. `UnwindJiggle.still` 아래(드래그 프록시)는 떨지 않는다 |
+| `UnwindDragHandle` | 편집 모드의 순서 손잡이 (44pt, 모양+접근성만 — 끌기는 화면이 `ReorderableDragStartListener`로 감싼다). 스크린 리더용 위·아래로 옮기기 커스텀 동작 |
 | `UnwindLampSwitch` / `UnwindToggle` | 세로 벽 로커 / 가로 설정 토글 |
 | `UnwindTextField` | 포커스 시 테두리가 앰버로 |
 | `UnwindChip` | **선택** 알약 (반복 등 상호배타 선택 전용) |
@@ -355,9 +359,27 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
 3. 체크리스트 — `UnwindTodoTile`: 좌 텍스트(완료 시 삭선), 우 벽 로커 스위치.
    메모가 있으면 제목 끝에 작은 노트 아이콘 (`hasMemo`).
    켜진 등은 **앰버 테두리**로만 구분한다 (타일이 빛을 흉내내지 않는다 — 빛의
-   총량은 CornerGlow의 몫). 스위치=토글, 행 탭=편집 시트, 롱프레스·왼쪽
-   스와이프=삭제. 취침 중 스위치 ON = **깨우기(undo)**.
-   **삭제는 두 경로가 같은 함수를 탄다**(`_delete`) — 롱프레스든 스와이프든
+   총량은 CornerGlow의 몫). 스위치=토글, 행 탭=편집 시트, 왼쪽
+   스와이프=삭제, **롱프레스=편집 모드**. 취침 중 스위치 ON = **깨우기(undo)**.
+   **편집 모드 (신설 2026-09-14, 발주자 지시 — 롱프레스 삭제 모달 대체)**:
+   아이폰 홈 화면처럼 롱프레스하면 모든 타일이 미세하게 달달 떨고
+   (`UnwindJiggle`, 0.6°·타일마다 박자가 다름, Reduce Motion이면 정지),
+   좌상단 모서리에 ✕ 배지, 스위치 자리에 손잡이(`UnwindDragHandle`)가 생긴다.
+   ✕ = 기존 롱프레스 삭제 흐름 그대로(`confirmSingle: true` — 확인·반복 범위·
+   되돌리기 토스트). 손잡이를 끌면 즉시 순서가 바뀌고, **시간 없는 항목은
+   롱프레스한 손을 떼지 않고 그대로 끌어도** 옮겨진다(iOS와 같은 연속 동작 —
+   `ReorderableDelayedDragStartListener`의 onReorderStart가 편집 모드를 켠다).
+   **시간 지정 항목은 옮길 수 없다** — 목록이 시간순 우선이라 옮겨도 튕겨
+   돌아온다. 그래서 두 슬리버로 나눠(시간 지정 SliverList + 시간 없음
+   SliverReorderableList) 끌던 항목이 시간 지정 구역에 못 들어가게 했고,
+   시간 지정 타일엔 손잡이 대신 작은 시계("시간 순서대로")를 둔다.
+   순서는 `TodoDao.reorder`가 그 항목들이 쓰던 sortIndex 묶음을 재배분해
+   저장한다(묶음 밖 항목과의 상대 순서 불변). 놓는 순간 튀지 않도록 화면이
+   낙관적 순서(`_localOrder`)를 DB 스트림이 따라잡을 때까지 들고 있는다.
+   편집 중엔 타일 탭·스와이프·스위치·전등 줄이 멈추고 FAB 자리가 **완료**
+   버튼이 된다. 끝내기: 완료 / 빈 곳 탭 / 날짜·화면 이동 / 마지막 항목 삭제.
+   햅틱: 들어 올릴 때 `lift`(medium), 놓을 때 light.
+   **삭제는 두 경로가 같은 함수를 탄다**(`_delete`) — ✕든 스와이프든
    반복 항목이면 **반드시** 단일/현재 이후 전체를 먼저 묻는다(스와이프가 이
    확인을 건너뛰던 버그를 2026-08-12에 고쳤다. 스와이프에서 취소하면
    `confirmDismiss`가 false를 돌려 항목이 제자리로 돌아온다).
@@ -430,7 +452,9 @@ painted(전부 코드)로 롤백 가능. PNG의 불투명 영역(`kGhostBodySrc*
 - **여기서는 체크할 수 없다** — 등을 끄는 건 오늘의 방의 몫이다. 타일은
   `readOnlySwitch: true`로 그리고, 완료 여부는 **테두리 색으로만** 구분한다.
   우측에 앰버 표시를 남기면 "누르면 체크된다"로 오인된다 (개정 2026-08-13).
-- 추가·편집(행 탭)·삭제(롱프레스·왼쪽 스와이프)는 홈과 **완전히 같다** —
+- 추가·편집(행 탭)·삭제(왼쪽 스와이프)는 홈과 **완전히 같다**
+  (롱프레스만 다르다 — 홈은 편집 모드(2026-09-14), 주간 뷰는 요일 섹션이
+  여럿이라 순서 편집 없이 곧장 삭제 확인 `confirmSingle: true`) —
   `features/today/todo_actions.dart`의 `deleteTodoWithUndo`/`editTodo`를
   양쪽이 공유한다. 화면마다 따로 구현하면 반드시 갈라진다(스와이프가 반복
   범위를 묻지 않던 버그가 그렇게 생겼다).
@@ -935,8 +959,8 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **159개** 전부 통과가 기준선 (2026-09-11 위젯 스냅샷
-   버짓 절약 +6. 2026-09-02 ATT +4.
+2. `flutter test` — **165개** 전부 통과가 기준선 (2026-09-14 홈 편집 모드 +5 · 홈 스크롤 +1.
+   2026-09-11 위젯 스냅샷 버짓 절약 +6. 2026-09-02 ATT +4.
    2026-08-28 위젯 배경
    +4 · 청구서 월요일 잠금 테스트 -1. 2026-08-27 롤오버 checkNow +2. 2026-08-23 Mixpanel +2·아침 인사 개수 +1. 2026-08-22 Plus 게이트
    +3·조명 색 +2·날짜 독립성·스트립 창 +2·타이프라이터

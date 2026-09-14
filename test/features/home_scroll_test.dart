@@ -38,9 +38,8 @@ void main() {
       tester.element(find.byType(TodayScreen)),
     );
     final today = container.read(todayKeyProvider);
-    final repo = container.read(todoRepositoryProvider);
     for (var i = 0; i < 20; i++) {
-      await tester.runAsync(() => repo.add(title: '할 일 $i', date: today));
+      await db.todoDao.insertTodo(title: '할 일 $i', date: today);
     }
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('할 일 0'), findsOneWidget);
@@ -51,21 +50,27 @@ void main() {
     final cordBefore = top(find.byType(PullCord));
     final stripBefore = top(find.byType(WeeklyStrip));
 
-    await tester.drag(
+    // 천천히 끌어 fling 없이 약 120pt만 스크롤한다 (빠르게 끌면 관성으로
+    // 헤더가 캐시 범위 밖까지 밀려 트리에서 빠진다)
+    await tester.timedDrag(
       find.byType(CustomScrollView),
       const Offset(0, -120),
+      const Duration(milliseconds: 600),
     );
     await tester.pump(const Duration(milliseconds: 500));
 
     // 헤더·Todd는 함께 올라간다
     expect(top(find.byType(ToddView)), lessThan(toddBefore - 80));
-    expect(top(find.text('Today')), lessThan(titleBefore - 80));
+    // 헤더는 화면 위로 완전히 밀려났다 — 트리에는 남아 있으니 offstage도 찾는다
+    expect(
+      top(find.text('Today', skipOffstage: false)),
+      lessThan(titleBefore - 80),
+    );
     // 전등 줄과 하단 스트립은 가만히
     expect(top(find.byType(PullCord)), cordBefore);
     expect(top(find.byType(WeeklyStrip)), stripBefore);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 50));
-    await tester.runAsync(db.close);
   });
 }
