@@ -172,10 +172,18 @@ enum WidgetSnapshotBridge {
       let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
       out["fileProtection"] =
         (attrs?[.protectionKey] as? FileProtectionType)?.rawValue ?? ""
+      // 위젯이 마지막으로 타임라인을 생성한 기록 (2026-09-14, ToddWidget
+      // recordGeneration) — 리로드가 WidgetKit에서 받아들여졌는지의 증거
+      out["lastGen"] =
+        (try? String(
+          contentsOf: root.appendingPathComponent("widget_lastgen.json"),
+          encoding: .utf8
+        )) ?? ""
     } else {
       out["fileExists"] = false
       out["fileBody"] = ""
       out["fileProtection"] = ""
+      out["lastGen"] = ""
     }
     return out
   }

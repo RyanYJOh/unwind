@@ -257,20 +257,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   /// 홈 위젯 스냅샷이 App Group에 실제로 닿는지 그 자리에서 확인한다.
-  /// 먼저 오늘 스냅샷을 강제로 한 번 쓰고, 네이티브가 본 상태를 그대로 읽는다.
+  ///
+  /// **먼저 건드리지 않은 상태를 읽는다** (2026-09-14): 마지막 write 결과·
+  /// 파일 내용·위젯이 마지막으로 타임라인을 생성한 기록(`lastGen`,
+  /// ToddWidget이 남김)을 그대로 보고, 그 다음에야 스냅샷을 강제로 한 번
+  /// 쓴다. "저녁이면 위젯이 안 바뀐다"를 가를 때 — 파일(before)은 새것인데
+  /// lastGen이 옛것이면 WidgetKit이 리로드를 받아주지 않은 것이고, lastGen이
+  /// 새것인데 위젯 표시만 옛것이면 렌더 문제, 파일이 옛것이면 앱이 못 쓴 것.
   Future<void> _showWidgetDiagnostics(BuildContext context, WidgetRef ref) async {
-    await flushWidgetSnapshot(ref);
     final service = ref.read(widgetSnapshotServiceProvider);
+    final writeBefore = service.lastResult;
+    final before = await service.diagnose();
+    await flushWidgetSnapshot(ref);
     final d = await service.diagnose();
     if (!context.mounted) return;
     final lines = <String>[
-      'write: ${service.lastResult}',
+      'write(before): $writeBefore',
+      'write(now): ${service.lastResult}',
+      'widget lastGen: ${before['lastGen']}',
+      'body(before): ${before['fileBody']}',
       'containerOk: ${d['containerOk']}',
       'suiteOk: ${d['suiteOk']}',
       'fileExists: ${d['fileExists']}',
       'protection: ${d['fileProtection']}',
       'defaultsDayKey: ${d['defaultsDayKey']}',
-      'body: ${d['fileBody']}',
+      'body(now): ${d['fileBody']}',
       if (d['error'] != null) 'error: ${d['error']}',
     ];
     if (!context.mounted) return;

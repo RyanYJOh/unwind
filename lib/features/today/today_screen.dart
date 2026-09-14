@@ -461,69 +461,55 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _TopBar(
-                        onSettings: () => showSettingsScreen(context),
-                        onBill: _openBill,
-                      ),
-                      // 유령 영역 — 고정 높이로 체크리스트와의 간격 축소.
-                      // 오늘: Todd (탭하면 반응, 잠들었을 땐 무반응).
-                      // 과거·미래: Todd는 오늘의 방에 있다 — 빈 자리만 남는다.
-                      SizedBox(
-                        height: 136,
-                        child: !isViewingToday
-                            ? _ToddAway(label: l10n.toddAway)
-                            : Center(
-                                child: UnwindPressable(
-                                  onTap: _pokeTodd,
-                                  depth: 0,
-                                  pressScale: 1.0, // 반응은 캐릭터가 한다
-                                  haptic:
-                                      UnwindHapticKind.none, // _pokeTodd가 고른다
-                                  isButton: false,
-                                  semanticLabel: l10n.toddPokeLabel,
-                                  child: Center(
-                                    child: ToddPokeSquish(
-                                      tick: _squishTick,
-                                      child: AnimatedBuilder(
-                                        animation: _theme,
-                                        builder: (context, _) => ToddView(
-                                        state: ToddState(
-                                          brightness: _displayTStatic,
-                                          // 시각 무관: 전부 체크 시 잠들고,
-                                          // 밤의 빈 방도 잠든다
-                                          isAsleep:
-                                              toddMode.mode == ToddMode.asleep,
-                                          mode: toddMode.mode,
-                                          activity: toddMode.activity,
-                                          dazzle: toddMode.dazzle,
-                                          // 전날 불을 남겼으면 눈 밑에 다크서클
-                                          darkCircles: ref.watch(
-                                            darkCirclesProvider,
-                                          ),
-                                          event: _toddEvent,
-                                          eventTick: _toddTick,
-                                        ),
-                                          reduceMotion: reduce,
-                                          size: 118,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                      ),
+                      // 홈은 헤더·Todd·체크리스트가 **한 덩어리로** 스크롤된다
+                      // (개정 2026-09-14 — 이전엔 리스트만 스크롤). 고정은
+                      // 하단 주 칩·스트립, 그리고 우상단 전등 줄(아래 Stack의
+                      // 형제라 스크롤 밖에 있다)뿐이다.
                       Expanded(
-                        child: todos.isEmpty
-                            ? const _EmptyRoom()
-                            : ListView.builder(
+                        child: CustomScrollView(
+                          slivers: [
+                            SliverToBoxAdapter(
+                              child: _TopBar(
+                                onSettings: () => showSettingsScreen(context),
+                                onBill: _openBill,
+                              ),
+                            ),
+                            // 유령 영역 — 고정 높이로 체크리스트와의 간격 축소.
+                            // 오늘: Todd (탭하면 반응, 잠들었을 땐 무반응).
+                            // 과거·미래: Todd는 오늘의 방에 있다 — 빈 자리만.
+                            SliverToBoxAdapter(
+                              child: SizedBox(
+                                height: 136,
+                                child: !isViewingToday
+                                    ? _ToddAway(label: l10n.toddAway)
+                                    : _buildTodd(l10n, toddMode, reduce),
+                              ),
+                            ),
+                            if (todos.isEmpty)
+                              // 빈 방 문구는 Todd 아래 남은 화면의 가운데 —
+                              // 스크롤 전과 같은 자리
+                              const SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: _EmptyRoom(),
+                              )
+                            else
+                              SliverPadding(
                                 padding: const EdgeInsets.only(
                                   top: UnwindSpacing.s4,
                                   bottom: UnwindSpacing.s16,
                                 ),
-                                itemCount: todos.length,
-                                itemBuilder: (context, i) =>
-                                    _buildRow(context, l10n, todos[i], asleep),
+                                sliver: SliverList.builder(
+                                  itemCount: todos.length,
+                                  itemBuilder: (context, i) => _buildRow(
+                                    context,
+                                    l10n,
+                                    todos[i],
+                                    asleep,
+                                  ),
+                                ),
                               ),
+                          ],
+                        ),
                       ),
                       // 하단 — 주 칩 + 이번 주 스트립 (개편 2026-08-13).
                       // Bill이 상단으로 갔으니 스트립이 너비를 다 쓴다.
@@ -610,6 +596,48 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// 오늘의 Todd — 탭하면 반응 (잠들었을 땐 무반응, [_pokeTodd]).
+  Widget _buildTodd(
+    AppLocalizations l10n,
+    ToddModeState toddMode,
+    bool reduce,
+  ) {
+    return Center(
+      child: UnwindPressable(
+        onTap: _pokeTodd,
+        depth: 0,
+        pressScale: 1.0, // 반응은 캐릭터가 한다
+        haptic: UnwindHapticKind.none, // _pokeTodd가 고른다
+        isButton: false,
+        semanticLabel: l10n.toddPokeLabel,
+        child: Center(
+          child: ToddPokeSquish(
+            tick: _squishTick,
+            child: AnimatedBuilder(
+              animation: _theme,
+              builder: (context, _) => ToddView(
+                state: ToddState(
+                  brightness: _displayTStatic,
+                  // 시각 무관: 전부 체크 시 잠들고, 밤의 빈 방도 잠든다
+                  isAsleep: toddMode.mode == ToddMode.asleep,
+                  mode: toddMode.mode,
+                  activity: toddMode.activity,
+                  dazzle: toddMode.dazzle,
+                  // 전날 불을 남겼으면 눈 밑에 다크서클
+                  darkCircles: ref.watch(darkCirclesProvider),
+                  event: _toddEvent,
+                  eventTick: _toddTick,
+                ),
+                reduceMotion: reduce,
+                size: 118,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

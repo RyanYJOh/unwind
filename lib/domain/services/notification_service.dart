@@ -84,7 +84,32 @@ bool shouldScheduleTodoReminder({
 /// - 이미 전등 줄을 당긴 날에는 보내지 않는다
 /// - 재촉하거나 탓하지 않는다 (`아직도 3개나 남았어요` 금지)
 /// - 권한은 온보딩 인사 화면 도착 0.5초 뒤에 요청한다 (첫 실행 즉시 요청 금지)
+/// - 모든 알림은 **소리와 진동**을 낸다 (개정 2026-09-14 — 이전엔 전부 무음)
 class NotificationService {
+  /// 모든 알림의 공통 발송 방식 (개정 2026-09-14, 발주자 지시).
+  /// iOS 플러그인은 `presentSound`가 true일 때만 `content.sound`를 채운다 —
+  /// false면 백그라운드에서도 무음이고, iOS 진동은 소리를 따라가므로 진동도
+  /// 사라진다. 진동 여부는 기기의 햅틱 설정(벨소리·무음 모드)을 따른다.
+  /// 안드로이드는 채널 중요도가 소리·진동을 정한다 (채널은 생성 후 불변이라
+  /// 옛 무음 채널과 다른 id를 쓴다).
+  static const _details = NotificationDetails(
+    iOS: DarwinNotificationDetails(
+      presentAlert: true,
+      presentBanner: true,
+      presentList: true,
+      presentSound: true,
+    ),
+    android: AndroidNotificationDetails(
+      'todd_alerts',
+      'Todd',
+      channelDescription: 'Reminders and greetings from Todd',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    ),
+  );
+
   static const _nightReminderId = 1;
   static const _billId = 2;
   static const _morningId = 3;
@@ -253,9 +278,7 @@ class NotificationService {
       title: title,
       body: body, // §10 문구 — 재촉·비난 없음
       scheduledDate: at,
-      notificationDetails: const NotificationDetails(
-        iOS: DarwinNotificationDetails(presentSound: false),
-      ),
+      notificationDetails: _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       payload: 'home',
     );
@@ -306,9 +329,7 @@ class NotificationService {
       title: null,
       body: body,
       scheduledDate: at,
-      notificationDetails: const NotificationDetails(
-        iOS: DarwinNotificationDetails(presentSound: false),
-      ),
+      notificationDetails: _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: 'home',
@@ -341,9 +362,7 @@ class NotificationService {
       title: null,
       body: body,
       scheduledDate: at,
-      notificationDetails: const NotificationDetails(
-        iOS: DarwinNotificationDetails(presentSound: false),
-      ),
+      notificationDetails: _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime, // 매주 반복
       payload: 'bill',
@@ -365,9 +384,7 @@ class NotificationService {
       title: title,
       body: body,
       scheduledDate: tz.TZDateTime.now(tz.local).add(delay),
-      notificationDetails: const NotificationDetails(
-        iOS: DarwinNotificationDetails(presentSound: false),
-      ),
+      notificationDetails: _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       payload: 'home',
     );
@@ -455,16 +472,7 @@ class NotificationService {
         title: title,
         body: bodyFor(reminder.title),
         scheduledDate: scheduled,
-        notificationDetails: const NotificationDetails(
-          iOS: DarwinNotificationDetails(presentSound: false),
-          android: AndroidNotificationDetails(
-            'todo_reminders',
-            'Task reminders',
-            channelDescription: 'Gentle reminders before a task time',
-            importance: Importance.defaultImportance,
-            priority: Priority.defaultPriority,
-          ),
-        ),
+        notificationDetails: _details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         payload: 'home',
       );

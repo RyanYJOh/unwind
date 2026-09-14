@@ -336,6 +336,8 @@ private struct ToddProvider: TimelineProvider {
     /// nil = 기본 위젯 (앱 설정의 배경을 따라간다).
     /// 값이 있으면 배경 고정형 kind (2026-08-29) — 항상 그 장면.
     var fixedBackground: String? = nil
+    /// 진단 기록용 kind 이름 (2026-09-14)
+    var kind: String = "ToddWidget"
 
     func placeholder(in context: Context) -> ToddEntry {
         var state = DisplayState(
@@ -363,6 +365,7 @@ private struct ToddProvider: TimelineProvider {
         // 앱이 상태를 바꾸면 updateWidget이 타임라인을 통째로 다시 뽑는다.
         let snapshot = Snapshot.load()
         let now = Date()
+        recordGeneration(kind: kind, snapshot: snapshot, at: now)
 
         // 스냅샷을 못 읽었으면(첫 설치 직후, 또는 잠금 중이라 데이터 보호에
         // 막힌 경우) 24시간짜리 타임라인을 깔면 안 된다 — 그 빈 결과가
@@ -404,6 +407,37 @@ private struct ToddProvider: TimelineProvider {
         // 시각 엔트리 24개는 그대로 — 재생성이 밀려도 표정은 흘러간다.
         completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(2 * 60 * 60))))
     }
+}
+
+/// 진단 기록 (2026-09-14): 타임라인이 **실제로 다시 생성됐는지**를 앱에서
+/// 볼 수 있게 생성 시각·그때 읽은 스냅샷을 App Group에 남긴다. "저녁이면
+/// 위젯이 안 바뀐다"를 가르는 유일한 증거 — 파일은 새것인데 이 기록이
+/// 옛것이면 WidgetKit이 리로드를 받아주지 않은 것이고, 기록이 새것인데
+/// 개수가 옛것이면 앱이 파일을 못 쓴 것이다. 설정 > Widget diagnostics(dev)가
+/// 읽는다. 잠긴 기기에서도 쓰이도록 스냅샷과 같은 보호 등급.
+private func recordGeneration(kind: String, snapshot: Snapshot?, at now: Date) {
+    guard
+        let root = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: Snapshot.appGroupId
+        )
+    else { return }
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.timeZone = .current
+    f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    var obj: [String: Any] = ["at": f.string(from: now), "kind": kind]
+    if let s = snapshot {
+        obj["dayKey"] = s.dayKey
+        obj["remaining"] = s.remaining
+        obj["total"] = s.total
+    } else {
+        obj["snapshot"] = "nil"
+    }
+    guard let data = try? JSONSerialization.data(withJSONObject: obj, options: []) else { return }
+    try? data.write(
+        to: root.appendingPathComponent("widget_lastgen.json"),
+        options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
+    )
 }
 
 // MARK: - 뷰 (디자인 시스템 v2: 고정 다크 + 앰버, §11 블러 금지 → 그라데이션)
@@ -966,7 +1000,7 @@ private func sceneDisplayName(_ id: String) -> String {
 private func toddSceneConfig(kind: String, bg: String) -> some WidgetConfiguration {
     let ko = Locale.current.identifier.hasPrefix("ko")
     return StaticConfiguration(
-        kind: kind, provider: ToddProvider(fixedBackground: bg)
+        kind: kind, provider: ToddProvider(fixedBackground: bg, kind: kind)
     ) { entry in
         ToddWidgetView(entry: entry)
     }
@@ -982,7 +1016,7 @@ struct ToddWidget: Widget {
 
     var body: some WidgetConfiguration {
         let ko = Locale.current.identifier.hasPrefix("ko")
-        return StaticConfiguration(kind: kind, provider: ToddProvider()) { entry in
+        return StaticConfiguration(kind: kind, provider: ToddProvider(kind: kind)) { entry in
             ToddWidgetView(entry: entry)
         }
         .configurationDisplayName("Todd")
