@@ -76,6 +76,19 @@ void main() {
     expect(service.lastResult, startsWith('ok'));
   });
 
+  test('디스크가 이미 같은 내용이면(브리지 false) 기록만 남기고 다음에도 다시 쓰지 않는다', () async {
+    final service = WidgetSnapshotService(platformSupported: true);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(WidgetSnapshotService.channel, (call) async {
+          calls.add(call);
+          return false; // 브리지: 파일이 이미 같은 페이로드
+        });
+    await service.flush(snap());
+    expect(service.lastResult, contains('same-on-disk'));
+    await service.flush(snap());
+    expect(persists(), hasLength(1));
+  });
+
   test('persist 뒤에 확인 리로드를 따로 쏘지 않는다', () async {
     final service = WidgetSnapshotService(platformSupported: true);
     await service.flush(snap());

@@ -308,6 +308,13 @@ final widgetSyncProvider = Provider<void>((ref) {
   final todos = ref.watch(todayTodosProvider).value;
   final day = ref.watch(todayDayProvider).value;
   if (todos == null) return; // 로딩 중엔 이전 스냅샷 유지
+  // 설정 로드 전에는 쓰지 않는다 (2026-09-15, 기기 진단 캡처 근거): 폴백
+  // (취침 22·'en')으로 한 번 쓰고 설정이 오면 다시 쓰면 앱 시작마다 리로드가
+  // 두 번 나간다. chronod는 포그라운드 90초 창당 리로드 1회만 즉시 실행하고
+  // 나머지는 스로틀하므로, 시작 write가 창을 써 버리면 유저의 첫 체크가
+  // 90초 뒤로 밀린다 (밤에 위젯이 안 바뀌던 캡처의 lastGen이 바로 그 시작
+  // write의 생성이었다).
+  if (ref.watch(settingsControllerProvider).value == null) return;
 
   // 오늘의 다크서클 = 어제의 restless 봉인 (darkCirclesProvider는 열람 기준)
   final prevKey = dayKey(addDays(parseDayKey(todayKey), -1));

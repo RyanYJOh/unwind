@@ -69,9 +69,14 @@ private struct Snapshot {
     /// UserDefaults는 위젯 프로세스가 빈 캐시를 붙잡는 경우가 있어 파일을 먼저 본다.
     static let snapshotFileName = "widget_snapshot.json"
 
+    /// 진단 (2026-09-15): 마지막 load가 어디서 읽었는가 — file / defaults / nil
+    static var lastSource = "nil"
+
     static func load() -> Snapshot? {
-        if let fromFile = loadFromFile() { return fromFile }
-        return loadFromDefaults()
+        if let fromFile = loadFromFile() { lastSource = "file"; return fromFile }
+        if let fromDefaults = loadFromDefaults() { lastSource = "defaults"; return fromDefaults }
+        lastSource = "nil"
+        return nil
     }
 
     private static func loadFromFile() -> Snapshot? {
@@ -429,6 +434,14 @@ private func recordGeneration(kind: String, snapshot: Snapshot?, at now: Date) {
     // 기기 상태 (2026-09-15): 저전력 모드·발열이 밤 리로드 거부와 겹치는지
     obj["lowPower"] = ProcessInfo.processInfo.isLowPowerModeEnabled
     obj["thermal"] = ProcessInfo.processInfo.thermalState.rawValue
+    obj["source"] = Snapshot.lastSource
+    if let attrs = try? FileManager.default.attributesOfItem(
+         atPath: root.appendingPathComponent(Snapshot.snapshotFileName).path
+       ),
+       let m = attrs[.modificationDate] as? Date
+    {
+        obj["fileMtime"] = f.string(from: m)
+    }
     if let s = snapshot {
         obj["dayKey"] = s.dayKey
         obj["remaining"] = s.remaining

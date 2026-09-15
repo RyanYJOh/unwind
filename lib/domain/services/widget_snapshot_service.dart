@@ -227,6 +227,13 @@ class WidgetSnapshotService {
     }
   }
 
+  /// 진단용 시각 — lastGen(위젯 생성 시각)과 선후를 비교한다.
+  static String _stamp() {
+    final n = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(n.hour)}:${two(n.minute)}:${two(n.second)}';
+  }
+
   /// persist 채널 페이로드 — 키·의미는 `ToddWidget.swift`와 계약이다.
   Map<String, Object?> _payload(WidgetSnapshot s) => {
     'appGroupId': appGroupId,
@@ -258,7 +265,7 @@ class WidgetSnapshotService {
     // 내용이 같으면 쓰지도 리로드하지도 않는다 (2026-09-11) — 리로드 한
     // 번이 WidgetKit 일일 버짓 한 칸이다. 디스크의 파일은 이미 이 값이다.
     if (mapEquals(payload, _lastPersisted)) {
-      lastResult = 'unchanged ${s.dayKey} ${s.remaining}/${s.total}';
+      lastResult = '${_stamp()} unchanged ${s.dayKey} ${s.remaining}/${s.total}';
       return;
     }
     try {
@@ -269,17 +276,22 @@ class WidgetSnapshotService {
       // 돌아오면 이후의 모든 스냅샷이 그 뒤에 줄을 서 프로세스가 살아
       // 있는 동안 위젯이 다시는 갱신되지 않는다. 타임아웃으로 끊어
       // 다음 write가 지나가게 한다 (2026-08-29).
-      await channel
+      // 브리지는 디스크의 파일이 이미 같은 내용이면 쓰지도 리로드하지도
+      // 않고 false를 돌려준다 (2026-09-15) — 프로세스가 새로 떠도 (iOS는
+      // 앱을 자주 죽인다) 시작 write가 리로드 창을 소모하지 않는다.
+      final written = await channel
           .invokeMethod<bool>('persist', payload)
           .timeout(const Duration(seconds: 8));
       _lastPersisted = payload;
-      lastResult = 'ok ${s.dayKey} ${s.remaining}/${s.total}';
+      lastResult =
+          '${_stamp()} ${written == false ? 'same-on-disk' : 'ok'} '
+          '${s.dayKey} ${s.remaining}/${s.total}';
     } catch (e, st) {
       // 위젯 미설치여도 앱은 계속 돌아야 한다. 삼키되 원인은 남긴다.
       // 릴리즈 빌드에선 debugPrint가 아무 데도 안 보이므로 결과도 붙잡아 둔다.
       // 디스크 상태를 모르게 됐으니 다음 시도는 같은 값이라도 다시 쓴다.
       _lastPersisted = null;
-      lastResult = 'FAILED: $e';
+      lastResult = '${_stamp()} FAILED: $e';
       debugPrint('WidgetSnapshot persist failed: $e\n$st');
     }
   }

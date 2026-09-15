@@ -723,7 +723,18 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   즉시 반영되는 게 정상. **시뮬레이터에선 밤(취침 이후)에도 이 규칙대로
   갱신되며 낮/밤 차이가 없다.** 메모리도 대조 실험(같은 스냅샷, 취침 19 vs
   22)에서 확장 RSS 피크 60 vs 66MB로 차이 없음 — 기기 전용 30MB 한도
-  가설 기각. 남는 후보는 기기 상태(저전력·수면 집중 모드·버짓)뿐.
+  가설 기각.
+  **기기 캡처 1차 (2026-09-15 20:35, 취침 20시)**: 앱 write ok 7/9인데
+  lastGen은 20:35:11에 8/9를 읽음 — 앱은 정상, 체크 뒤의 리로드가 아직
+  실행되지 않은 상태(= 위 ① 스로틀 패턴: 앱 시작 write가 90초 창을 쓰고
+  유저의 체크는 창 끝으로 밀림). 저전력·충전·집중 모드 아님. 대책 (같은 날):
+  ⓓ `widgetSyncProvider`는 **설정 로드 전엔 쓰지 않는다** (폴백 값 write +
+  설정 후 write = 시작마다 리로드 2회였다). ⓔ 브리지 persist가 **디스크
+  파일과 페이로드가 같으면 쓰지도 리로드하지도 않고 false**를 돌려준다 —
+  프로세스가 새로 떠도 시작·resume write가 창을 소모하지 않는다 (Dart는
+  `same-on-disk`로 기록). ⓕ 진단: lastResult에 시각, lastgen에 `source`
+  (file/defaults/nil)·`fileMtime`. lastGen.at < write 시각이면 리로드 미실행,
+  lastGen.at ≥ write 시각인데 개수가 다르면 옛 데이터를 읽은 것.
 - **Todd 렌더**: 위젯 안에서는 Flutter가 안 돈다 — 앱 페인터로 **사전
   렌더한 스프라이트 PNG**(모드 13종 × 다크서클 유무 = 26장)를 번들한다.
   **캐릭터 외형을 바꾸면 반드시 재추출**:
@@ -812,7 +823,8 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   **API 키**: 디버그·프로필은 Test Store 키(`test_…`)가 코드에 박혀 있다.
   **릴리즈 빌드(TestFlight 포함)는 `--dart-define=REVENUECAT_API_KEY=appl_…`
   필수** — 없으면 결제를 켜지 않는다 (Test Store 키로 스토어 제출 금지,
-  RevenueCat 문서). 상품 id `monthly`/`yearly`/`lifetime`, current
+  RevenueCat 문서). 상품 id `plus_monthly_v1`/`plus_yearly_v1`/
+  `plus_lifetime_v1` (App Store Connect — 재사용 불가라 바꿀 땐 `_v2`), current
   Offering의 월/연/평생 패키지(없으면 상품 id로 매칭).
   테스트는 `purchasesServiceProvider`를 `PurchasesService` 상속 가짜로
   override한다 (premium_gate_test). 기본 서비스는 테스트에서
@@ -984,24 +996,29 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 
 - **단일 진입점** — `core/push/push.dart`의 `ToddPush`만 쓴다
   (`onesignal_flutter` 직접 import 금지, §8.8과 같은 규칙).
-- **앱 ID** — `kOneSignalAppId` (공개 값). 비어 있으면 원격 푸시가 꺼진 채로
-  앱이 정상 동작한다.
+- **앱 ID** — `kOneSignalAppId` (공개 값). SDK는 releases.json의 **Stable**
+  트랙을 정확히 고정한다 (onesignal_flutter `5.5.2`, 2026-09-15 —
+  OneSignal 통합 가이드 규칙: 범위 지정 금지).
+- **연동 확인 시트** (`features/today/push_verification.dart`, 가이드 요구):
+  서버가 구독 ID(`local-` 임시값 아님)를 발급하면 홈에서 한 번 뜨고 "Got it"이
+  권한을 묻는다. **디버그 빌드 전용** — §10과 충돌하므로 배포 빌드엔 없다.
 - **권한은 OneSignal이 묻지 않는다** (§10 첫 실행 요청 금지): 온보딩 인사·
   시간 지정 저장에서 `NotificationService.requestPermission`이 묻고, 허용되면
   `ToddPush.syncPermission()` → OneSignal `requestPermission(false)` —
   OS가 이미 답을 받았으므로 다이얼로그 없이 APNs 토큰만 등록된다. 콜드
-  스타트엔 이미 허용된 유저만 같은 방식으로 등록한다.
+  스타트엔 이미 허용된 유저를 SDK가 스스로 등록한다.
 - **네이티브**: Runner에 `aps-environment` 엔타이틀먼트 + `UIBackgroundModes`
   `remote-notification`. Notification Service Extension 타깃
   `OneSignalNotificationServiceExtension`(iOS 15, UUID 접두 `FAB1E6`, pbxproj
   직접 기록)이 이미지·수신 확인·배지를 처리한다. NSE는 SPM 원격 패키지
   `OneSignal-XCFramework`의 `OneSignalExtension`을 링크하며, **버전은
-  onesignal_flutter의 Package.swift가 고정한 값(현재 exact 5.6.1)과 같아야
+  onesignal_flutter의 Package.swift가 고정한 값(현재 exact 5.5.1)과 같아야
   한다** — 플러그인을 올리면 pbxproj의 `XCRemoteSwiftPackageReference`도
   함께 올릴 것(어긋나면 SPM 해석 실패).
-- **App Group** — OneSignal 기본값(`group.<bundle>.onesignal`)이 아니라 기존
-  `group.com.unwindapp.unwind`를 재사용한다 (Runner·NSE Info.plist의
-  `OneSignal_app_groups_key`). 위젯 스냅샷과 같은 컨테이너지만 키가 겹치지 않는다.
+- **App Group** — OneSignal 표준 `group.com.unwindapp.unwind.onesignal`을
+  Runner·NSE 엔타이틀먼트에 **똑같이** 둔다 (한 글자라도 다르면 배지·이미지·
+  수신 확인이 조용히 실패). 위젯용 `group.com.unwindapp.unwind`와는 별개 —
+  Runner는 둘 다 가진다.
 - **위치 문구** — 플러그인의 SPM 매니페스트가 `OneSignalLocation`을 기본
   링크해 App Store 검사(ITMS-90683)가 `NSLocationWhenInUseUsageDescription`을
   요구한다. 앱은 위치를 절대 요청하지 않으며 문구는 뜨지 않는다

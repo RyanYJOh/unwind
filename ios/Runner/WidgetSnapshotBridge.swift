@@ -67,8 +67,9 @@ enum WidgetSnapshotBridge {
         return
       }
 
+      let written: Bool
       do {
-        try persist(args, appGroupId: appGroupId)
+        written = try persist(args, appGroupId: appGroupId)
       } catch {
         result(
           FlutterError(
@@ -80,6 +81,13 @@ enum WidgetSnapshotBridge {
         return
       }
 
+      // 디스크가 이미 같은 내용이면 리로드하지 않는다 (2026-09-15): chronod는
+      // 포그라운드 90초 창당 리로드 1회만 즉시 실행한다. 앱 시작·resume의
+      // 무의미한 리로드가 창을 쓰면 유저의 첫 체크가 스로틀된다.
+      if !written {
+        result(false)
+        return
+      }
       if #available(iOS 14.0, *) {
         // 배경 고정형 kind가 늘어(2026-08-29, 9종) 전부 리로드한다.
         // 리로드는 호출 한 번뿐이다 (2026-09-11: 2.5초 뒤 확인 리로드 폐지 —
@@ -92,7 +100,8 @@ enum WidgetSnapshotBridge {
     }
   }
 
-  private static func persist(_ args: [String: Any], appGroupId: String) throws {
+  /// 반환: 디스크 내용이 바뀌어 리로드가 필요하면 true, 이미 같으면 false.
+  private static func persist(_ args: [String: Any], appGroupId: String) throws -> Bool {
     let payload: [String: Any] = [
       "dayKey": args["dayKey"] as? String ?? "",
       "remaining": NSNumber(value: intVal(args["remaining"])),
@@ -115,6 +124,16 @@ enum WidgetSnapshotBridge {
     guard let dayKey = payload["dayKey"] as? String, !dayKey.isEmpty else {
       throw SnapshotError.emptyDayKey
     }
+    // 파일이 이미 같은 페이로드면 아무것도 하지 않는다 (2026-09-15)
+    if let root = FileManager.default.containerURL(
+         forSecurityApplicationGroupIdentifier: appGroupId
+       ),
+       let data = try? Data(contentsOf: root.appendingPathComponent(fileName)),
+       let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+       NSDictionary(dictionary: existing).isEqual(to: payload)
+    {
+      return false
+    }
 
     // defaults(폴백)를 먼저, 파일(우선순위 높음)을 나중에 쓴다. 어느 한쪽만
     // 성공해도 리로드는 나간다 — 이전엔 파일 write가 던지면 defaults는 새
@@ -134,7 +153,7 @@ enum WidgetSnapshotBridge {
         forSecurityApplicationGroupIdentifier: appGroupId
       )
     else {
-      if defaultsOk { return } // 파일은 못 써도 defaults 폴백으로 갱신된다
+      if defaultsOk { return true } // 파일은 못 써도 defaults 폴백으로 갱신된다
       throw SnapshotError.noContainer
     }
     do {
@@ -152,6 +171,7 @@ enum WidgetSnapshotBridge {
       try? FileManager.default.removeItem(at: root.appendingPathComponent(fileName))
       if !defaultsOk { throw error }
     }
+    return true
   }
 
   /// App Group이 실제로 붙었는지, 스냅샷이 남아 있는지 그대로 보고한다.
