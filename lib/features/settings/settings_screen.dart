@@ -275,6 +275,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       'write(before): $writeBefore',
       'write(now): ${service.lastResult}',
       'widget lastGen: ${before['lastGen']}',
+      'lowPower: ${d['lowPower']} thermal: ${d['thermal']}',
       'body(before): ${before['fileBody']}',
       'containerOk: ${d['containerOk']}',
       'suiteOk: ${d['suiteOk']}',

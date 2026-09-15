@@ -4,6 +4,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../core/push/push.dart';
 import '../../core/utils/dates.dart';
 
 class TodoReminder {
@@ -189,7 +190,10 @@ class NotificationService {
         sound: true,
       );
       final androidGranted = await android?.requestNotificationsPermission();
-      return iosGranted ?? androidGranted ?? false;
+      final granted = iosGranted ?? androidGranted ?? false;
+      // 원격 푸시(OneSignal)도 같은 권한을 쓴다 — 허용 즉시 구독을 켠다
+      if (granted) ToddPush.syncPermission();
+      return granted;
     } catch (_) {
       return false;
     }

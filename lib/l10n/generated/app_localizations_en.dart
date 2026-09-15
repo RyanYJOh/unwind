@@ -431,25 +431,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get plusMonthly => 'Monthly';
 
   @override
-  String get plusMonthlyPrice => '\$3.99';
-
-  @override
   String get plusMonthlyCaption => 'Billed monthly';
 
   @override
   String get plusYearly => 'Yearly';
 
   @override
-  String get plusYearlyPrice => '\$23.99';
-
-  @override
-  String get plusYearlyCaption => '≈ \$2 a month';
+  String plusYearlyCaption(String price) {
+    return '≈ $price a month';
+  }
 
   @override
   String get plusLifetime => 'Lifetime';
-
-  @override
-  String get plusLifetimePrice => '\$59.99';
 
   @override
   String get plusLifetimeCaption => 'Pay once, keep forever';
@@ -462,6 +455,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get plusCancelNote => 'Cancel anytime';
+
+  @override
+  String get plusRestore => 'Restore purchases';
+
+  @override
+  String get plusManage => 'Manage subscription';
+
+  @override
+  String get plusManageFailed => 'Couldn\'t open subscription settings';
+
+  @override
+  String get plusLoadFailed => 'Couldn\'t load the plans';
+
+  @override
+  String get plusRetry => 'Try again';
+
+  @override
+  String get plusPending => 'Waiting for approval';
+
+  @override
+  String get plusPendingBody => 'Todd will join you as soon as it\'s approved';
+
+  @override
+  String get plusFailed => 'The purchase didn\'t go through';
+
+  @override
+  String get plusFailedBody => 'Please try again in a moment';
+
+  @override
+  String get plusNothingToRestore => 'No purchases to restore';
 
   @override
   String get plusSettingsCaption => 'Get closer with Todd';

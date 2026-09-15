@@ -28,6 +28,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>OneSignal_app_groups_key</key>
+	<string>group.com.unwindapp.unwind</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Todd never asks for your location. This is only required by the push notification library.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>This lets Todd learn which parts of the app help you close your day, so we can make them better.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -8,10 +8,24 @@ import 'package:unwind/data/db/database.dart';
 import 'package:unwind/data/db/tables/tables.dart';
 import 'package:unwind/features/compose/date_bar.dart';
 import 'package:unwind/features/premium/paywall_screen.dart';
+import 'package:unwind/features/premium/premium_providers.dart';
+import 'package:unwind/features/premium/purchases_service.dart';
 import 'package:unwind/features/settings/settings_screen.dart';
 import 'package:unwind/features/today/providers.dart';
 import 'package:unwind/l10n/generated/app_localizations.dart';
 import 'package:unwind/main.dart';
+
+/// 스토어 대역 — RevenueCat 대신 세 요금제를 주고, 구매는 곧장 성공한다.
+class _FakePurchases extends PurchasesService {
+  @override
+  Future<Map<ToddPlan, PlanOffer>?> loadPlans() async => {
+    for (final p in ToddPlan.values) p: PlanOffer(plan: p, priceString: '\$1'),
+  };
+
+  @override
+  Future<PurchaseOutcome> purchase(PlanOffer offer) async =>
+      const PurchaseSucceeded();
+}
 
 /// Todd Plus 게이트 (수익화 2026-08-22) —
 /// ① 무료는 반복 규칙 3개까지: 네 번째를 저장하려는 순간 페이월이 뜨고
@@ -100,7 +114,10 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db)],
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          purchasesServiceProvider.overrideWithValue(_FakePurchases()),
+        ],
         child: UnwindHapticsScope(
           haptics: UnwindHaptics(enabled: false),
           child: const MaterialApp(

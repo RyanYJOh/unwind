@@ -426,6 +426,9 @@ private func recordGeneration(kind: String, snapshot: Snapshot?, at now: Date) {
     f.timeZone = .current
     f.dateFormat = "yyyy-MM-dd HH:mm:ss"
     var obj: [String: Any] = ["at": f.string(from: now), "kind": kind]
+    // 기기 상태 (2026-09-15): 저전력 모드·발열이 밤 리로드 거부와 겹치는지
+    obj["lowPower"] = ProcessInfo.processInfo.isLowPowerModeEnabled
+    obj["thermal"] = ProcessInfo.processInfo.thermalState.rawValue
     if let s = snapshot {
         obj["dayKey"] = s.dayKey
         obj["remaining"] = s.remaining

@@ -303,8 +303,8 @@ class SettingsController extends AsyncNotifier<UnwindSettings> {
     (s) => s.copyWith(lightColor: name),
   );
 
-  /// Todd Plus on/off. TODO(unwind): StoreKit 연동 시 구매·복원 흐름으로
-  /// 대체 — 지금은 페이월 CTA와 dev 해제 버튼이 직접 부른다.
+  /// Todd Plus 캐시 — RevenueCat 엔타이틀먼트 todd_pro를 premiumMirrorProvider와
+  /// 페이월(구매·복원 성공 직후)이 맞춰 쓴다. 직접 켜고 끄지 말 것.
   Future<void> setPremiumEnabled(bool v) => _set(
     SettingKeys.premiumEnabled,
     '$v',

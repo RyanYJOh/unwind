@@ -2,5 +2,9 @@
 "CFBundleDisplayName" = "토드";
 "CFBundleName" = "토드";
 
+/* 뜨지 않는 문구 — 앱은 위치를 요청하지 않는다. OneSignal SDK가 위치 API를
+   링크해서 App Store 검사(ITMS-90683)가 요구한다 (2026-09-15). */
+"NSLocationWhenInUseUsageDescription" = "토드는 위치를 묻지 않아요. 푸시 알림 라이브러리 때문에 필요한 항목이에요.";
+
 /* ATT 동의 프롬프트 문구 (2026-09-02). 첫 실행 때 뜬다. */
 "NSUserTrackingUsageDescription" = "토드가 어떤 기능이 하루를 잘 닫는 데 도움이 되는지 배우고, 그만큼 더 나아지는 데 쓰여요.";

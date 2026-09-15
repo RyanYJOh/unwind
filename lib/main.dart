@@ -6,10 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/analytics/analytics.dart';
 import 'core/analytics/tracking_consent.dart';
 import 'core/haptics/haptics.dart';
+import 'core/push/push.dart';
 import 'core/tokens/palette.dart';
 import 'core/tokens/typography.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'features/onboarding/onboarding_flow.dart';
+import 'features/premium/premium_providers.dart';
+import 'features/premium/purchases_service.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/today/providers.dart';
 import 'features/today/today_screen.dart';
@@ -17,9 +20,13 @@ import 'features/today/today_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   ToddAnalytics.init(); // §8.8 — 릴리즈 빌드에서만 켜진다. await 금지
+  ToddPush.init(); // §8.10 OneSignal — 권한은 묻지 않는다. await 금지
   // 콜드 스타트만. main()은 프로세스가 죽은 뒤 켜질 때만 돈다 —
   // 백그라운드→포그라운드는 AppLifecycleState.resumed이지 main()이 아니다.
   ToddAnalytics.track('App Open');
+  // RevenueCat — Todd Plus 엔타이틀먼트(todd_pro)의 진실. await 금지:
+  // 모든 서비스 메서드가 구성 완료를 알아서 기다린다.
+  PurchasesService.shared.configure();
   // ATT — 앱을 처음 켠 순간 추적 동의를 묻는다 (2026-09-02, App Store
   // 심사 요구). 첫 프레임 뒤에 부른다: 아직 창이 안 올라온 상태에서
   // 요청하면 iOS가 다이얼로그 없이 notDetermined를 돌려준다.
@@ -53,6 +60,9 @@ class UnwindApp extends ConsumerWidget {
     final lightName = ref.watch(
       settingsControllerProvider.select((s) => s.value?.lightColor),
     );
+    // RevenueCat 엔타이틀먼트를 premiumEnabled 캐시에 맞춘다 (구매·만료·
+    // 다른 기기 복원). 아래 premium은 그 캐시를 읽는다.
+    ref.watch(premiumMirrorProvider);
     final premium = ref.watch(
       settingsControllerProvider.select(
         (s) => s.value?.premiumEnabled ?? false,

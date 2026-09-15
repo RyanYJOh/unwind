@@ -707,7 +707,23 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   (버짓·배터리·Developer Mode로 확인) / lastGen이 새것·개수 맞는데 위젯만
   옛것: 렌더·엔트리 선택 문제 / body가 옛것: 앱 write 실패(write(before)
   참조). 기기 실험: 충전 중에도 나는지, WidgetKit Developer Mode에서도
-  나는지.
+  나는지. lastgen에는 `lowPower`·`thermal`(ProcessInfo)도 실린다 (+36).
+  **chronod 실측 규칙** (2026-09-15, iOS 26.5 시뮬레이터 `log stream`
+  `process == "chronod"` — 시뮬레이터에서도 chronod 로그가 그대로 나온다.
+  기기 판정 전 반드시 이 방법으로 재현 시도할 것):
+  ① 포그라운드 세션에서 앱의 reloadTimelines는 **90초 창당 1회만 즉시
+  실행** ("Allowing first refresh while foreground"), 추가 요청은
+  "Throttling additional refresh request while foreground" → 허용된
+  리로드 +90초에 한 번 재시도 ("Reloading for prior requested throttled
+  reload", 포그라운드면 free). ② 스로틀된 요청이 남은 채 앱이 백그라운드로
+  가면 그 즉시 실행된다 ("Flushing pending reload request due to background
+  transition", free). ③ 앱 발 리로드는 "budget exempt reason: containerApp",
+  타임라인 `.after` 재생성만 "budgeted". → 리로드를 여러 번 쏘는 건 무의미
+  (확인 리로드가 효과 없던 이유), 앱 안에서는 최대 90초 안에, 앱을 나가면
+  즉시 반영되는 게 정상. **시뮬레이터에선 밤(취침 이후)에도 이 규칙대로
+  갱신되며 낮/밤 차이가 없다.** 메모리도 대조 실험(같은 스냅샷, 취침 19 vs
+  22)에서 확장 RSS 피크 60 vs 66MB로 차이 없음 — 기기 전용 30MB 한도
+  가설 기각. 남는 후보는 기기 상태(저전력·수면 집중 모드·버짓)뿐.
 - **Todd 렌더**: 위젯 안에서는 Flutter가 안 돈다 — 앱 페인터로 **사전
   렌더한 스프라이트 PNG**(모드 13종 × 다크서클 유무 = 26장)를 번들한다.
   **캐릭터 외형을 바꾸면 반드시 재추출**:
@@ -781,9 +797,26 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 광고는 하지 않는다 (릴랙스 앱의 무드가 상품이다). 근거·레퍼런스(Finch
 코스메틱 프레이밍, Duolingo 마스코트 페이월)는 prd-amendments 2026-08-22.
 
-- **상태**: 설정 키 `premiumEnabled` → `premiumProvider`
-  (features/premium/premium_providers.dart). TODO: StoreKit 연동 시 영수증
-  검증으로 대체 — 게이트들은 이 프로바이더만 보므로 화면은 안 바뀐다.
+- **상태 = RevenueCat 엔타이틀먼트 `todd_pro`** (연동 2026-09-15,
+  `purchases_flutter`·`purchases_ui_flutter` 10.x). 창구는
+  `features/premium/purchases_service.dart`의 `PurchasesService` 하나 —
+  화면은 SDK 타입을 모르고 `PlanOffer`·`PurchaseOutcome`(성공/취소/대기/
+  복원 없음/실패)만 본다. main()이 `PurchasesService.shared.configure()`를
+  fire-and-forget, 모든 메서드가 구성 완료를 스스로 기다린다.
+  설정 키 `premiumEnabled`는 이제 **엔타이틀먼트의 캐시**다:
+  `premiumMirrorProvider`(UnwindApp 루트가 watch)가 CustomerInfo 흐름과
+  다를 때만 맞춰 쓴다 → 만료·환불·다른 기기 복원도 여기서 반영. 답이 없는
+  환경(오프라인·테스트)에선 캐시를 건드리지 않는다. 게이트들은 여전히
+  `premiumProvider`/`premiumEnabled`만 본다. 직접 켜고 끄지 말 것
+  (dev "Plus 해제" 버튼은 폐지).
+  **API 키**: 디버그·프로필은 Test Store 키(`test_…`)가 코드에 박혀 있다.
+  **릴리즈 빌드(TestFlight 포함)는 `--dart-define=REVENUECAT_API_KEY=appl_…`
+  필수** — 없으면 결제를 켜지 않는다 (Test Store 키로 스토어 제출 금지,
+  RevenueCat 문서). 상품 id `monthly`/`yearly`/`lifetime`, current
+  Offering의 월/연/평생 패키지(없으면 상품 id로 매칭).
+  테스트는 `purchasesServiceProvider`를 `PurchasesService` 상속 가짜로
+  override한다 (premium_gate_test). 기본 서비스는 테스트에서
+  MissingPluginException을 삼키고 "결제 꺼짐"으로 떨어진다.
 - **게이트 ①  반복 규칙**: 무료는 활성 규칙 `kFreeRecurrenceLimit`(3)개까지.
   네 번째 반복을 저장하는 순간 compose_sheet가 페이월을 띄우고 시트는
   유지한다 (구독 후 이어서 저장). **온보딩은 시트를 거치지 않아 게이트 밖**
@@ -816,10 +849,16 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   구독 없이 닫으면 원래 색으로 복원(⚠️ dispose는 트리 잠금 중이라
   postFrame으로 미뤄야 한다 — 안 미루면 뒤 화면이 얼룩덜룩 남는다),
   체험 중 구독하면 그 색을 setLightColor로 확정한다.
-  요금제 월/연(BEST 배지·기본 선택)/평생 — 가격은 표시용 문자열(l10n),
-  StoreKit 상품으로 대체 예정. 닫기 버튼 즉시 노출·"언제든 해지" 캡션
-  (다크패턴 금지). Plus 상태에선 "야호!" 감사 화면 + `Plus 해제 (dev)`
-  (TODO: 배포 전 제거).
+  요금제 월/연(BEST 배지·기본 선택)/평생 — **가격은 RevenueCat Offering의
+  스토어 현지화 문자열** (연간 캡션은 `pricePerMonthString`). 불러오는 중엔
+  '…', 실패하면 가짜 가격 대신 "다시 시도" 카드 (CTA 비활성).
+  UI는 **Todd 커스텀 페이월 유지** (RevenueCat Paywall UI는 쓰지 않음 —
+  2026-09-15 결정). 구매·복원 성공 → 기존 축하 연출, 취소는 조용히,
+  승인 대기·실패·복원 없음은 상단 토스트. CTA 아래 **구매 복원** (심사
+  가이드라인 3.1.1). 닫기 버튼 즉시 노출·"언제든 해지" 캡션
+  (다크패턴 금지). Plus 상태에선 "야호!" 감사 화면 + **구독 관리** →
+  RevenueCat **Customer Center** (`RevenueCatUI.presentCustomerCenter`,
+  닫힌 뒤 CustomerInfo 재동기화).
 
 ## 8.8 애넬리틱스 — Mixpanel (택소노미 정본, 2026-08-23)
 
@@ -937,6 +976,36 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   **기기 언어**를 따른다 (홈 화면 이름과 같은 규칙, §8.5).
 - 동의 여부는 아직 Mixpanel 전송을 가르지 않는다 — mixpanel_flutter는
   IDFA를 쓰지 않는다. 광고 SDK를 붙이는 날 이 상태를 게이트로 쓸 것.
+
+## 8.10 원격 푸시 — OneSignal (신설 2026-09-15)
+
+앱의 알림 4종(§8)은 여전히 **로컬 알림**이다. OneSignal은 서버(대시보드)에서
+보내는 캠페인 푸시만 받는다. iOS 전용 (Android FCM 미설정).
+
+- **단일 진입점** — `core/push/push.dart`의 `ToddPush`만 쓴다
+  (`onesignal_flutter` 직접 import 금지, §8.8과 같은 규칙).
+- **앱 ID** — `kOneSignalAppId` (공개 값). 비어 있으면 원격 푸시가 꺼진 채로
+  앱이 정상 동작한다.
+- **권한은 OneSignal이 묻지 않는다** (§10 첫 실행 요청 금지): 온보딩 인사·
+  시간 지정 저장에서 `NotificationService.requestPermission`이 묻고, 허용되면
+  `ToddPush.syncPermission()` → OneSignal `requestPermission(false)` —
+  OS가 이미 답을 받았으므로 다이얼로그 없이 APNs 토큰만 등록된다. 콜드
+  스타트엔 이미 허용된 유저만 같은 방식으로 등록한다.
+- **네이티브**: Runner에 `aps-environment` 엔타이틀먼트 + `UIBackgroundModes`
+  `remote-notification`. Notification Service Extension 타깃
+  `OneSignalNotificationServiceExtension`(iOS 15, UUID 접두 `FAB1E6`, pbxproj
+  직접 기록)이 이미지·수신 확인·배지를 처리한다. NSE는 SPM 원격 패키지
+  `OneSignal-XCFramework`의 `OneSignalExtension`을 링크하며, **버전은
+  onesignal_flutter의 Package.swift가 고정한 값(현재 exact 5.6.1)과 같아야
+  한다** — 플러그인을 올리면 pbxproj의 `XCRemoteSwiftPackageReference`도
+  함께 올릴 것(어긋나면 SPM 해석 실패).
+- **App Group** — OneSignal 기본값(`group.<bundle>.onesignal`)이 아니라 기존
+  `group.com.unwindapp.unwind`를 재사용한다 (Runner·NSE Info.plist의
+  `OneSignal_app_groups_key`). 위젯 스냅샷과 같은 컨테이너지만 키가 겹치지 않는다.
+- **위치 문구** — 플러그인의 SPM 매니페스트가 `OneSignalLocation`을 기본
+  링크해 App Store 검사(ITMS-90683)가 `NSLocationWhenInUseUsageDescription`을
+  요구한다. 앱은 위치를 절대 요청하지 않으며 문구는 뜨지 않는다
+  (Info.plist + `{en,ko}.lproj/InfoPlist.strings`). `OneSignal.Location` 호출 금지.
 
 ## 9. 개발용 기능 (배포 전 제거 대상)
 

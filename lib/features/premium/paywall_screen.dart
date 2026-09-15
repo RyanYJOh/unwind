@@ -21,6 +21,7 @@ import '../../domain/models/widget_background.dart';
 import '../settings/widget_background_preview.dart';
 import '../today/providers.dart';
 import 'premium_providers.dart';
+import 'purchases_service.dart';
 
 /// Todd Plus 페이월 (수익화 2026-08-22, 발주자 지시).
 ///
@@ -43,13 +44,14 @@ Future<void> showPaywall(BuildContext context, {required String from}) {
   );
 }
 
-enum _Plan { monthly, yearly, lifetime }
-
-String _planAnalyticsName(_Plan plan) => switch (plan) {
-  _Plan.monthly => 'monthly',
-  _Plan.yearly => 'annual',
-  _Plan.lifetime => 'lifetime',
+String _planAnalyticsName(ToddPlan plan) => switch (plan) {
+  ToddPlan.monthly => 'monthly',
+  ToddPlan.yearly => 'annual',
+  ToddPlan.lifetime => 'lifetime',
 };
+
+/// 카드 순서 — 연간(앵커)이 맨 위
+const _planOrder = [ToddPlan.yearly, ToddPlan.monthly, ToddPlan.lifetime];
 
 class PaywallScreen extends ConsumerStatefulWidget {
   const PaywallScreen({super.key});
@@ -60,7 +62,15 @@ class PaywallScreen extends ConsumerStatefulWidget {
 
 class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   /// 연간이 기본 선택 — 앵커이자 추천 (BEST 배지)
-  _Plan _plan = _Plan.yearly;
+  ToddPlan _plan = ToddPlan.yearly;
+
+  /// RevenueCat current Offering의 요금제들 (가격은 스토어 현지화 문자열).
+  /// null이면 불러오는 중이거나 실패 — 가짜 가격은 보여주지 않는다.
+  Map<ToddPlan, PlanOffer>? _plans;
+  bool _plansFailed = false;
+
+  /// 스토어 시트가 떠 있는 동안 — CTA·복원 연타 방지
+  bool _busy = false;
 
   ToddEvent? _event;
   int _tick = 0;
@@ -78,6 +88,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   @override
   void initState() {
     super.initState();
+    _loadPlans();
     // 들어오고 한 박자 뒤 스스로 까르르 — 파는 사람이 아니라 반가운 친구
     _helloTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted && !_celebrating) {
@@ -113,9 +124,81 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     UnwindColors.setLightColor(c);
   }
 
-  /// TODO(unwind): StoreKit 결제 연동 — 지금은 바로 Plus를 켠다 (테스트용).
-  /// 구매 성공의 감정 연출(축하 → 닫힘)은 그대로 재사용한다.
+  /// 요금제를 RevenueCat current Offering에서 불러온다 (2026-09-15).
+  /// initState에서도 불리므로 시작 시점엔 setState하지 않는다.
+  Future<void> _loadPlans() async {
+    final plans = await ref.read(purchasesServiceProvider).loadPlans();
+    if (!mounted) return;
+    setState(() {
+      _plans = plans;
+      _plansFailed = plans == null;
+      // 대시보드 Offering에 연간이 없으면 있는 것 중 첫 번째로
+      if (plans != null && !plans.containsKey(_plan)) {
+        _plan = _planOrder.firstWhere(plans.containsKey);
+      }
+    });
+  }
+
+  void _retryPlans() {
+    setState(() => _plansFailed = false);
+    _loadPlans();
+  }
+
+  /// 구매 — StoreKit 시트는 RevenueCat이 띄운다. 성공하면 기존 감정 연출
+  /// (축하 → 닫힘) 그대로. 취소는 조용히 (다그치지 않는다, §1).
   Future<void> _subscribe() async {
+    final offer = _plans?[_plan];
+    if (_celebrating || _busy || offer == null) return;
+    setState(() => _busy = true);
+    final outcome = await ref.read(purchasesServiceProvider).purchase(offer);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (outcome is PurchaseSucceeded) {
+      ToddAnalytics.track('Click confirm-subscription', {
+        'plan': _planAnalyticsName(_plan),
+      });
+    }
+    await _handle(outcome);
+  }
+
+  /// 구매 복원 — App Store 심사 요구(가이드라인 3.1.1). 다른 기기·재설치.
+  Future<void> _restore() async {
+    if (_celebrating || _busy) return;
+    setState(() => _busy = true);
+    final outcome = await ref.read(purchasesServiceProvider).restore();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await _handle(outcome);
+  }
+
+  Future<void> _handle(PurchaseOutcome outcome) async {
+    final l10n = AppLocalizations.of(context);
+    switch (outcome) {
+      case PurchaseSucceeded():
+        await _celebrate();
+      case PurchaseCancelled():
+        break;
+      case PurchasePending():
+        showUnwindToast(
+          context,
+          title: l10n.plusPending,
+          body: l10n.plusPendingBody,
+        );
+      case NothingToRestore():
+        showUnwindToast(context, title: l10n.plusNothingToRestore);
+      case PurchaseFailed(:final message):
+        debugPrint('[purchases] 실패: $message');
+        ref.read(hapticsProvider).error();
+        showUnwindToast(
+          context,
+          title: l10n.plusFailed,
+          body: l10n.plusFailedBody,
+        );
+    }
+  }
+
+  /// 엔타이틀먼트가 켜진 순간의 감정 연출 — 구매·복원 공용.
+  Future<void> _celebrate() async {
     if (_celebrating) return;
     _celebrating = true;
     ref.read(hapticsProvider).success();
@@ -124,16 +207,49 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       _tick++;
     });
     final ctrl = ref.read(settingsControllerProvider.notifier);
+    // 미러(premiumMirrorProvider)도 곧 같은 값을 쓰지만, 게이트가 바로
+    // 열리도록 캐시를 즉시 맞춘다
     await ctrl.setPremiumEnabled(true);
-    ToddAnalytics.track('Click confirm-subscription', {
-      'plan': _planAnalyticsName(_plan),
-    });
     // 체험하던 색이 있으면 그대로 내 색이 된다 — "이 색으로 살래"의 순간
     if (_preview != null) await ctrl.setLightColor(_preview!.name);
     // 축하가 눈에 담긴 뒤에 닫는다 — 고마움이 마지막 인상이 되게
     _doneTimer = Timer(const Duration(milliseconds: 1400), () {
       if (mounted) Navigator.of(context).pop();
     });
+  }
+
+  /// RevenueCat Customer Center — 해지·환불 요청·복원을 앱 안에서
+  Future<void> _manage() async {
+    final ok = await ref.read(purchasesServiceProvider).presentCustomerCenter();
+    if (!ok && mounted) {
+      showUnwindToast(
+        context,
+        title: AppLocalizations.of(context).plusManageFailed,
+      );
+    }
+  }
+
+  /// 요금제 카드 — 불러오는 중이면 가격 자리에 '…'
+  Widget _planCard(AppLocalizations l10n, ToddPlan plan) {
+    final offer = _plans?[plan];
+    final perMonth = offer?.pricePerMonthString;
+    return _PlanCard(
+      label: switch (plan) {
+        ToddPlan.monthly => l10n.plusMonthly,
+        ToddPlan.yearly => l10n.plusYearly,
+        ToddPlan.lifetime => l10n.plusLifetime,
+      },
+      price: offer?.priceString ?? '…',
+      caption: switch (plan) {
+        ToddPlan.monthly => l10n.plusMonthlyCaption,
+        ToddPlan.yearly =>
+          perMonth == null ? null : l10n.plusYearlyCaption(perMonth),
+        ToddPlan.lifetime => l10n.plusLifetimeCaption,
+      },
+      badge: plan == ToddPlan.yearly ? l10n.plusBest : null,
+      selected: _plan == plan,
+      onTap: () => setState(() => _plan = plan),
+    );
   }
 
   @override
@@ -285,32 +401,20 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                         ),
                       ),
                       const SizedBox(height: UnwindSpacing.s16),
-                      if (!premium) ...[
-                        _PlanCard(
-                          label: l10n.plusYearly,
-                          price: l10n.plusYearlyPrice,
-                          caption: l10n.plusYearlyCaption,
-                          badge: l10n.plusBest,
-                          selected: _plan == _Plan.yearly,
-                          onTap: () => setState(() => _plan = _Plan.yearly),
-                        ),
-                        const SizedBox(height: UnwindSpacing.s8),
-                        _PlanCard(
-                          label: l10n.plusMonthly,
-                          price: l10n.plusMonthlyPrice,
-                          caption: l10n.plusMonthlyCaption,
-                          selected: _plan == _Plan.monthly,
-                          onTap: () => setState(() => _plan = _Plan.monthly),
-                        ),
-                        const SizedBox(height: UnwindSpacing.s8),
-                        _PlanCard(
-                          label: l10n.plusLifetime,
-                          price: l10n.plusLifetimePrice,
-                          caption: l10n.plusLifetimeCaption,
-                          selected: _plan == _Plan.lifetime,
-                          onTap: () => setState(() => _plan = _Plan.lifetime),
-                        ),
-                      ],
+                      if (!premium)
+                        if (_plansFailed)
+                          _PlansUnavailable(onRetry: _retryPlans)
+                        else
+                          for (final plan in _planOrder)
+                            // 불러오는 중엔 세 카드를 '…' 가격으로, 불러온
+                            // 뒤엔 Offering에 있는 것만
+                            if (_plans == null || _plans!.containsKey(plan))
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: UnwindSpacing.s8,
+                                ),
+                                child: _planCard(l10n, plan),
+                              ),
                     ],
                   ),
                 ),
@@ -327,7 +431,10 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                       if (!premium) ...[
                         UnwindButton(
                           label: l10n.plusCta,
-                          onPressed: _celebrating ? null : _subscribe,
+                          onPressed:
+                              _celebrating || _busy || _plans?[_plan] == null
+                              ? null
+                              : _subscribe,
                         ),
                         const SizedBox(height: UnwindSpacing.s8),
                         Center(
@@ -338,18 +445,15 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                             ),
                           ),
                         ),
-                      ] else
-                        // TODO(unwind): 배포 빌드에서 제거 — 테스트용 해제
                         UnwindButton.ghost(
-                          label: 'Plus 해제 (dev)',
-                          onPressed: () async {
-                            await ref
-                                .read(settingsControllerProvider.notifier)
-                                .setPremiumEnabled(false);
-                            if (context.mounted) {
-                              Navigator.of(context).pop();
-                            }
-                          },
+                          label: l10n.plusRestore,
+                          onPressed: _celebrating || _busy ? null : _restore,
+                        ),
+                      ] else if (!_celebrating)
+                        // 해지·환불·복원은 RevenueCat Customer Center로
+                        UnwindButton.secondary(
+                          label: l10n.plusManage,
+                          onPressed: _manage,
                         ),
                     ],
                   ),
@@ -357,6 +461,33 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 요금제를 못 불러왔다 (오프라인·스토어 문제) — 가짜 가격 대신 다시 시도
+class _PlansUnavailable extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _PlansUnavailable({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return UnwindCard(
+      child: Column(
+        children: [
+          Text(
+            l10n.plusLoadFailed,
+            textAlign: TextAlign.center,
+            style: UnwindType.bodyStrong.copyWith(
+              color: UnwindColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: UnwindSpacing.s8),
+          UnwindButton.secondary(label: l10n.plusRetry, onPressed: onRetry),
         ],
       ),
     );
@@ -428,12 +559,11 @@ class _FeatureRow extends StatelessWidget {
   }
 }
 
-/// 요금제 카드 — 선택형. 연간에 BEST 배지.
-/// TODO(unwind): 가격은 StoreKit 상품 정보로 대체 (지금은 표시용 문자열).
+/// 요금제 카드 — 선택형. 연간에 BEST 배지. 가격은 RevenueCat 상품 정보.
 class _PlanCard extends StatelessWidget {
   final String label;
   final String price;
-  final String caption;
+  final String? caption;
   final String? badge;
   final bool selected;
   final VoidCallback onTap;
@@ -511,13 +641,15 @@ class _PlanCard extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: UnwindSpacing.s2),
-                    Text(
-                      caption,
-                      style: UnwindType.caption.copyWith(
-                        color: UnwindColors.textSecondary,
+                    if (caption != null) ...[
+                      const SizedBox(height: UnwindSpacing.s2),
+                      Text(
+                        caption!,
+                        style: UnwindType.caption.copyWith(
+                          color: UnwindColors.textSecondary,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

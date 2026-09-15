@@ -157,6 +157,9 @@ enum WidgetSnapshotBridge {
   /// App Group이 실제로 붙었는지, 스냅샷이 남아 있는지 그대로 보고한다.
   private static func diagnose(appGroupId: String) -> [String: Any] {
     var out: [String: Any] = ["appGroupId": appGroupId]
+    // 기기 상태 (2026-09-15) — 진단 시점의 저전력 모드·발열
+    out["lowPower"] = ProcessInfo.processInfo.isLowPowerModeEnabled
+    out["thermal"] = ProcessInfo.processInfo.thermalState.rawValue
     let root = FileManager.default.containerURL(
       forSecurityApplicationGroupIdentifier: appGroupId
     )

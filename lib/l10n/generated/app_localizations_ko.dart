@@ -423,25 +423,18 @@ class AppLocalizationsKo extends AppLocalizations {
   String get plusMonthly => '월간';
 
   @override
-  String get plusMonthlyPrice => '₩4,900';
-
-  @override
   String get plusMonthlyCaption => '매달 결제';
 
   @override
   String get plusYearly => '연간';
 
   @override
-  String get plusYearlyPrice => '₩29,000';
-
-  @override
-  String get plusYearlyCaption => '한 달에 약 ₩2,400';
+  String plusYearlyCaption(String price) {
+    return '한 달에 약 $price';
+  }
 
   @override
   String get plusLifetime => '평생';
-
-  @override
-  String get plusLifetimePrice => '₩79,000';
 
   @override
   String get plusLifetimeCaption => '한 번이면 평생 함께';
@@ -454,6 +447,36 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get plusCancelNote => '언제든 해지할 수 있어!';
+
+  @override
+  String get plusRestore => '구매 복원';
+
+  @override
+  String get plusManage => '구독 관리';
+
+  @override
+  String get plusManageFailed => '구독 관리를 열지 못했어';
+
+  @override
+  String get plusLoadFailed => '요금제를 불러오지 못했어';
+
+  @override
+  String get plusRetry => '다시 시도';
+
+  @override
+  String get plusPending => '결제 승인을 기다리고 있어';
+
+  @override
+  String get plusPendingBody => '승인되면 토드가 바로 달려갈게!';
+
+  @override
+  String get plusFailed => '결제가 완료되지 않았어';
+
+  @override
+  String get plusFailedBody => '잠시 뒤에 다시 시도해 줘';
+
+  @override
+  String get plusNothingToRestore => '복원할 구매가 없어';
 
   @override
   String get plusSettingsCaption => '토드와 더 가까워지기';

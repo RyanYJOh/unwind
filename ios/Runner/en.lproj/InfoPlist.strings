@@ -2,5 +2,9 @@
 "CFBundleDisplayName" = "Todd";
 "CFBundleName" = "Todd";
 
+/* Never shown — the app never requests location. Required because the
+   OneSignal SDK links location APIs (App Store check ITMS-90683, 2026-09-15). */
+"NSLocationWhenInUseUsageDescription" = "Todd never asks for your location. This is only required by the push notification library.";
+
 /* ATT prompt body (2026-09-02). Shown on first launch. */
 "NSUserTrackingUsageDescription" = "This lets Todd learn which parts of the app help you close your day, so we can make them better.";

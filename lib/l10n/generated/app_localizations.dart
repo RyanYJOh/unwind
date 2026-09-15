@@ -818,12 +818,6 @@ abstract class AppLocalizations {
   /// **'Monthly'**
   String get plusMonthly;
 
-  /// No description provided for @plusMonthlyPrice.
-  ///
-  /// In en, this message translates to:
-  /// **'\$3.99'**
-  String get plusMonthlyPrice;
-
   /// No description provided for @plusMonthlyCaption.
   ///
   /// In en, this message translates to:
@@ -836,29 +830,17 @@ abstract class AppLocalizations {
   /// **'Yearly'**
   String get plusYearly;
 
-  /// No description provided for @plusYearlyPrice.
-  ///
-  /// In en, this message translates to:
-  /// **'\$23.99'**
-  String get plusYearlyPrice;
-
   /// No description provided for @plusYearlyCaption.
   ///
   /// In en, this message translates to:
-  /// **'≈ \$2 a month'**
-  String get plusYearlyCaption;
+  /// **'≈ {price} a month'**
+  String plusYearlyCaption(String price);
 
   /// No description provided for @plusLifetime.
   ///
   /// In en, this message translates to:
   /// **'Lifetime'**
   String get plusLifetime;
-
-  /// No description provided for @plusLifetimePrice.
-  ///
-  /// In en, this message translates to:
-  /// **'\$59.99'**
-  String get plusLifetimePrice;
 
   /// No description provided for @plusLifetimeCaption.
   ///
@@ -883,6 +865,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel anytime'**
   String get plusCancelNote;
+
+  /// No description provided for @plusRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore purchases'**
+  String get plusRestore;
+
+  /// No description provided for @plusManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage subscription'**
+  String get plusManage;
+
+  /// No description provided for @plusManageFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open subscription settings'**
+  String get plusManageFailed;
+
+  /// No description provided for @plusLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the plans'**
+  String get plusLoadFailed;
+
+  /// No description provided for @plusRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get plusRetry;
+
+  /// No description provided for @plusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for approval'**
+  String get plusPending;
+
+  /// No description provided for @plusPendingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Todd will join you as soon as it\'s approved'**
+  String get plusPendingBody;
+
+  /// No description provided for @plusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The purchase didn\'t go through'**
+  String get plusFailed;
+
+  /// No description provided for @plusFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Please try again in a moment'**
+  String get plusFailedBody;
+
+  /// No description provided for @plusNothingToRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'No purchases to restore'**
+  String get plusNothingToRestore;
 
   /// No description provided for @plusSettingsCaption.
   ///
