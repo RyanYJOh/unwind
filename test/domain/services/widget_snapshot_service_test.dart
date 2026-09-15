@@ -50,30 +50,30 @@ void main() {
     await service.flush(snap());
     await service.flush(snap());
     expect(persists(), hasLength(1));
-    expect(service.lastResult, startsWith('unchanged'));
+    expect(service.lastResult, contains(' unchanged '));
   });
 
   test('내용이 바뀌면 다시 쓴다', () async {
     final service = WidgetSnapshotService(platformSupported: true);
     await service.flush(snap(remaining: 2));
     await service.flush(snap(remaining: 1));
-    expect(service.lastResult, 'ok 2026-09-11 1/3');
+    expect(service.lastResult, endsWith(' ok 2026-09-11 1/3'));
     await service.flush(snap(remaining: 1));
     final p = persists();
     expect(p, hasLength(2));
     expect(p.last.arguments['remaining'], 1);
-    expect(service.lastResult, 'unchanged 2026-09-11 1/3');
+    expect(service.lastResult, endsWith(' unchanged 2026-09-11 1/3'));
   });
 
   test('persist가 실패했으면 같은 값이라도 다음에 반드시 다시 쓴다', () async {
     final service = WidgetSnapshotService(platformSupported: true);
     fail = true;
     await service.flush(snap());
-    expect(service.lastResult, startsWith('FAILED'));
+    expect(service.lastResult, contains(' FAILED'));
     fail = false;
     await service.flush(snap());
     expect(persists(), hasLength(2));
-    expect(service.lastResult, startsWith('ok'));
+    expect(service.lastResult, contains(' ok '));
   });
 
   test('디스크가 이미 같은 내용이면(브리지 false) 기록만 남기고 다음에도 다시 쓰지 않는다', () async {
