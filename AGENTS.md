@@ -1041,6 +1041,14 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   `_copies`가 정본. 폰 목업 내부는 실제 앱 위젯을 스테이징해 캡처하므로
   **UI가 바뀌면 재추출만 하면 스크린샷이 따라온다**. `SHOT_ONLY=ko2`처럼
   한 프레임만(두 규격) 다시 굽는다. 평소 flutter test에서는 skip.
+- **페이월 스크린샷 추출** (2026-09-15 — 인앱 상품 심사용):
+  `PAYWALL_EXPORT=1 flutter test test/tools/paywall_shot_export_test.dart`
+  → `build/paywall/{en,ko}.png`(첫 화면)·`{en,ko}_plans.png`(세 요금제가
+  보이는 컷 — 심사 제출은 이쪽). 실제 PaywallScreen에 가짜 스토어로
+  ASC 등록 가격을 넣는다 (가격이 바뀌면 파일 상단 `_prices`도 갱신).
+  테스트 엔진은 **명시된 fallback만** 따라 이모지를 그려서,
+  `UnwindScreen`의 DefaultTextStyle에 `Apple Color Emoji` fallback을
+  둔다 (기기는 원래 시스템이 대체하므로 영향 없음).
 
 ## 10. 검증 루틴
 

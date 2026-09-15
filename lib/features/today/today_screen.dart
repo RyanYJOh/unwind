@@ -29,6 +29,7 @@ import '../week/week_screen.dart';
 import '../week/weekly_strip.dart';
 import 'providers.dart';
 import 'pull_cord_coach.dart';
+import 'push_verification.dart';
 import 'todo_actions.dart';
 import '../../l10n/generated/app_localizations.dart';
 
@@ -68,6 +69,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
 
   final _cordKey = GlobalKey();
   Offset? _coachHole;
+
+  /// OneSignal 연동 확인 시트 (디버그 전용, §8.10)
+  final _pushVerification = PushVerification();
 
   @override
   void initState() {
@@ -121,6 +125,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       setState(() => _tAnim = AlwaysStoppedAnimation(t));
       if (ref.read(isAsleepProvider)) _stars.value = 1.0;
     });
+    _pushVerification.attach(this);
   }
 
   int _coachMeasureTries = 0;
@@ -157,6 +162,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
 
   @override
   void dispose() {
+    _pushVerification.detach();
     _theme.dispose();
     _pulse.dispose();
     _breath.dispose();
