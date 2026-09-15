@@ -28,11 +28,12 @@ String? get _apiKey {
   return kReleaseMode ? null : _testStoreApiKey;
 }
 
-/// 페이월의 세 요금제. RevenueCat 상품 id와 1:1 (monthly / yearly / lifetime).
+/// 페이월의 세 요금제. App Store Connect 상품 id와 1:1 (2026-09-15 확정 —
+/// 한 번 쓴 id는 삭제해도 재사용 불가, 바꾸려면 _v2로).
 enum ToddPlan {
-  monthly('monthly'),
-  yearly('yearly'),
-  lifetime('lifetime');
+  monthly('plus_monthly_v1'),
+  yearly('plus_yearly_v1'),
+  lifetime('plus_lifetime_v1');
 
   const ToddPlan(this.productId);
   final String productId;

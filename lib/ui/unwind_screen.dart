@@ -54,7 +54,14 @@ class UnwindScreen extends StatelessWidget {
         child: AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle.light,
           child: DefaultTextStyle(
-            style: UnwindType.body.copyWith(color: UnwindColors.textPrimary),
+            // 이모지 대체 폰트를 명시한다 (2026-09-15) — iOS는 원래 시스템이
+            // Apple Color Emoji로 대체하므로 기기 화면은 그대로다. 테스트
+            // 엔진은 명시된 fallback만 따라가서, 없으면 스크린샷 추출
+            // (paywall_shot_export 등)에서 이모지가 두부로 그려진다.
+            style: UnwindType.body.copyWith(
+              color: UnwindColors.textPrimary,
+              fontFamilyFallback: const ['Apple Color Emoji'],
+            ),
             child: ColoredBox(color: background, child: body!),
           ),
         ),
