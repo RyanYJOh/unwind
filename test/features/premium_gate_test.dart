@@ -107,8 +107,41 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
+  testWidgets('페이월에 이용약관·개인정보처리방침 링크가 있다 (가이드라인 3.1.2)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          purchasesServiceProvider.overrideWithValue(_FakePurchases()),
+        ],
+        child: UnwindHapticsScope(
+          haptics: UnwindHaptics(enabled: false),
+          child: const MaterialApp(
+            locale: Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: PaywallScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Terms of Use'), findsOneWidget);
+    expect(find.text('Privacy Policy'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 600));
+  });
+
   testWidgets('무료가 앰버 외 스와치를 탭하면 페이월, 설정은 앰버 유지', (tester) async {
-    SettingsScreen.devMenuUnlocked = true;
+    // 조명 색은 잠금 해제 없이 보인다 (노출 2026-09-17)
     tester.view.physicalSize = const Size(800, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

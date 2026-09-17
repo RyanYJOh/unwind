@@ -33,7 +33,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
   /// pubspec version과 일치 유지
   static const appVersion = '1.0.0';
 
-  /// 심사 빌드용 — 하단 버전 10탭으로 풀린다. 배포 전 제거 예정.
+  /// "데이터" 섹션(데이터 삭제·dev 도구) 잠금 — 하단 버전 10탭으로 풀린다.
+  /// Plus 배너·조명 색·위젯 배경은 2026-09-17부터 항상 보인다.
   @visibleForTesting
   static bool devMenuUnlocked = false;
 
@@ -80,12 +81,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         key: const PageStorageKey('settings-list'),
         padding: const EdgeInsets.only(bottom: UnwindSpacing.s48),
         children: [
-          // Todd Plus — 심사 빌드에선 숨김 (버전 10탭으로 복구)
-          if (_devMenuUnlocked)
-            _PlusBanner(
-              active: settings.premiumEnabled,
-              onTap: () => showPaywall(context, from: 'settings'),
-            ),
+          // Todd Plus (노출 2026-09-17 — RevenueCat 결제 연동 후 공개)
+          _PlusBanner(
+            active: settings.premiumEnabled,
+            onTap: () => showPaywall(context, from: 'settings'),
+          ),
 
           // 유저의 하루 (개정 2026-08-23) — 피커는 유저 시각, Todd 시각은
           // 온보딩과 같은 매핑으로 파생된다. 캡션에 Todd 시각을 적어 둔다.
@@ -149,27 +149,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onChanged: ctrl.setHapticsEnabled,
           ),
 
-          // 조명 색 — 심사 빌드에선 숨김 (버전 10탭으로 복구)
-          if (_devMenuUnlocked) ...[
-            UnwindSectionLabel(l10n.sectionLight),
-            _LightColorRow(
-              selected: UnwindLightColor.fromName(settings.lightColor),
-              unlocked: settings.premiumEnabled,
-              onPicked: (c) {
-                if (!settings.premiumEnabled && c != UnwindLightColor.amber) {
-                  showPaywall(context, from: 'light');
-                  return;
-                }
-                ctrl.setLightColor(c.name);
-              },
-            ),
+          // 조명 색 (노출 2026-09-17)
+          UnwindSectionLabel(l10n.sectionLight),
+          _LightColorRow(
+            selected: UnwindLightColor.fromName(settings.lightColor),
+            unlocked: settings.premiumEnabled,
+            onPicked: (c) {
+              if (!settings.premiumEnabled && c != UnwindLightColor.amber) {
+                showPaywall(context, from: 'light');
+                return;
+              }
+              ctrl.setLightColor(c.name);
+            },
+          ),
 
-            // 위젯 배경 (3차 개정 2026-08-28) — 별도 화면 없이 설정에서
-            // 가로 스크롤로 바로 미리 본다. 탭 = 선택 + 설치 안내 시트.
-            // 조명 색과 같은 이유로 심사 빌드에선 숨긴다.
-            UnwindSectionLabel(l10n.sectionWidget),
-            const WidgetBackgroundStrip(),
-          ],
+          // 위젯 배경 (3차 개정 2026-08-28, 노출 2026-09-17) — 별도 화면
+          // 없이 설정에서 가로 스크롤로 바로 미리 본다. 탭 = 선택 + 설치
+          // 안내 시트.
+          UnwindSectionLabel(l10n.sectionWidget),
+          const WidgetBackgroundStrip(),
 
           UnwindSectionLabel(l10n.sectionLanguage),
           UnwindListRow.value(
@@ -178,7 +176,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => _pickLanguage(context, settings.languageCode, ctrl),
           ),
 
-          // 아래는 심사 빌드에선 숨김 (버전 10탭으로 복구)
+          // 데이터 + dev 도구 — 여전히 숨김 (버전 10탭으로 복구).
+          // 나머지 숨김은 2026-09-17에 전부 노출했다.
           if (_devMenuUnlocked) ...[
             UnwindSectionLabel(l10n.sectionData),
           UnwindListRow.value(

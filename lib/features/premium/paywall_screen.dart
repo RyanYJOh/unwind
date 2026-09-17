@@ -20,6 +20,7 @@ import '../settings/settings_controller.dart';
 import '../../domain/models/widget_background.dart';
 import '../settings/widget_background_preview.dart';
 import '../today/providers.dart';
+import 'legal_links.dart';
 import 'premium_providers.dart';
 import 'purchases_service.dart';
 
@@ -216,6 +217,16 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     _doneTimer = Timer(const Duration(milliseconds: 1400), () {
       if (mounted) Navigator.of(context).pop();
     });
+  }
+
+  Future<void> _openLegal(Uri url) async {
+    final ok = await openLegalLink(url);
+    if (!ok && mounted) {
+      showUnwindToast(
+        context,
+        title: AppLocalizations.of(context).plusLinkFailed,
+      );
+    }
   }
 
   /// RevenueCat Customer Center — 해지·환불 요청·복원을 앱 안에서
@@ -455,6 +466,29 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                           label: l10n.plusManage,
                           onPressed: _manage,
                         ),
+                      // 이용약관·개인정보처리방침 (가이드라인 3.1.2 —
+                      // 2026-09-16 리젝 대응). 구독 여부와 무관하게 늘 보인다
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          UnwindButton.ghost(
+                            label: l10n.plusTerms,
+                            small: true,
+                            onPressed: () => _openLegal(kTermsOfUseUrl),
+                          ),
+                          Text(
+                            '·',
+                            style: UnwindType.caption.copyWith(
+                              color: UnwindColors.textMuted,
+                            ),
+                          ),
+                          UnwindButton.ghost(
+                            label: l10n.plusPrivacy,
+                            small: true,
+                            onPressed: () => _openLegal(kPrivacyPolicyUrl),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),

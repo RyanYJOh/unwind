@@ -872,6 +872,24 @@ abstract class AppLocalizations {
   /// **'Restore purchases'**
   String get plusRestore;
 
+  /// No description provided for @plusTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of Use'**
+  String get plusTerms;
+
+  /// No description provided for @plusPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get plusPrivacy;
+
+  /// No description provided for @plusLinkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the link'**
+  String get plusLinkFailed;
+
   /// No description provided for @plusManage.
   ///
   /// In en, this message translates to:

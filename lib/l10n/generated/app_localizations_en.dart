@@ -460,6 +460,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get plusRestore => 'Restore purchases';
 
   @override
+  String get plusTerms => 'Terms of Use';
+
+  @override
+  String get plusPrivacy => 'Privacy Policy';
+
+  @override
+  String get plusLinkFailed => 'Couldn\'t open the link';
+
+  @override
   String get plusManage => 'Manage subscription';
 
   @override

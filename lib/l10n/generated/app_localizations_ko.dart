@@ -452,6 +452,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get plusRestore => '구매 복원';
 
   @override
+  String get plusTerms => '이용약관';
+
+  @override
+  String get plusPrivacy => '개인정보처리방침';
+
+  @override
+  String get plusLinkFailed => '링크를 열지 못했어';
+
+  @override
   String get plusManage => '구독 관리';
 
   @override
