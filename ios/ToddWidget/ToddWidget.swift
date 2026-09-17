@@ -180,6 +180,18 @@ private struct DisplayState {
     var accent: Color = Color(argb: Palette.amberARGB)
     var accentDeep: Color = Color(argb: Palette.amberDeepARGB)
     var onAccent: Color = Color(argb: Palette.onAmberARGB)
+    /// dev 스탬프 — 이 타임라인이 생성된 시각 (마커가 있을 때만)
+    var genStamp: String? = nil
+}
+
+/// dev 스탬프 (2026-09-18): App Group에 `widget_debug_stamp` 마커가 있으면
+/// 위젯 좌하단에 타임라인 생성 시각을 찍는다 — **화면이 새 타임라인으로
+/// 교체됐는지**를 눈으로 확인하는 유일한 방법. 설정 > Widget gen stamp(dev).
+private let debugStampMarker = "widget_debug_stamp"
+private func debugStampEnabled() -> Bool {
+    guard let root = FileManager.default.containerURL(
+        forSecurityApplicationGroupIdentifier: Snapshot.appGroupId) else { return false }
+    return FileManager.default.fileExists(atPath: root.appendingPathComponent(debugStampMarker).path)
 }
 
 /// Dart logicalTodayKey와 동일: 기상시간만큼 되돌린 시각의 로컬 날짜
@@ -387,16 +399,27 @@ private struct ToddProvider: TimelineProvider {
             return
         }
 
-        var entries = [ToddEntry(date: now, state: computeState(
-            at: now, snapshot: snapshot, fixedBackground: fixedBackground))]
+        // dev 스탬프: 이 타임라인의 생성 시각을 모든 엔트리에 싣는다
+        let stampOn = debugStampEnabled()
+        let sf = DateFormatter()
+        sf.locale = Locale(identifier: "en_US_POSIX")
+        sf.dateFormat = "HH:mm:ss"
+        let stamp = stampOn ? sf.string(from: now) : nil
+        func stamped(_ s: DisplayState) -> DisplayState {
+            var c = s
+            c.genStamp = stamp
+            return c
+        }
+        var entries = [ToddEntry(date: now, state: stamped(computeState(
+            at: now, snapshot: snapshot, fixedBackground: fixedBackground)))]
         let cal = Calendar.current
         if let nextHour = cal.nextDate(
             after: now, matching: DateComponents(minute: 0), matchingPolicy: .nextTime
         ) {
             for i in 0..<24 {
                 let date = nextHour.addingTimeInterval(Double(i) * 3600)
-                entries.append(ToddEntry(date: date, state: computeState(
-                    at: date, snapshot: snapshot, fixedBackground: fixedBackground)))
+                entries.append(ToddEntry(date: date, state: stamped(computeState(
+                    at: date, snapshot: snapshot, fixedBackground: fixedBackground))))
             }
         }
         // ".atEnd"는 자가 회복 창구가 없다 (2026-08-29): 마지막 엔트리가
@@ -435,6 +458,12 @@ private func recordGeneration(kind: String, snapshot: Snapshot?, at now: Date) {
     obj["lowPower"] = ProcessInfo.processInfo.isLowPowerModeEnabled
     obj["thermal"] = ProcessInfo.processInfo.thermalState.rawValue
     obj["source"] = Snapshot.lastSource
+    // 직전 생성의 아카이브가 실제로 디스크에 남았는가 (2026-09-18): 확장의
+    // 자기 컨테이너 SystemData/com.apple.chrono/timelines/*.chrono-timeline
+    // 의 최신 mtime. 직전 lastGen.at보다 오래됐으면 생성 뒤 아카이브 단계에서
+    // 죽은 것(옛 타임라인 잔존), 최신이면 아카이브는 됐는데 화면이 안 바뀐 것.
+    obj["archiveMtime"] = newestTimelineArchiveMtime(format: f)
+    obj["home"] = NSHomeDirectory()
     if let attrs = try? FileManager.default.attributesOfItem(
          atPath: root.appendingPathComponent(Snapshot.snapshotFileName).path
        ),
@@ -454,6 +483,22 @@ private func recordGeneration(kind: String, snapshot: Snapshot?, at now: Date) {
         to: root.appendingPathComponent("widget_lastgen.json"),
         options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
     )
+}
+
+private func newestTimelineArchiveMtime(format f: DateFormatter) -> String {
+    let base = URL(fileURLWithPath: NSHomeDirectory())
+        .appendingPathComponent("SystemData/com.apple.chrono/timelines")
+    guard let e = FileManager.default.enumerator(
+        at: base, includingPropertiesForKeys: [.contentModificationDateKey]
+    ) else { return "denied" }
+    var newest: Date? = nil
+    for case let url as URL in e where url.pathExtension == "chrono-timeline" {
+        if let m = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate, newest.map({ m > $0 }) ?? true {
+            newest = m
+        }
+    }
+    return newest.map(f.string(from:)) ?? "none"
 }
 
 // MARK: - 뷰 (디자인 시스템 v2: 고정 다크 + 앰버, §11 블러 금지 → 그라데이션)
@@ -493,6 +538,16 @@ private struct ToddWidgetView: View {
         .padding(.horizontal, 14)
         .padding(.top, 10)
         .padding(.bottom, 12)
+        .overlay(alignment: .bottomLeading) {
+            // dev 스탬프 (2026-09-18) — 마커가 있을 때만. 화면 교체 여부 판정용
+            if let stamp = entry.state.genStamp {
+                Text(stamp)
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Palette.textSecondary)
+                    .padding(.leading, 6)
+                    .padding(.bottom, 4)
+            }
+        }
         .containerBackground(for: .widget) { background }
     }
 

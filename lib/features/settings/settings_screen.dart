@@ -229,6 +229,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             value: '',
             onTap: () => _showWidgetDiagnostics(context, ref),
           ),
+          // 위젯 좌하단에 타임라인 생성 시각을 찍는다 (2026-09-18) — 새
+          // 타임라인이 화면에 실제로 교체됐는지 눈으로 판정하는 스위치.
+          UnwindListRow.value(
+            label: 'Widget gen stamp (dev)',
+            caption: '위젯에 생성 시각 표시 토글',
+            value: '',
+            onTap: () => _toggleWidgetStamp(context, ref),
+          ),
           ],
 
           const SizedBox(height: UnwindSpacing.s24),
@@ -252,6 +260,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _toggleWidgetStamp(BuildContext context, WidgetRef ref) async {
+    final service = ref.read(widgetSnapshotServiceProvider);
+    final d = await service.diagnose();
+    final current = d['debugStamp'] == true;
+    final applied = await service.setDebugStamp(!current);
+    if (!context.mounted) return;
+    await showUnwindConfirm(
+      context,
+      title: 'Widget gen stamp',
+      message: applied == null
+          ? '실패 (iOS 아님 또는 채널 오류)'
+          : (applied ? '켜짐 — 위젯 좌하단에 생성 시각이 찍힌다' : '꺼짐'),
+      confirmLabel: 'Close',
+      cancelLabel: 'Dismiss',
+      destructive: false,
     );
   }
 

@@ -35,12 +35,18 @@ Flutter + Riverpod 3 + Drift(SQLite). **로컬 온리, 서버 없음.**
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift 코드젠 (*.g.dart)
 flutter gen-l10n                                          # l10n (generated도 커밋됨)
-flutter analyze && flutter test                           # 165개 통과가 기준선 (§10)
+flutter analyze && flutter test                           # 169개 통과가 기준선 (§10)
 flutter run                                               # 개발 실행
 flutter build ipa                                         # TestFlight·심사 제출용 (버전은 pubspec)
 ```
 
 - 버전: `pubspec.yaml`의 `version: X.Y.Z+N` — TestFlight 업로드마다 `+N` 증가.
+- **Xcode에서 직접 빌드할 때** (2026-09-17): `flutter pub get`·`flutter test` 등
+  flutter 명령은 `FlutterGeneratedPluginSwiftPackage`를 iOS 13.0으로 재생성한다
+  → Xcode가 그 상태로 패키지 그래프를 풀어 두면 "home-widget requires 14.0"으로
+  실패한다 (스킴 pre-action의 bump 스크립트는 한발 늦다). flutter 명령 뒤엔
+  빌드 전에 `ios/scripts/bump_swift_package_ios_version.sh`를 실행할 것.
+  `flutter build ios/ipa`는 스스로 올려 주므로 해당 없음.
 - l10n: `lib/l10n/app_en.arb`(기본)·`app_ko.arb` 수정 → `flutter gen-l10n`.
   두 파일 모두에 키를 넣어야 한다. 문구는 은유를 따른다 (버튼은 동사).
 
@@ -735,6 +741,20 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   `same-on-disk`로 기록). ⓕ 진단: lastResult에 시각, lastgen에 `source`
   (file/defaults/nil)·`fileMtime`. lastGen.at < write 시각이면 리로드 미실행,
   lastGen.at ≥ write 시각인데 개수가 다르면 옛 데이터를 읽은 것.
+  **기기 캡처 2차 (2026-09-17 23:33, ⓓⓔ 적용 빌드)**: 파일 23:29:57에
+  2/6, lastGen 23:33:19에 **2/6을 file에서 정확히 읽음** — 그런데 23:34 홈
+  위젯은 여전히 3. 즉 앱·리로드·재생성 전부 정상이고 **생성된 타임라인이
+  화면에 도달하지 않는다.** 갈래는 둘: (a) getTimeline 반환 뒤 아카이브
+  단계에서 확장이 죽어(메모리 등) 옛 타임라인이 잔존 / (b) 아카이브는
+  갱신됐는데 SpringBoard가 화면을 교체하지 않음. 판정 계측 (같은 날):
+  ⓖ lastgen에 `archiveMtime` — 확장 자기 컨테이너
+  `SystemData/com.apple.chrono/timelines/*.chrono-timeline` 최신 mtime
+  (직전 lastGen.at보다 오래됐으면 (a), 최신이면 (b). "denied"면 샌드박스).
+  ⓗ dev 스탬프 — 설정 > Widget gen stamp(dev)로 App Group 마커
+  `widget_debug_stamp`를 켜면 위젯 좌하단에 타임라인 생성 시각(HH:mm:ss)이
+  찍힌다. 스탬프가 옛 시각에 머물면 화면이 옛 아카이브를 그리고 있는 것.
+  (b)의 사용자 측 검증: 홈 페이지를 넘겼다 돌아오기·잠금/해제 뒤 바뀌면
+  SpringBoard 표시 갱신 문제(iOS 26 의심).
 - **Todd 렌더**: 위젯 안에서는 Flutter가 안 돈다 — 앱 페인터로 **사전
   렌더한 스프라이트 PNG**(모드 13종 × 다크서클 유무 = 26장)를 번들한다.
   **캐릭터 외형을 바꾸면 반드시 재추출**:
@@ -830,8 +850,11 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   override한다 (premium_gate_test). 기본 서비스는 테스트에서
   MissingPluginException을 삼키고 "결제 꺼짐"으로 떨어진다.
 - **게이트 ①  반복 규칙**: 무료는 활성 규칙 `kFreeRecurrenceLimit`(3)개까지.
-  네 번째 반복을 저장하는 순간 compose_sheet가 페이월을 띄우고 시트는
-  유지한다 (구독 후 이어서 저장). **온보딩은 시트를 거치지 않아 게이트 밖**
+  네 번째 반복 칩을 **고르는 순간** compose_sheet가 상단 토스트로
+  알리고 칩을 선택하지 않는다 (개정 2026-09-17, 발주자 지시 — 저장 시
+  페이월은 다 쓴 뒤 막혀 헛수고처럼 느껴졌다). 경고 햅틱, 3.5초, 토스트의
+  "구경하기"를 눌렀을 때만 페이월. 저장 시점 검사는 안전망으로 남아 같은
+  토스트 + 반복 해제. **온보딩은 시트를 거치지 않아 게이트 밖**
   — 황금 경로를 막지 않는다.
 - **게이트 ② 조명 색**: 무료는 앰버만. 다른 스와치엔 자물쇠, 탭하면 페이월.
   main.dart가 !premium이면 표시를 앰버로 강제하되 **저장된 색은 남긴다**
@@ -1058,7 +1081,7 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 ## 10. 검증 루틴
 
 1. `flutter analyze` — 0 이슈 유지.
-2. `flutter test` — **165개** 전부 통과가 기준선 (2026-09-14 홈 편집 모드 +5 · 홈 스크롤 +1.
+2. `flutter test` — **169개** 전부 통과가 기준선 (2026-09-17 반복 한도 안내 +2 · 2026-09-14 홈 편집 모드 +5 · 홈 스크롤 +1.
    2026-09-11 위젯 스냅샷 버짓 절약 +6. 2026-09-02 ATT +4.
    2026-08-28 위젯 배경
    +4 · 청구서 월요일 잠금 테스트 -1. 2026-08-27 롤오버 checkNow +2. 2026-08-23 Mixpanel +2·아침 인사 개수 +1. 2026-08-22 Plus 게이트

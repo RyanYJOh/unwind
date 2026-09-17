@@ -49,6 +49,28 @@ enum WidgetSnapshotBridge {
         }
         return
       }
+      // dev 스탬프 토글 (2026-09-18) — App Group 마커 파일 생성/삭제 후 리로드.
+      // 위젯이 좌하단에 생성 시각을 찍어 화면 교체 여부를 눈으로 판정한다.
+      if call.method == "setDebugStamp" {
+        let args = call.arguments as? [String: Any]
+        let appGroupId = args?["appGroupId"] as? String ?? ""
+        let enabled = (args?["enabled"] as? NSNumber)?.boolValue ?? false
+        guard let root = FileManager.default.containerURL(
+          forSecurityApplicationGroupIdentifier: appGroupId
+        ) else {
+          result(FlutterError(code: "no-container", message: nil, details: nil))
+          return
+        }
+        let marker = root.appendingPathComponent("widget_debug_stamp")
+        if enabled {
+          try? Data().write(to: marker, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        } else {
+          try? FileManager.default.removeItem(at: marker)
+        }
+        if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
+        result(enabled)
+        return
+      }
       guard call.method == "persist" else {
         result(FlutterMethodNotImplemented)
         return
@@ -202,6 +224,8 @@ enum WidgetSnapshotBridge {
           contentsOf: root.appendingPathComponent("widget_lastgen.json"),
           encoding: .utf8
         )) ?? ""
+      out["debugStamp"] = FileManager.default.fileExists(
+        atPath: root.appendingPathComponent("widget_debug_stamp").path)
     } else {
       out["fileExists"] = false
       out["fileBody"] = ""

@@ -214,6 +214,20 @@ class WidgetSnapshotService {
     return present;
   }
 
+  /// dev 스탬프 (2026-09-18): 위젯 좌하단에 타임라인 생성 시각을 찍는
+  /// App Group 마커를 켜고 끈다. 돌아오는 값은 적용된 상태.
+  Future<bool?> setDebugStamp(bool enabled) async {
+    if (!_supported) return null;
+    try {
+      return await channel.invokeMethod<bool>('setDebugStamp', {
+        'appGroupId': appGroupId,
+        'enabled': enabled,
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// App Group이 실제로 붙었는지 네이티브에 그대로 묻는다 (dev 진단용).
   Future<Map<String, Object?>> diagnose() async {
     if (!_supported) return {'error': 'iOS only'};
