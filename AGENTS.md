@@ -780,6 +780,14 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   예산이다 — 키우지 말 것.** 새 장면·에셋을 위젯에 넣을 땐 기기에서
   `idevicesyslog | grep -E "ToddWidget|chronod"`(brew libimobiledevice)로
   `exceeded mem limit` 유무를 반드시 확인한다. 시뮬레이터 통과는 증거가 아니다.
+  **조사용 계측은 원인 확정 뒤 전부 제거했다 (2026-09-20)**: 위젯의 생성
+  기록(`widget_lastgen.json`·recordGeneration·lastSource), dev 생성 시각
+  스탬프(`widget_debug_stamp`·Widget gen stamp 메뉴·setDebugStamp),
+  diagnose의 lastGen·lowPower·thermal. 위 ⓕⓖⓗ와 "생성 기록 계측" 단락은
+  이력으로만 읽을 것 — 코드에 없다. 남은 것은 설정 > Widget diagnostics(dev)의
+  `write(before/now)`(시각 포함)·`body(before/now)`뿐이다. 유지한 개선:
+  ⓐ 동일 페이로드 생략 ⓑ 확인 리로드 폐지 ⓒ `.after(+2시간)` ⓓ 설정 로드
+  전 write 금지 ⓔ 브리지의 디스크 동일 검사.
 - **Todd 렌더**: 위젯 안에서는 Flutter가 안 돈다 — 앱 페인터로 **사전
   렌더한 스프라이트 PNG**(모드 13종 × 다크서클 유무 = 26장)를 번들한다.
   **캐릭터 외형을 바꾸면 반드시 재추출**:

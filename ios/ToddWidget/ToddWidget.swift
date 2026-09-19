@@ -69,14 +69,9 @@ private struct Snapshot {
     /// UserDefaults는 위젯 프로세스가 빈 캐시를 붙잡는 경우가 있어 파일을 먼저 본다.
     static let snapshotFileName = "widget_snapshot.json"
 
-    /// 진단 (2026-09-15): 마지막 load가 어디서 읽었는가 — file / defaults / nil
-    static var lastSource = "nil"
-
     static func load() -> Snapshot? {
-        if let fromFile = loadFromFile() { lastSource = "file"; return fromFile }
-        if let fromDefaults = loadFromDefaults() { lastSource = "defaults"; return fromDefaults }
-        lastSource = "nil"
-        return nil
+        if let fromFile = loadFromFile() { return fromFile }
+        return loadFromDefaults()
     }
 
     private static func loadFromFile() -> Snapshot? {
@@ -180,18 +175,6 @@ private struct DisplayState {
     var accent: Color = Color(argb: Palette.amberARGB)
     var accentDeep: Color = Color(argb: Palette.amberDeepARGB)
     var onAccent: Color = Color(argb: Palette.onAmberARGB)
-    /// dev 스탬프 — 이 타임라인이 생성된 시각 (마커가 있을 때만)
-    var genStamp: String? = nil
-}
-
-/// dev 스탬프 (2026-09-18): App Group에 `widget_debug_stamp` 마커가 있으면
-/// 위젯 좌하단에 타임라인 생성 시각을 찍는다 — **화면이 새 타임라인으로
-/// 교체됐는지**를 눈으로 확인하는 유일한 방법. 설정 > Widget gen stamp(dev).
-private let debugStampMarker = "widget_debug_stamp"
-private func debugStampEnabled() -> Bool {
-    guard let root = FileManager.default.containerURL(
-        forSecurityApplicationGroupIdentifier: Snapshot.appGroupId) else { return false }
-    return FileManager.default.fileExists(atPath: root.appendingPathComponent(debugStampMarker).path)
 }
 
 /// Dart logicalTodayKey와 동일: 기상시간만큼 되돌린 시각의 로컬 날짜
@@ -353,8 +336,6 @@ private struct ToddProvider: TimelineProvider {
     /// nil = 기본 위젯 (앱 설정의 배경을 따라간다).
     /// 값이 있으면 배경 고정형 kind (2026-08-29) — 항상 그 장면.
     var fixedBackground: String? = nil
-    /// 진단 기록용 kind 이름 (2026-09-14)
-    var kind: String = "ToddWidget"
 
     func placeholder(in context: Context) -> ToddEntry {
         var state = DisplayState(
@@ -382,7 +363,6 @@ private struct ToddProvider: TimelineProvider {
         // 앱이 상태를 바꾸면 updateWidget이 타임라인을 통째로 다시 뽑는다.
         let snapshot = Snapshot.load()
         let now = Date()
-        recordGeneration(kind: kind, snapshot: snapshot, at: now)
 
         // 스냅샷을 못 읽었으면(첫 설치 직후, 또는 잠금 중이라 데이터 보호에
         // 막힌 경우) 24시간짜리 타임라인을 깔면 안 된다 — 그 빈 결과가
@@ -399,27 +379,16 @@ private struct ToddProvider: TimelineProvider {
             return
         }
 
-        // dev 스탬프: 이 타임라인의 생성 시각을 모든 엔트리에 싣는다
-        let stampOn = debugStampEnabled()
-        let sf = DateFormatter()
-        sf.locale = Locale(identifier: "en_US_POSIX")
-        sf.dateFormat = "HH:mm:ss"
-        let stamp = stampOn ? sf.string(from: now) : nil
-        func stamped(_ s: DisplayState) -> DisplayState {
-            var c = s
-            c.genStamp = stamp
-            return c
-        }
-        var entries = [ToddEntry(date: now, state: stamped(computeState(
-            at: now, snapshot: snapshot, fixedBackground: fixedBackground)))]
+        var entries = [ToddEntry(date: now, state: computeState(
+            at: now, snapshot: snapshot, fixedBackground: fixedBackground))]
         let cal = Calendar.current
         if let nextHour = cal.nextDate(
             after: now, matching: DateComponents(minute: 0), matchingPolicy: .nextTime
         ) {
             for i in 0..<24 {
                 let date = nextHour.addingTimeInterval(Double(i) * 3600)
-                entries.append(ToddEntry(date: date, state: stamped(computeState(
-                    at: date, snapshot: snapshot, fixedBackground: fixedBackground))))
+                entries.append(ToddEntry(date: date, state: computeState(
+                    at: date, snapshot: snapshot, fixedBackground: fixedBackground)))
             }
         }
         // ".atEnd"는 자가 회복 창구가 없다 (2026-08-29): 마지막 엔트리가
@@ -427,56 +396,14 @@ private struct ToddProvider: TimelineProvider {
         // 버짓) 낡은 dayKey의 타임라인이 하루 종일 남는다 — 앱을 열어도
         // "Good morning"에 고착되던 증상의 마지막 구멍. 주기적으로 다시
         // 생성해 스냅샷 파일을 새로 읽는다.
-        // 주기는 2시간 (2026-09-11): 1시간이면 자체 재생성만으로 일일 버짓
-        // (위젯당 40~70회)의 절반을 태워, 앱을 몇 번 드나들면 저녁에 버짓이
-        // 소진돼 포그라운드 리로드까지 무시됐다 — "저녁이면 뭘 해도 위젯이
-        // 안 바뀌는" 증상. 2시간이면 하루 12회. 개수 갱신은 원래 앱의
-        // 리로드 몫이고 이 재생성은 안전망이라, 회복 창이 2시간이어도 된다.
+        // 주기는 2시간 (2026-09-11): 이 자체 재생성만 버짓(위젯당 하루
+        // 40~70회)을 쓴다 — 앱 발 리로드는 면제. 하루 12회면 충분하다. 개수
+        // 갱신은 원래 앱의 리로드 몫이고 이 재생성은 안전망이라 회복 창이
+        // 2시간이어도 된다. (당시 "밤에 위젯이 안 바뀐다"를 버짓 탓으로 봤지만
+        // 실제 원인은 확장의 30MB 메모리 한도였다 — AGENTS.md §8.5.)
         // 시각 엔트리 24개는 그대로 — 재생성이 밀려도 표정은 흘러간다.
         completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(2 * 60 * 60))))
     }
-}
-
-/// 진단 기록 (2026-09-14): 타임라인이 **실제로 다시 생성됐는지**를 앱에서
-/// 볼 수 있게 생성 시각·그때 읽은 스냅샷을 App Group에 남긴다. "저녁이면
-/// 위젯이 안 바뀐다"를 가르는 유일한 증거 — 파일은 새것인데 이 기록이
-/// 옛것이면 WidgetKit이 리로드를 받아주지 않은 것이고, 기록이 새것인데
-/// 개수가 옛것이면 앱이 파일을 못 쓴 것이다. 설정 > Widget diagnostics(dev)가
-/// 읽는다. 잠긴 기기에서도 쓰이도록 스냅샷과 같은 보호 등급.
-private func recordGeneration(kind: String, snapshot: Snapshot?, at now: Date) {
-    guard
-        let root = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: Snapshot.appGroupId
-        )
-    else { return }
-    let f = DateFormatter()
-    f.locale = Locale(identifier: "en_US_POSIX")
-    f.timeZone = .current
-    f.dateFormat = "yyyy-MM-dd HH:mm:ss"
-    var obj: [String: Any] = ["at": f.string(from: now), "kind": kind]
-    // 기기 상태 (2026-09-15): 저전력 모드·발열이 밤 리로드 거부와 겹치는지
-    obj["lowPower"] = ProcessInfo.processInfo.isLowPowerModeEnabled
-    obj["thermal"] = ProcessInfo.processInfo.thermalState.rawValue
-    obj["source"] = Snapshot.lastSource
-    if let attrs = try? FileManager.default.attributesOfItem(
-         atPath: root.appendingPathComponent(Snapshot.snapshotFileName).path
-       ),
-       let m = attrs[.modificationDate] as? Date
-    {
-        obj["fileMtime"] = f.string(from: m)
-    }
-    if let s = snapshot {
-        obj["dayKey"] = s.dayKey
-        obj["remaining"] = s.remaining
-        obj["total"] = s.total
-    } else {
-        obj["snapshot"] = "nil"
-    }
-    guard let data = try? JSONSerialization.data(withJSONObject: obj, options: []) else { return }
-    try? data.write(
-        to: root.appendingPathComponent("widget_lastgen.json"),
-        options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
-    )
 }
 
 // MARK: - 뷰 (디자인 시스템 v2: 고정 다크 + 앰버, §11 블러 금지 → 그라데이션)
@@ -516,16 +443,6 @@ private struct ToddWidgetView: View {
         .padding(.horizontal, 14)
         .padding(.top, 10)
         .padding(.bottom, 12)
-        .overlay(alignment: .bottomLeading) {
-            // dev 스탬프 (2026-09-18) — 마커가 있을 때만. 화면 교체 여부 판정용
-            if let stamp = entry.state.genStamp {
-                Text(stamp)
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Palette.textSecondary)
-                    .padding(.leading, 6)
-                    .padding(.bottom, 4)
-            }
-        }
         .containerBackground(for: .widget) { background }
     }
 
@@ -1049,7 +966,7 @@ private func sceneDisplayName(_ id: String) -> String {
 private func toddSceneConfig(kind: String, bg: String) -> some WidgetConfiguration {
     let ko = Locale.current.identifier.hasPrefix("ko")
     return StaticConfiguration(
-        kind: kind, provider: ToddProvider(fixedBackground: bg, kind: kind)
+        kind: kind, provider: ToddProvider(fixedBackground: bg)
     ) { entry in
         ToddWidgetView(entry: entry)
     }
@@ -1065,7 +982,7 @@ struct ToddWidget: Widget {
 
     var body: some WidgetConfiguration {
         let ko = Locale.current.identifier.hasPrefix("ko")
-        return StaticConfiguration(kind: kind, provider: ToddProvider(kind: kind)) { entry in
+        return StaticConfiguration(kind: kind, provider: ToddProvider()) { entry in
             ToddWidgetView(entry: entry)
         }
         .configurationDisplayName("Todd")

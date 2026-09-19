@@ -229,14 +229,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             value: '',
             onTap: () => _showWidgetDiagnostics(context, ref),
           ),
-          // 위젯 좌하단에 타임라인 생성 시각을 찍는다 (2026-09-18) — 새
-          // 타임라인이 화면에 실제로 교체됐는지 눈으로 판정하는 스위치.
-          UnwindListRow.value(
-            label: 'Widget gen stamp (dev)',
-            caption: '위젯에 생성 시각 표시 토글',
-            value: '',
-            onTap: () => _toggleWidgetStamp(context, ref),
-          ),
           ],
 
           const SizedBox(height: UnwindSpacing.s24),
@@ -263,32 +255,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _toggleWidgetStamp(BuildContext context, WidgetRef ref) async {
-    final service = ref.read(widgetSnapshotServiceProvider);
-    final d = await service.diagnose();
-    final current = d['debugStamp'] == true;
-    final applied = await service.setDebugStamp(!current);
-    if (!context.mounted) return;
-    await showUnwindConfirm(
-      context,
-      title: 'Widget gen stamp',
-      message: applied == null
-          ? '실패 (iOS 아님 또는 채널 오류)'
-          : (applied ? '켜짐 — 위젯 좌하단에 생성 시각이 찍힌다' : '꺼짐'),
-      confirmLabel: 'Close',
-      cancelLabel: 'Dismiss',
-      destructive: false,
-    );
-  }
-
   /// 홈 위젯 스냅샷이 App Group에 실제로 닿는지 그 자리에서 확인한다.
   ///
-  /// **먼저 건드리지 않은 상태를 읽는다** (2026-09-14): 마지막 write 결과·
-  /// 파일 내용·위젯이 마지막으로 타임라인을 생성한 기록(`lastGen`,
-  /// ToddWidget이 남김)을 그대로 보고, 그 다음에야 스냅샷을 강제로 한 번
-  /// 쓴다. "저녁이면 위젯이 안 바뀐다"를 가를 때 — 파일(before)은 새것인데
-  /// lastGen이 옛것이면 WidgetKit이 리로드를 받아주지 않은 것이고, lastGen이
-  /// 새것인데 위젯 표시만 옛것이면 렌더 문제, 파일이 옛것이면 앱이 못 쓴 것.
+  /// **먼저 건드리지 않은 상태를 읽는다** (2026-09-14): 마지막 write 결과와
+  /// 파일 내용을 그대로 보고, 그 다음에야 스냅샷을 강제로 한 번 쓴다 —
+  /// 여는 순간의 플러시가 증거를 덮지 않게. 파일(before)이 옛것이면 앱이 못
+  /// 쓴 것이고, 파일은 새것인데 위젯만 옛것이면 위젯 쪽이다 — 그땐 기기를
+  /// 연결해 syslog를 본다 (AGENTS.md §8.5).
   Future<void> _showWidgetDiagnostics(BuildContext context, WidgetRef ref) async {
     final service = ref.read(widgetSnapshotServiceProvider);
     final writeBefore = service.lastResult;
@@ -299,8 +272,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final lines = <String>[
       'write(before): $writeBefore',
       'write(now): ${service.lastResult}',
-      'widget lastGen: ${before['lastGen']}',
-      'lowPower: ${d['lowPower']} thermal: ${d['thermal']}',
       'body(before): ${before['fileBody']}',
       'containerOk: ${d['containerOk']}',
       'suiteOk: ${d['suiteOk']}',

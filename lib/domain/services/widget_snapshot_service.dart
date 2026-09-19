@@ -138,11 +138,11 @@ class WidgetSnapshotService {
 
   /// 마지막으로 **성공적으로** 디스크에 쓴 페이로드 (2026-09-11).
   ///
-  /// WidgetKit은 위젯마다 하루 40~70회의 리로드 버짓을 주고, 소진되면
-  /// 포그라운드 앱의 리로드까지 다음 날까지 무시한다 — "저녁이 되면 뭘 해도
-  /// 위젯이 안 바뀌는" 증상의 원인이었다. resume·inactive 플러시는 거의
+  /// chronod는 포그라운드 앱의 리로드를 90초 창당 1회만 즉시 실행하고
+  /// 나머지는 창 끝으로 미룬다 (AGENTS.md §8.5 실측) — 무의미한 리로드가
+  /// 창을 쓰면 유저의 실제 변경이 밀린다. resume·inactive 플러시는 거의
   /// 항상 직전과 같은 값을 다시 썼으므로, 내용이 같으면 write도 리로드도
-  /// 생략해 버짓을 실제 변경에만 쓴다. 실패했으면 null로 되돌려 다음
+  /// 생략해 리로드를 실제 변경에만 쓴다. 실패했으면 null로 되돌려 다음
   /// 시도가 반드시 다시 쓰게 한다. 프로세스가 새로 뜨면 비어 있으므로
   /// 첫 write는 언제나 나간다.
   Map<String, Object?>? _lastPersisted;
@@ -214,20 +214,6 @@ class WidgetSnapshotService {
     return present;
   }
 
-  /// dev 스탬프 (2026-09-18): 위젯 좌하단에 타임라인 생성 시각을 찍는
-  /// App Group 마커를 켜고 끈다. 돌아오는 값은 적용된 상태.
-  Future<bool?> setDebugStamp(bool enabled) async {
-    if (!_supported) return null;
-    try {
-      return await channel.invokeMethod<bool>('setDebugStamp', {
-        'appGroupId': appGroupId,
-        'enabled': enabled,
-      });
-    } catch (_) {
-      return null;
-    }
-  }
-
   /// App Group이 실제로 붙었는지 네이티브에 그대로 묻는다 (dev 진단용).
   Future<Map<String, Object?>> diagnose() async {
     if (!_supported) return {'error': 'iOS only'};
@@ -241,7 +227,7 @@ class WidgetSnapshotService {
     }
   }
 
-  /// 진단용 시각 — lastGen(위젯 생성 시각)과 선후를 비교한다.
+  /// 진단용 시각 — 설정 > Widget diagnostics(dev)가 마지막 write 시점을 본다.
   static String _stamp() {
     final n = DateTime.now();
     String two(int v) => v.toString().padLeft(2, '0');
