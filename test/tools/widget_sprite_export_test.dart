@@ -17,9 +17,20 @@ import 'package:unwind/widgets/todd/ghost_painter_view.dart';
 ///   SPRITE_EXPORT=1 flutter test test/tools/widget_sprite_export_test.dart
 ///
 /// 출력: ios/ToddWidget/Assets.xcassets/<이름>.imageset/ (Contents.json 포함,
-/// 720×720 투명 PNG를 **3x**로 표기 — 1x로 두면 WidgetKit이 720pt로 읽어
-/// 스냅샷 아카이브가 실패하고 placeholder에 고정된다).
+/// **420×420** 투명 PNG를 **3x**로 표기 — 1x로 두면 WidgetKit이 420pt로 읽는다).
+///
+/// ⚠️ 크기는 메모리 예산이다 (2026-09-19, 기기 로그로 확정): 위젯 확장은
+/// **30MB 하드 한도**(초과 시 커널이 즉시 종료 → timelineReloadFailed → 옛
+/// 타임라인 잔존)를 받는다. 타임라인 하나에 서로 다른 스프라이트가 11~12장
+/// 실리고 디코드 비용은 장당 w×h×4바이트다. 720px(2.07MB/장)일 땐 밤
+/// 타임라인(밤 + 내일 아침 10종 + 잠)이 한도를 넘어 **취침시간 이후 위젯이
+/// 갱신되지 않았다**. 420px(0.71MB/장)이면 여유가 3배. 위젯에 실제 그려지는
+/// 크기는 ≈110pt(@3x 330px)라 화질 손실은 없다. **이 값을 키우지 말 것.**
 /// 평소 `flutter test`에서는 skip된다.
+/// 240 논리px 캔버스를 몇 배로 구울지 — 420px. 키우면 위젯 확장이 30MB
+/// 한도를 넘어 죽는다 (파일 상단 주석).
+const double _spritePixelRatio = 1.75;
+
 class _Sprite {
   final String name;
   final ToddMode mode;
@@ -126,7 +137,8 @@ void main() {
         final boundary =
             key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
         final bytes = await tester.runAsync(() async {
-          final image = await boundary.toImage(pixelRatio: 3.0);
+          // 240 논리px × 1.75 = 420px (구도는 240 기준 그대로 — 위 메모리 주석)
+          final image = await boundary.toImage(pixelRatio: _spritePixelRatio);
           final data = await image.toByteData(format: ui.ImageByteFormat.png);
           image.dispose();
           return data!.buffer.asUint8List();

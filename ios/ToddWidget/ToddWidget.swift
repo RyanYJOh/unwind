@@ -458,12 +458,6 @@ private func recordGeneration(kind: String, snapshot: Snapshot?, at now: Date) {
     obj["lowPower"] = ProcessInfo.processInfo.isLowPowerModeEnabled
     obj["thermal"] = ProcessInfo.processInfo.thermalState.rawValue
     obj["source"] = Snapshot.lastSource
-    // 직전 생성의 아카이브가 실제로 디스크에 남았는가 (2026-09-18): 확장의
-    // 자기 컨테이너 SystemData/com.apple.chrono/timelines/*.chrono-timeline
-    // 의 최신 mtime. 직전 lastGen.at보다 오래됐으면 생성 뒤 아카이브 단계에서
-    // 죽은 것(옛 타임라인 잔존), 최신이면 아카이브는 됐는데 화면이 안 바뀐 것.
-    obj["archiveMtime"] = newestTimelineArchiveMtime(format: f)
-    obj["home"] = NSHomeDirectory()
     if let attrs = try? FileManager.default.attributesOfItem(
          atPath: root.appendingPathComponent(Snapshot.snapshotFileName).path
        ),
@@ -483,22 +477,6 @@ private func recordGeneration(kind: String, snapshot: Snapshot?, at now: Date) {
         to: root.appendingPathComponent("widget_lastgen.json"),
         options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
     )
-}
-
-private func newestTimelineArchiveMtime(format f: DateFormatter) -> String {
-    let base = URL(fileURLWithPath: NSHomeDirectory())
-        .appendingPathComponent("SystemData/com.apple.chrono/timelines")
-    guard let e = FileManager.default.enumerator(
-        at: base, includingPropertiesForKeys: [.contentModificationDateKey]
-    ) else { return "denied" }
-    var newest: Date? = nil
-    for case let url as URL in e where url.pathExtension == "chrono-timeline" {
-        if let m = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
-            .contentModificationDate, newest.map({ m > $0 }) ?? true {
-            newest = m
-        }
-    }
-    return newest.map(f.string(from:)) ?? "none"
 }
 
 // MARK: - 뷰 (디자인 시스템 v2: 고정 다크 + 앰버, §11 블러 금지 → 그라데이션)

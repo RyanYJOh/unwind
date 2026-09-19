@@ -626,8 +626,8 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
    dev 프리뷰(`preview: true`)에선 팝업 없이 축하만 하고 이름으로 간다.
    **심사 빌드에선 별점 팝업을 뺀다** — `lib/core/build_flags.dart`의
    `kReviewBuild`를 `true`로 바꿔 굽고, 제출이 끝나면 곧바로 `false`로
-   되돌린다 (2026-09-02 도입 → 09-11 제거 → 09-18 재도입 → **09-19 현재
-   `false`**, 즉 모든 빌드에서 팝업이 뜬다). 심사 빌드를 Xcode에서 직접
+   되돌린다 (2026-09-02 도입 → 09-11 제거 → 09-18 재도입. 현재 값은
+   `build_flags.dart`가 정본이니 여기에 적지 말 것). 심사 빌드를 Xcode에서 직접
    뜨므로 `--dart-define`이 아니라 **소스 상수**다 — dart-define은
    `flutter build/run`이 갱신하는 Generated.xcconfig에만 실려 Xcode 직접
    빌드에서 조용히 빠진다. 켜도 페이지·선택지·축하 연출·애널리틱스는
@@ -763,12 +763,29 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   찍힌다. 스탬프가 옛 시각에 머물면 화면이 옛 아카이브를 그리고 있는 것.
   (b)의 사용자 측 검증: 홈 페이지를 넘겼다 돌아오기·잠금/해제 뒤 바뀌면
   SpringBoard 표시 갱신 문제(iOS 26 의심).
+  **✅ 근본 원인 확정 (2026-09-19 22:35, 기기 syslog)**: (a)였다.
+  `kernel: memorystatus: ToddWidget exceeded mem limit: ActiveHard 30 MB
+  (fatal)` → `chronod: reload: failed … timelineReloadFailed` → 재시도도
+  같은 사망 → 1시간 뒤 budgeted 재시도. **위젯 확장은 30MB 하드 한도**를
+  받고, 타임라인 아카이브 중 스프라이트 디코드(720×720 = 2.07MB/장 ×
+  타임라인당 서로 다른 11~12장)가 한도를 넘겼다. 밤 타임라인은 "밤 + 내일
+  아침 10종 전부 + 잠"이 한꺼번에 실려 낮보다 한 장 많고 밤·잠 스프라이트가
+  더 무거워 **취침시간 이후에만** 넘었다 — 그래서 옛 타임라인(졸린 Todd +
+  옛 개수)이 남았다. 시뮬레이터엔 이 한도가 없어 재현 불가였고, 2026-09-12의
+  "새로 추가한 위젯이 placeholder에 고정"도 같은 사망이다 (옛 타임라인이
+  없으니 placeholder). 버짓·스로틀·리로드 횟수는 원인이 아니었다.
+  **대책**: 스프라이트를 **420×420**(0.71MB/장, 추출 도구 `_spritePixelRatio`
+  1.75 — 구도는 240 논리px 그대로, 표시 크기 ≈110pt@3x=330px라 화질 손실
+  없음)로 재추출. **스프라이트 크기·타임라인의 서로 다른 이미지 수는 메모리
+  예산이다 — 키우지 말 것.** 새 장면·에셋을 위젯에 넣을 땐 기기에서
+  `idevicesyslog | grep -E "ToddWidget|chronod"`(brew libimobiledevice)로
+  `exceeded mem limit` 유무를 반드시 확인한다. 시뮬레이터 통과는 증거가 아니다.
 - **Todd 렌더**: 위젯 안에서는 Flutter가 안 돈다 — 앱 페인터로 **사전
   렌더한 스프라이트 PNG**(모드 13종 × 다크서클 유무 = 26장)를 번들한다.
   **캐릭터 외형을 바꾸면 반드시 재추출**:
   `SPRITE_EXPORT=1 flutter test test/tools/widget_sprite_export_test.dart`
-  (출력이 곧 위젯 에셋 카탈로그. 720×720 PNG는 **3x**로 표기할 것 —
-  1x면 WidgetKit이 720pt로 읽어 홈 위젯이 placeholder에 고정된다.
+  (출력이 곧 위젯 에셋 카탈로그. **420×420** PNG를 **3x**로 표기 —
+  크기는 위젯 확장 30MB 한도의 메모리 예산이다(아래 '근본 원인 확정').
   평소 flutter test에서는 skip).
 - **모드 판정 미러**: `ToddWidget.swift`의 TimelineProvider가
   `toddModeProvider`(§4)의 규칙(기상~취침 균등 슬롯·취침 후 눈부심 0.45
@@ -848,12 +865,20 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   환경(오프라인·테스트)에선 캐시를 건드리지 않는다. 게이트들은 여전히
   `premiumProvider`/`premiumEnabled`만 본다. 직접 켜고 끄지 말 것
   (dev "Plus 해제" 버튼은 폐지).
-  **API 키**: 디버그·프로필은 Test Store 키(`test_…`)가 코드에 박혀 있다.
-  **릴리즈 빌드(TestFlight 포함)는 `--dart-define=REVENUECAT_API_KEY=appl_…`
-  필수** — 없으면 결제를 켜지 않는다 (Test Store 키로 스토어 제출 금지,
-  RevenueCat 문서). 상품 id `plus_monthly_v1`/`plus_yearly_v1`/
+  **API 키** (개정 2026-09-18): App Store 공개 키(`appl_…`)가 모든 빌드에
+  **소스 상수**로 박혀 있다 (`purchases_service.dart`). 공개 키는 앱에 넣는
+  것이 정상이고 시크릿 `sk_` 키만 서버 몫이다. ⚠️ **dart-define으로 되돌리지
+  말 것** — 심사·배포 빌드를 Xcode에서 직접 뜨는데 dart-define은
+  Generated.xcconfig에만 실려 조용히 빠진다. 그래서 심사 빌드에 키가 없어
+  페이월이 "요금제를 불러오지 못했어"를 띄웠고 **가이드라인 2.1(b)로 리젝**
+  됐다 (build_flags.dart가 소스 상수인 것과 같은 이유). 상품 id `plus_monthly_v1`/`plus_yearly_v1`/
   `plus_lifetime_v1` (App Store Connect — 재사용 불가라 바꿀 땐 `_v2`), current
   Offering의 월/연/평생 패키지(없으면 상품 id로 매칭).
+  **온보딩 이름 → RevenueCat 기본 속성 `$displayName`** (2026-09-19, 발주자
+  지시 — 커스텀 속성이 아니라 예약 속성 `setDisplayName`):
+  `_finishQuestions`가 `setUserName` 직후 `PurchasesService.setUserName`을
+  부른다 — 대시보드에서 고객을 사람 이름으로 알아보기 위한 것이라 결제와
+  무관하고, 실패해도 조용히 넘어간다 (Mixpanel `$name`과 별개).
   테스트는 `purchasesServiceProvider`를 `PurchasesService` 상속 가짜로
   override한다 (premium_gate_test). 기본 서비스는 테스트에서
   MissingPluginException을 삼키고 "결제 꺼짐"으로 떨어진다.
@@ -888,7 +913,7 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
 - **페이월** (features/premium/paywall_screen.dart, 설정 최상단의
   **메인 컬러 배너**(_PlusBanner — 버튼 물성)로 진입): Todd가 주인공 —
   들어오면 까르르, 결제하면 체크 축하 후 1.4초 뒤 닫힘. 기능 목록은
-  실재하는 것만 + 마지막 줄 "…and many more to come!"(앰버).
+  실재하는 것만 + 마지막 줄 "…and more to come!"(앰버, 문구 개정 2026-09-19).
   **조명 색은 직접 체험시킨다** (2차): 기능 행 아래 스와치를 누르면
   전역 팔레트가 미리보기로 바뀌어 **페이월 전체가 그 색으로 물든다**.
   구독 없이 닫으면 원래 색으로 복원(⚠️ dispose는 트리 잠금 중이라
@@ -899,8 +924,14 @@ PageView **12페이지**(2026-08-22: 이름 직전에 준비 확인 추가. 2026
   '…', 실패하면 가짜 가격 대신 "다시 시도" 카드 (CTA 비활성).
   UI는 **Todd 커스텀 페이월 유지** (RevenueCat Paywall UI는 쓰지 않음 —
   2026-09-15 결정). 구매·복원 성공 → 기존 축하 연출, 취소는 조용히,
-  승인 대기·실패·복원 없음은 상단 토스트. CTA 아래 **구매 복원** (심사
-  가이드라인 3.1.1). 그 아래 **이용약관 · 개인정보처리방침** 링크 (3.1.2 —
+  승인 대기·실패·복원 없음은 상단 토스트. CTA 문구는 **"시작하기 / Start
+  now"** (개정 2026-09-19). 맨 아래는 **이용약관 · 개인정보처리방침 · 구매
+  복원**이 **한 줄**에 같은 위계의 작은 고스트 버튼으로 앉는다 (개정
+  2026-09-19, 발주자 지시 — 복원만 큰 버튼으로 따로 서 있던 것을 합쳤다).
+  줄이 길어지는 언어는 `FittedBox(scaleDown)`가 줄 전체를 줄여 한 줄을
+  지키고, 영어는 짧은 표기를 쓴다 ("Privacy" · "Restore"). 복원은 구독
+  전에만 보인다 — 구독 중엔 위의 구독 관리가 복원·해지를 겸한다 (복원은
+  심사 가이드라인 3.1.1). 약관·방침은 3.1.2 —
   2026-09-16 리젝 대응, `legal_links.dart`, 앱 안 Safari 뷰로 연다. 이용약관은
   ASC "사용권 계약"과 같은 것 — 지금은 Apple 표준 EULA. 앱 설명에도 같은
   두 링크가 있어야 한다). 닫기 버튼 즉시 노출·"언제든 해지" 캡션
